@@ -68,3 +68,63 @@ async function assertNoHorizontalOverflow(page: Page) {
 // Console shell
 // ---------------------------------------------------------------------------
 
+test.describe('Console shell', () => {
+  test('the sidebar lists all 11 workspace nav items alongside the topbar and a single main landmark', async ({
+    page,
+  }) => {
+    await page.goto('/app');
+    const nav = page.getByRole('complementary', { name: 'Navigation' });
+    await expect(nav).toBeVisible();
+    for (const item of NAV_ITEMS) {
+      await expect(nav.getByRole('link', { name: item.label, exact: true })).toBeVisible();
+    }
+    await expect(page.getByRole('main')).toBeVisible();
+    await expect(page.getByRole('banner')).toBeVisible();
+  });
+
+  test('the skip link jumps keyboard users straight to the main landmark', async ({ page }) => {
+    await page.goto('/app');
+    const skipLink = page.getByRole('link', { name: 'Skip to content' });
+    await skipLink.focus();
+    await expect(skipLink).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/#main$/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sidebar navigation
+// ---------------------------------------------------------------------------
+
+test.describe('Sidebar navigation', () => {
+  for (const item of NAV_ITEMS) {
+    test(`"${item.label}" navigates to ${item.href} and marks itself current via aria-current`, async ({
+      page,
+    }) => {
+      await page.goto('/app');
+      const nav = page.getByRole('complementary', { name: 'Navigation' });
+      const link = nav.getByRole('link', { name: item.label, exact: true });
+      await link.click();
+      await expect(page).toHaveURL(new RegExp(`${item.href}$`));
+      await expect(link).toHaveAttribute('aria-current', 'page');
+    });
+  }
+
+  test('aria-current moves with the route instead of sticking to the first-painted link', async ({
+    page,
+  }) => {
+    await page.goto('/app');
+    const nav = page.getByRole('complementary', { name: 'Navigation' });
+    const overviewLink = nav.getByRole('link', { name: 'Overview', exact: true });
+    await expect(overviewLink).toHaveAttribute('aria-current', 'page');
+    await nav.getByRole('link', { name: 'Flow', exact: true }).click();
+    // Regression: a stale aria-current would tell assistive tech the user is
+    // still on Overview after they have navigated to Flow.
+    await expect(overviewLink).not.toHaveAttribute('aria-current', 'page');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mobile navigation drawer (390x844)
+// ---------------------------------------------------------------------------
+
