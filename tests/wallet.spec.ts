@@ -113,3 +113,62 @@ test.describe('/app/wallet — disconnected state', () => {
   });
 });
 
+test.describe('/app/send — disconnected + client-side validation', () => {
+  test('renders exactly one h1 and gates the entire payment form behind connecting a wallet', async ({ page }) => {
+    await page.goto(SEND_URL);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Send XLM');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+
+    // Regression: /app/send hand-rolls its own build/sign/submit sequence
+    // (unlike lib/sign-submit.ts flows) — the destination/amount inputs and
+    // the Send button must not exist at all while disconnected, since there
+    // is no code path here that could safely build a tx without an address.
+    await expect(page.locator('#send-destination')).toHaveCount(0);
+    await expect(page.locator('#send-amount')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Send XLM/ })).toHaveCount(0);
+  });
+
+  test('offers the connect prompt with the literal "wallet required" copy and a Connect Wallet action', async ({ page }) => {
+    await page.goto(SEND_URL);
+    await expect(page.getByText('wallet required', { exact: false })).toBeVisible();
+    await expect(
+      page.getByText('Connect a Stellar wallet on', { exact: false }),
+    ).toBeVisible();
+    // Two "Connect Wallet" buttons render disconnected: the header one and
+    // the one inside the "wallet required" card.
+    await expect(page.getByRole('button', { name: 'Connect Wallet' })).toHaveCount(2);
+  });
+
+  test('the TxStatus lifecycle tracker is absent when idle — no phantom "building/signing" steps before a send is attempted', async ({ page }) => {
+    await page.goto(SEND_URL);
+    // TxStatus returns null for state "idle" (tx-status.tsx) — asserting its
+    // role="status" region is absent catches a regression that renders the
+    // step trail (Build/Sign/Broadcast/Pending/Confirmed) before any send.
+    await expect(page.getByRole('status')).toHaveCount(0);
+  });
+});
+
+/**
+ * These two validation tests document what the destination/amount fields
+ * *would* enforce once a wallet is connected (isValidGAddress / amountNum
+ * checks in app/app/send/page.tsx). They cannot be exercised live without a
+ * wallet extension, because the entire <form> — including both inputs — is
+ * unmounted while `wallet.connected` is false (see the previous describe
+ * block). Recorded here as the documented, intentionally-skipped coverage
+ * rather than silently omitted.
+ */
+test.describe('/app/send — validation logic (untestable without a wallet)', () => {
+  test.skip(
+    'malformed-G-address and non-positive-amount validation ' +
+      '("destination must be a 56-char G… address" / "amount must be > 0") — ' +
+      'the <input id="send-destination"> / <input id="send-amount"> elements only mount ' +
+      'when wallet.connected is true (app/app/send/page.tsx), and no wallet extension is ' +
+      'available in this environment to reach that state. Covered instead by the ' +
+      'disconnected-gating test above, which proves the form — and therefore this ' +
+      'validation — is unreachable pre-connect.',
+    async () => {
+      /* Intentionally empty — see skip reason above. */
+    },
+  );
+});
+
