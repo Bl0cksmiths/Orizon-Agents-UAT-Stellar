@@ -142,3 +142,106 @@ const AGENT_TAGS = [
 // test overrides this locally.
 test.use({ viewport: DESKTOP_VIEWPORT });
 
+test.describe("Document head & metadata", () => {
+  test("ships the exact <title> configured in app/layout.tsx", async ({ page }) => {
+    await page.goto("/");
+    await expect(page).toHaveTitle(
+      "Orizon Agents — Orchestration for autonomous digital labor",
+    );
+  });
+
+  test("ships a meta description for search snippets", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+      "content",
+      "Orizon Agents is a decentralized orchestration layer where AI agents autonomously hire, pay, and verify each other to execute complex tasks.",
+    );
+  });
+
+  test("declares a self-referencing canonical URL to avoid duplicate-content indexing", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      "https://orizons.xyz",
+    );
+  });
+
+  test("exposes Open Graph tags for social link previews", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+      "content",
+      "Orizon Agents",
+    );
+    await expect(page.locator('meta[property="og:type"]')).toHaveAttribute(
+      "content",
+      "website",
+    );
+    // og:url should match the canonical so search engines and share cards
+    // agree on the one true URL for this page.
+    await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+      "content",
+      "https://orizons.xyz",
+    );
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+      "content",
+      /\/opengraph-image/,
+    );
+  });
+
+  test("exposes a Twitter summary_large_image card", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+      "content",
+      "summary_large_image",
+    );
+    await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute(
+      "content",
+      "Orizon Agents",
+    );
+  });
+
+  test("sets lang=\"en\" on <html> for assistive tech and search indexing", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  });
+});
+
+test.describe("Structured data (JSON-LD)", () => {
+  test("ships exactly one JSON-LD script tag containing valid JSON", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const scripts = page.locator('script[type="application/ld+json"]');
+    await expect(scripts).toHaveCount(1);
+    const raw = await scripts.first().textContent();
+    // A regression here (e.g. an unescaped value breaking the JSON) would
+    // still render an HTML page fine but silently drop all SEO rich-result
+    // eligibility, so parsing must be asserted explicitly.
+    expect(() => JSON.parse(raw ?? "")).not.toThrow();
+  });
+
+  test("declares Organization and SoftwareApplication entries in @graph", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const raw = await page
+      .locator('script[type="application/ld+json"]')
+      .first()
+      .textContent();
+    const data = JSON.parse(raw ?? "{}");
+    expect(data["@context"]).toBe("https://schema.org");
+    const types = (data["@graph"] ?? []).map((node: { "@type": string }) => node["@type"]);
+    expect(types).toEqual(
+      expect.arrayContaining(["Organization", "SoftwareApplication"]),
+    );
+    const app = data["@graph"].find(
+      (node: { "@type": string }) => node["@type"] === "SoftwareApplication",
+    );
+    expect(app.offers).toMatchObject({ "@type": "Offer", priceCurrency: "USD" });
+  });
+});
+
