@@ -616,3 +616,7 @@ test.describe("Accessibility", () => {
       (el) => getComputedStyle(el).boxShadow,
     );
     const hasVisibleFocus =
+      outlineStyle !== "none" || Boolean(boxShadow && boxShadow !== "none");
+    expect(hasVisibleFocus).toBeTruthy();
+  });
+});
