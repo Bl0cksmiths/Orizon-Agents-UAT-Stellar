@@ -128,3 +128,56 @@ test.describe('Sidebar navigation', () => {
 // Mobile navigation drawer (390x844)
 // ---------------------------------------------------------------------------
 
+test.describe('Mobile navigation drawer', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('the hamburger opens the nav as a modal dialog exposing the full workspace list', async ({
+    page,
+  }) => {
+    await page.goto('/app');
+    await page.getByRole('button', { name: 'open menu' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Navigation' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute('aria-modal', 'true');
+    await expect(dialog.getByRole('link', { name: 'Overview', exact: true })).toBeVisible();
+  });
+
+  test('Escape closes the drawer and returns focus to the hamburger that opened it', async ({
+    page,
+  }) => {
+    await page.goto('/app');
+    const hamburger = page.getByRole('button', { name: 'open menu' });
+    await hamburger.click();
+    await expect(page.getByRole('dialog', { name: 'Navigation' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Navigation' })).toBeHidden();
+    // Regression: a dialog that doesn't return focus strands keyboard users
+    // wherever the drawer happened to leave them.
+    await expect(hamburger).toBeFocused();
+  });
+
+  test('background content is marked inert while the drawer is open, and interactive again once closed', async ({
+    page,
+  }) => {
+    await page.goto('/app');
+    const main = page.getByRole('main');
+    const wrapperIsInert = () =>
+      main.evaluate((el) => el.parentElement?.hasAttribute('inert') ?? false);
+
+    await expect.poll(wrapperIsInert).toBe(false);
+    await page.getByRole('button', { name: 'open menu' }).click();
+    // Regression: without `inert` on the background wrapper, aria-modal is a
+    // lie — Tab could still reach the topbar/page content stacked behind the
+    // drawer even though it visually reads as blocked. (The hamburger itself
+    // is now inside that inert wrapper and unreachable, so the drawer is
+    // closed via Escape below, not by clicking it again.)
+    await expect.poll(wrapperIsInert).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect.poll(wrapperIsInert).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Overview (/app)
+// ---------------------------------------------------------------------------
+
