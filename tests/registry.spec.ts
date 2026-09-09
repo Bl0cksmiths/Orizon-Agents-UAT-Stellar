@@ -433,3 +433,132 @@ test.describe("/app/register — registration form", () => {
 // /app/reputation
 // ─────────────────────────────────────────────────────────────────────────
 
+test.describe("/app/reputation — score calculator", () => {
+  // Every test in this block holds GET /stellar/reputation/params off so the
+  // calculator falls back to DEFAULT_REP_PARAMS deterministically
+  // (`ScoreCalculator`: `p = params ?? DEFAULT_REP_PARAMS`). Without this, a
+  // live params response that differs from the client's own defaults would
+  // make the hand-computed expected values below intermittently wrong —
+  // a flake with nothing to do with the math actually under test.
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/stellar/reputation/params", (route) => route.abort());
+  });
+
+  test("renders one h1", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/reputation`);
+    await expect(page.getByRole("heading", { level: 1, name: "Reputation" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  });
+
+  test("default inputs (mean 85/100, 25 USDC evidence) match lib/reputation-math.ts", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/reputation`);
+    // The params fetch failing is itself announced, not swallowed.
+    await expect(
+      page.getByRole("alert").filter({ hasText: "params unavailable" }),
+    ).toBeVisible();
+
+    const card = getCalculatorCard(page);
+    const expectedSmoothed = smoothedBps(85 * 100, 25); // 8013 -> ★4.01
+    const expectedLower = lowerBoundBps(expectedSmoothed, 25); // 7357 -> ★3.68
+
+    await expect(card.getByText(`★ ${scoreOutOfFive(expectedSmoothed)}`)).toBeVisible();
+    await expect(card.getByText(`★ ${scoreOutOfFive(expectedLower)}`)).toBeVisible();
+    // Above the 5500bps floor, so the routable chip must show.
+    await expect(card.getByText("✓ routable")).toBeVisible();
+  });
+
+  test("zero settled evidence collapses the score to the prior, regardless of the mean slider", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/reputation`);
+    const meanSlider = page.getByLabel("raw on-chain mean");
+    const weightSlider = page.getByLabel("settled evidence");
+
+    // Push the mean to its max (100/100) *and* zero the evidence weight —
+    // if the mean leaked into the zero-weight formula this would visibly
+    // move the score away from the pure prior.
+    await meanSlider.press("End");
+    await weightSlider.press("Home");
+    await expect(weightSlider).toHaveValue("0");
+
+    // smoothedBps with weight=0 reduces to exactly prior_bps (7000) no
+    // matter what meanBps is — the defining property of the "zero evidence"
+    // case, and the one most worth locking down: it's easy to accidentally
+    // let a stray mean*weight term survive a refactor of this formula.
+    const card = getCalculatorCard(page);
+    const expectedSmoothed = smoothedBps(100 * 100, 0); // 7000 -> ★3.50
+    const expectedLower = lowerBoundBps(expectedSmoothed, 0); // 5677 -> ★2.84
+
+    await expect(card.getByText(`★ ${scoreOutOfFive(expectedSmoothed)}`)).toBeVisible();
+    await expect(card.getByText(`★ ${scoreOutOfFive(expectedLower)}`)).toBeVisible();
+  });
+
+  test("max mean + max evidence pushes the score near the ceiling and stays routable", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/reputation`);
+    await page.getByLabel("raw on-chain mean").press("End");
+    await page.getByLabel("settled evidence").press("End");
+
+    const card = getCalculatorCard(page);
+    const expectedSmoothed = smoothedBps(100 * 100, 500); // 9929 -> ★4.96
+    const expectedLower = lowerBoundBps(expectedSmoothed, 500); // 9892 -> ★4.95
+
+    await expect(card.getByText(`★ ${scoreOutOfFive(expectedSmoothed)}`)).toBeVisible();
+    await expect(card.getByText(`★ ${scoreOutOfFive(expectedLower)}`)).toBeVisible();
+    await expect(card.getByText("✓ routable")).toBeVisible();
+  });
+
+  test("min mean + max evidence drops below the routing floor and flags it", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/reputation`);
+    await page.getByLabel("raw on-chain mean").press("Home");
+    await page.getByLabel("settled evidence").press("End");
+
+    const card = getCalculatorCard(page);
+    const expectedSmoothed = smoothedBps(0, 500); // 164 -> ★0.08
+    const expectedLower = lowerBoundBps(expectedSmoothed, 500); // 108 -> ★0.05
+    expect(expectedLower).toBeLessThan(DEFAULT_REP_PARAMS.floor_bps);
+
+    await expect(card.getByText(`★ ${scoreOutOfFive(expectedSmoothed)}`)).toBeVisible();
+    await expect(card.getByText(`★ ${scoreOutOfFive(expectedLower)}`)).toBeVisible();
+    // Regression this catches: routing gates on the Wilson *lower bound*
+    // against the floor, never the smoothed score directly — a fat-fingered
+    // `smoothed >= floor` swap here would silently mark unroutable agents as
+    // routable.
+    await expect(card.getByText("⚑ below floor — excluded at decompose")).toBeVisible();
+  });
+});
+
+test.describe("/app/reputation — leaderboard and stats", () => {
+  test("render real data or a truthful empty/error state, never a blank page", async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.goto(`${BASE_URL}/app/reputation`);
+
+    // The <section aria-labelledby="rep-leaderboard-heading"> gets an
+    // implicit accessible name from that heading, so it's addressable as a
+    // named region rather than by any CSS structure.
+    const leaderboardRegion = page.getByRole("region", { name: "Leaderboard" });
+    await expect(leaderboardRegion.getByRole("heading", { level: 2 })).toBeVisible();
+
+    // Stats: either the announced-error alert, or the real tiles — but the
+    // tile label always renders once the fetch has settled either way.
+    const statsAlert = page.getByRole("alert").filter({ hasText: "reputation ledger unavailable" });
+    const statsTile = page.getByText("agents tracked");
+    await expect(statsAlert.or(statsTile)).toBeVisible({ timeout: COLD_START_TIMEOUT });
+
+    // Leaderboard: at least one data row beyond the header row, the explicit
+    // "no agents" copy, or the explicit failure row — anything but a table
+    // that never resolves past its header (which is what "silently keeps
+    // seeded values" must never degrade into for a completely failed
+    // agents read).
+    const dataRows = leaderboardRegion.getByRole("table").locator("tbody tr");
+    const noAgentsCopy = leaderboardRegion.getByText("no agents in the registry.");
+    const failedCopy = leaderboardRegion.getByText("leaderboard could not be loaded", {
+      exact: false,
+    });
+    await expect(dataRows.first().or(noAgentsCopy).or(failedCopy)).toBeVisible({
+      timeout: COLD_START_TIMEOUT,
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Layout: no horizontal overflow at 390x844 and 1440x900, all three routes
+// ─────────────────────────────────────────────────────────────────────────
+
