@@ -78,3 +78,70 @@ test.describe("accessibility", () => {
             return null;
           }
           const cs = window.getComputedStyle(el);
+          return {
+            tag: el.tagName,
+            outlineStyle: cs.outlineStyle,
+            outlineWidth: cs.outlineWidth,
+            boxShadow: cs.boxShadow,
+          };
+        });
+        if (sample) samples.push(sample);
+      }
+
+      expect(
+        samples.length,
+        "no element accepted keyboard focus in the first 3 Tab presses",
+      ).toBeGreaterThan(0);
+
+      // A focus indicator exists if the browser/CSS draws either a
+      // non-zero outline or a box-shadow ring (the common Tailwind
+      // `focus-visible:ring-*` pattern). Regression this catches: a global
+      // `outline: none` reset with no replacement ring, which strands
+      // keyboard-only users with no visual cursor at all.
+      const hasIndicator = samples.some((s) => {
+        const outlineVisible =
+          s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0;
+        const shadowVisible = s.boxShadow !== "none" && s.boxShadow !== "";
+        return outlineVisible || shadowVisible;
+      });
+      expect(
+        hasIndicator,
+        `no focus indicator (outline or box-shadow) detected on any of: ${JSON.stringify(samples)}`,
+      ).toBe(true);
+    });
+
+    test(`${route.label} (${route.path}): inline links within body text are distinguishable from surrounding text without relying on color alone`, async ({
+      page,
+    }) => {
+      await page.goto(route.path);
+
+      // WCAG 1.4.1: a link that differs from its surrounding paragraph text
+      // ONLY by color is invisible to color-blind and low-vision readers.
+      // This checks links nested inside prose containers (paragraphs, list
+      // items) rather than nav/button chrome, where color-only styling is a
+      // real risk; standalone nav/CTA links are exempted since they are
+      // already set apart by position and button-like framing, not color.
+      const offenders = await page.evaluate(() => {
+        const proseLinks = Array.from(
+          document.querySelectorAll("main p a, main li a, article a"),
+        );
+        return proseLinks
+          .filter((a) => {
+            const cs = window.getComputedStyle(a);
+            const underlined =
+              cs.textDecorationLine.includes("underline") ||
+              cs.textDecorationLine.includes("dotted");
+            const bold = parseInt(cs.fontWeight, 10) >= 600;
+            const italic = cs.fontStyle === "italic";
+            return !underlined && !bold && !italic;
+          })
+          .map((a) => a.textContent?.trim().slice(0, 60) ?? a.outerHTML.slice(0, 80));
+      });
+
+      expect(
+        offenders,
+        `inline links relying on color alone (no underline/bold/italic): ${JSON.stringify(offenders)}`,
+      ).toEqual([]);
+    });
+  }
+});
