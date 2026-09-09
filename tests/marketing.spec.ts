@@ -448,3 +448,80 @@ test.describe("Footer", () => {
   });
 });
 
+test.describe("robots.txt & sitemap.xml", () => {
+  test("robots.txt is served and allows crawling", async ({ page }) => {
+    const response = await page.request.get("/robots.txt");
+    expect(response.ok()).toBeTruthy();
+    const body = await response.text();
+    expect(body).toMatch(/User-Agent:\s*\*/i);
+    expect(body).toMatch(/Allow:\s*\//i);
+  });
+
+  test("sitemap.xml is served with valid XML containing the canonical homepage URL", async ({
+    page,
+  }) => {
+    const response = await page.request.get("/sitemap.xml");
+    expect(response.ok()).toBeTruthy();
+    expect(response.headers()["content-type"]).toMatch(/xml/);
+    const body = await response.text();
+    expect(body).toContain("<urlset");
+    expect(body).toContain("<loc>https://orizons.xyz</loc>");
+  });
+
+  test("the sitemap URL declared in robots.txt matches the real sitemap route", async ({
+    page,
+  }) => {
+    const robots = await (await page.request.get("/robots.txt")).text();
+    const match = robots.match(/Sitemap:\s*(\S+)/i);
+    expect(match).not.toBeNull();
+    const declaredSitemapUrl = match![1].trim();
+    expect(declaredSitemapUrl).toBe("https://orizons.xyz/sitemap.xml");
+    // The declared URL must itself resolve — a stale/renamed sitemap route
+    // would otherwise silently break crawler discovery.
+    const sitemapResponse = await page.request.get(declaredSitemapUrl);
+    expect(sitemapResponse.ok()).toBeTruthy();
+  });
+});
+
+test.describe("PWA manifest", () => {
+  test("manifest.webmanifest is served and points start_url at the console", async ({
+    page,
+  }) => {
+    const response = await page.request.get("/manifest.webmanifest");
+    expect(response.ok()).toBeTruthy();
+    const manifest = await response.json();
+    expect(manifest.name).toBe("Orizon Agents");
+    expect(manifest.start_url).toBe("/app");
+    expect(Array.isArray(manifest.icons)).toBe(true);
+    expect(manifest.icons.length).toBeGreaterThan(0);
+  });
+});
+
+test.describe("404 handling", () => {
+  test("an unknown route renders the not-found page with a 404 status", async ({
+    page,
+  }) => {
+    const response = await page.goto("/this-route-does-not-exist-e2e-check");
+    // Next.js app-router not-found.tsx must set the HTTP status to 404, not
+    // just render 404-looking copy on a 200 — otherwise crawlers index it.
+    expect(response?.status()).toBe(404);
+    await expect(
+      page.getByRole("heading", { name: /SIGNAL LOST/i }),
+    ).toBeVisible();
+  });
+
+  test("the not-found page offers working ways back into the app", async ({
+    page,
+  }) => {
+    await page.goto("/this-route-does-not-exist-e2e-check");
+    await expect(page.getByRole("link", { name: "Return home" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    await expect(page.getByRole("link", { name: /Open console/i })).toHaveAttribute(
+      "href",
+      "/app",
+    );
+  });
+});
+
