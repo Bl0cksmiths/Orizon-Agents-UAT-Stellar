@@ -198,3 +198,131 @@ test.describe("Orchestrator intent form", () => {
 // /app/orchestrator — decompose result (demo-kit intent, deterministic)
 // ─────────────────────────────────────────────────────────────────────────
 
+test.describe("Orchestrator decompose result", () => {
+  test("a demo-kit intent returns a plan with step rows, totals, and per-step detail", async ({
+    page,
+  }) => {
+    test.setTimeout(DECOMPOSE_TIMEOUT_MS + 30_000);
+    await decomposeCalculatorPlan(page);
+
+    // The demo kit is documented as returning a fixed 6-step plan.
+    // Regression: a step count drifting from 6 for a curated intent means
+    // the backend's demo-kit shortcut stopped matching and this intent fell
+    // through to the real (slow, non-deterministic) LLM path.
+    const steps = page.getByRole("listitem");
+    await expect(steps).toHaveCount(6);
+
+    let sumOfSteps = 0;
+    const count = await steps.count();
+    for (let i = 0; i < count; i++) {
+      const text = (await steps.nth(i).innerText()).replace(/\s+/g, " ");
+      // Regression: losing the "→" between the agent badge and the
+      // rationale would mean the rationale is no longer distinguishable
+      // from the agent name in the rendered row.
+      expect(text).toContain("→");
+      // Regression: price/eta format drifting (execution-plan.tsx renders
+      // `${price.toFixed(3)} · ${eta.toFixed(1)}s`) breaks the totals-sum
+      // assertion below and, for a real user, the estimate they're shown
+      // before authorizing spend.
+      const priceMatch = text.match(/(\d+\.\d{3})\s*·\s*\d+\.\d+s/);
+      expect(priceMatch, `step ${i} should render a price · eta`).toBeTruthy();
+      sumOfSteps += parseFloat(priceMatch![1]);
+
+      // Rationale: whatever text sits between "→" and the trailing price
+      // block must be non-empty — an empty rationale is a silently broken
+      // plan step.
+      const rationale = text.split("→")[1]?.replace(priceMatch![0], "").trim();
+      expect(rationale?.length ?? 0).toBeGreaterThan(0);
+    }
+
+    // "total est." / "eta" only ever appear inside the plan card (confirmed
+    // against sidebar.tsx / topbar.tsx, which render neither), so reading
+    // the whole page's text is unambiguous and avoids a brittle DOM-parent
+    // traversal to scope a container that has no test id.
+    const pageText = (await page.locator("body").innerText()).replace(
+      /\s+/g,
+      " ",
+    );
+    const totalMatch = pageText.match(/total est\.\s*(\d+\.\d{3}) USDC/);
+    expect(totalMatch, "totals row should render total est. in USDC").toBeTruthy();
+    const displayedTotal = parseFloat(totalMatch![1]);
+
+    // Regression: the totals row is exactly what a user reads before
+    // authorizing on-chain spend. If it silently drifted from the sum of
+    // the steps actually listed, users could authorize more (or be shown
+    // less) than what the plan really costs. Tolerance accounts only for
+    // per-step display rounding to 3 decimals.
+    expect(Math.abs(displayedTotal - sumOfSteps)).toBeLessThanOrEqual(
+      0.0005 * count + 0.0005,
+    );
+
+    const etaMatch = pageText.match(/eta\s*(\d+\.\d+)s/);
+    expect(etaMatch, "totals row should render an eta in seconds").toBeTruthy();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// /app/orchestrator — execution plan actions (simulate vs. on-chain gating)
+// ─────────────────────────────────────────────────────────────────────────
+
+test.describe("Execution plan actions", () => {
+  test("offers a simulated execute path that requires no wallet", async ({
+    page,
+  }) => {
+    test.setTimeout(DECOMPOSE_TIMEOUT_MS + 30_000);
+    await decomposeCalculatorPlan(page);
+
+    // No wallet extension is present in this environment, so this button
+    // must be reachable and usable in the disconnected state — this is the
+    // only execute path this suite can exercise end-to-end.
+    const simulate = page.getByRole("button", { name: /simulate/i });
+    await expect(simulate).toBeVisible();
+    await expect(simulate).toBeEnabled();
+
+    await simulate.click();
+    // execution-plan.tsx `simulate` calls execute(plan.plan_id) with no
+    // auth_id/payer, then router.push(`/app/trace?task=${task_id}`).
+    // Regression: if the simulated path started requiring a wallet or an
+    // auth id, this navigation would never happen (or would throw).
+    await expect(page).toHaveURL(/\/app\/trace\?task=/, {
+      timeout: FULL_RUN_TIMEOUT_MS,
+    });
+  });
+
+  test("gates the on-chain Authorize & Execute path behind a wallet connect prompt", async ({
+    page,
+  }) => {
+    test.setTimeout(DECOMPOSE_TIMEOUT_MS + 30_000);
+    await decomposeCalculatorPlan(page);
+
+    // Regression: this is the core safety property of the on-chain path —
+    // without a connected wallet there is no signer, so the UI must show a
+    // connect prompt instead of a clickable Authorize button that would
+    // throw on `wallet.address` being undefined mid-flow.
+    await expect(page.getByText(/wallet required/i)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Connect Wallet" }),
+    ).toBeVisible();
+
+    // The on-chain button only renders in the connected branch of
+    // execution-plan.tsx — asserting its absence (not just "disabled")
+    // confirms the gate is structural, not a crash waiting to happen.
+    await expect(
+      page.getByRole("button", { name: /Authorize & Execute/ }),
+    ).toHaveCount(0);
+
+    // The simulated path and fiat funding remain available while
+    // disconnected.
+    await expect(
+      page.getByRole("button", { name: /simulate/i }),
+    ).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: /Pay with Fiat/i }),
+    ).toBeEnabled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// /app/orchestrator — error path
+// ─────────────────────────────────────────────────────────────────────────
+
