@@ -1,0 +1,78 @@
+name: UAT E2E
+
+on:
+  push:
+    branches: [main, "qa/**"]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Daily against production. A UAT suite that only runs on push tells you
+    # your tests still compile; one that runs on a schedule tells you the
+    # deployment is still healthy.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Target deployment to test against"
+        required: false
+        default: "https://orizons.xyz"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium-desktop, chromium-mobile, webkit-desktop]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Install browser
+        run: npx playwright install --with-deps ${{ startsWith(matrix.project, 'webkit') && 'webkit' || 'chromium' }}
+
+      # The backend sleeps on Render's free tier. Waking it here means the
+      # first spec does not absorb a 60s cold start and time out.
+      - name: Wake backend
+        run: |
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+              https://orizon-agents-be-stellar.onrender.com/api/health || true)
+            echo "attempt $i -> $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "backend did not wake; specs that need it will report it"
+
+      - name: Run E2E
+        run: npx playwright test --project=${{ matrix.project }}
+        env:
+          UAT_BASE_URL: ${{ github.event.inputs.base_url || 'https://orizons.xyz' }}
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: playwright-report/
+          retention-days: 14
