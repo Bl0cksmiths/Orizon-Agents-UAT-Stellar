@@ -74,3 +74,86 @@ async function expectNotAWhiteScreen(page: Page): Promise<void> {
 // Real backend: cold start always resolves, never hangs forever
 // ---------------------------------------------------------------------------
 
+test.describe("resilience: against the real backend, a cold start always resolves within budget", () => {
+  for (const path of ["/app", "/app/agents"] as const) {
+    // Deliberately NOT mocked — this is the one place in the suite that hits
+    // the real, possibly-sleeping Render backend, to prove the loading state
+    // it drives is bounded. Restricted to two representative routes (rather
+    // than all of APP_ROUTES) to keep the live-network cost of the suite
+    // reasonable; every route shares the same `useFetch`/`usePolling` +
+    // client-side-deadline plumbing, so this is a shared-infrastructure
+    // guarantee, not a per-route one.
+    test(`${path}: the loading state clears — to data or to an error — within the cold-start budget, never indefinitely`, async ({
+      page,
+    }) => {
+      await page.goto(path);
+      // `LoadingStatus` (components/ui/skeleton.tsx) is the sr-only
+      // role="status" announcing an in-flight fetch. Regression this
+      // catches: a cold Render instance (25-60s to wake) leaving the page
+      // stuck on skeletons forever instead of the fetch's own deadline
+      // (60s, lib/api.ts GET_TIMEOUT_MS) eventually forcing a resolution.
+      await expect(
+        page.getByRole("status", { name: /loading/i }),
+      ).toHaveCount(0, { timeout: COLD_START_TIMEOUT });
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Total backend outage
+// ---------------------------------------------------------------------------
+
+test.describe("resilience: total backend outage never renders as a blank or falsely-empty page", () => {
+  for (const route of APP_ROUTES) {
+    test(`${route.label} (${route.path}): still renders its shell and announces the outage`, async ({
+      page,
+    }) => {
+      await blockApi(page);
+      await page.goto(route.path);
+
+      await expectNotAWhiteScreen(page);
+      // The outage-era bug: a 404 on every /api/* call looked exactly like a
+      // healthy server answering "no data" — asserting an announced failure
+      // is the only way to tell the two apart from the DOM.
+      await expect(page.locator('[role="alert"]').first()).toBeVisible({
+        timeout: 15_000,
+      });
+      await expectNoFabricatedZero(page);
+    });
+  }
+
+  test("/app/events: the empty state never renders underneath the error (feedLoading must not go false on error)", async ({
+    page,
+  }) => {
+    await blockApi(page);
+    await page.goto("/app/events");
+
+    await expect(page.locator('[role="alert"]').first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/No events yet/i)).toHaveCount(0);
+  });
+
+  test("marketing home (/) renders fully and silently — static content has no backend dependency", async ({
+    page,
+  }) => {
+    const errors = collectConsoleErrors(page);
+    await blockApi(page);
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // No alert anywhere: the outage must not leak into a page that never
+    // reads from the backend (a fire-and-forget warm-up ping, if any, must
+    // not surface as user-visible failure UI).
+    await expect(page.locator('[role="alert"]')).toHaveCount(0);
+    expect(
+      errors.getConsoleErrors(),
+      `unexpected console errors on a page with no backend dependency: ${JSON.stringify(errors.getConsoleErrors())}`,
+    ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 500 vs 404-outage vs stalled connection are told apart
+// ---------------------------------------------------------------------------
+
