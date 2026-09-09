@@ -234,3 +234,117 @@ test.describe("resilience: the failure MODE is told apart, not just the failure"
 // Rate limiting (429) surfaces the real wait-message copy
 // ---------------------------------------------------------------------------
 
+test.describe("resilience: a 429 tells the user how long to wait, not that something is broken", () => {
+  test("/app/register: a rate-limited build surfaces lib/rate-limit-message.ts's copy verbatim", async ({
+    page,
+  }) => {
+    // This test only exercises the rate-limit-message wiring on the
+    // register form's submit path — NOT registration correctness (field
+    // validation, tx lifecycle, evidence card), which belongs to the
+    // registry route's own spec. The minimum valid form is filled here
+    // purely to reach the POST that gets rate-limited.
+    await stubWalletSession(page);
+    await page.route("**/api/stellar/agent-id-available/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ available: true }),
+      }),
+    );
+    // lib/api.ts formats Retry-After as seconds; rate-limit-message.ts turns
+    // that into "wait {n}s" — assert the exact number round-trips.
+    const retryAfterSeconds = 37;
+    await page.route("**/api/stellar/build/register-agent", (route) =>
+      route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        headers: { "Retry-After": String(retryAfterSeconds) },
+        body: JSON.stringify({
+          error: { code: "rate_limited", message: "Too Many Requests" },
+        }),
+      }),
+    );
+
+    await page.goto("/app/register");
+    await page.fill("#reg-agent-id", "e2e_rate_limit_probe");
+    await page.locator("#reg-agent-id").blur();
+    await expect(page.getByText(/✓ available/i)).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await page.fill("#reg-name", "Rate Limit Probe");
+    await page.fill("#reg-price", "1");
+    await page.getByRole("button", { name: /register/i }).click();
+
+    // The exact copy from lib/rate-limit-message.ts — proves the 429 path
+    // is wired to the friendly "nothing was lost" message, not swallowed
+    // into the generic "Could not prepare the registration" fallback that
+    // sits right next to it in the same catch block.
+    await expect(
+      page.getByText(
+        `Too many requests — wait ${retryAfterSeconds}s and try again. Nothing was lost.`,
+      ),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("/app/register: a 429 with no Retry-After header still reads as a wait, not a generic failure", async ({
+    page,
+  }) => {
+    await stubWalletSession(page);
+    await page.route("**/api/stellar/agent-id-available/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ available: true }),
+      }),
+    );
+    await page.route("**/api/stellar/build/register-agent", (route) =>
+      route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        // Deliberately no Retry-After header — rate-limit-message.ts must
+        // fall back to "a moment", not print "undefined" or "NaNs".
+        body: JSON.stringify({
+          error: { code: "rate_limited", message: "Too Many Requests" },
+        }),
+      }),
+    );
+
+    await page.goto("/app/register");
+    await page.fill("#reg-agent-id", "e2e_rate_limit_probe2");
+    await page.locator("#reg-agent-id").blur();
+    await expect(page.getByText(/✓ available/i)).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.fill("#reg-name", "Rate Limit Probe 2");
+    await page.fill("#reg-price", "1");
+    await page.getByRole("button", { name: /register/i }).click();
+
+    await expect(
+      page.getByText(
+        "Too many requests — wait a moment and try again. Nothing was lost.",
+      ),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Performance budgets — guardrails against regression, not absolute targets
+// ---------------------------------------------------------------------------
+
+/**
+ * These numbers are deliberately generous. They exist to catch a step-change
+ * regression (a bundle that suddenly doubles, a synchronous render-blocking
+ * call, a memory-leaking effect that stalls `load`) — NOT to assert a
+ * competitive Core Web Vitals score. Tune them down over time as the app's
+ * real numbers are observed in CI; loosen them if the hosting tier changes.
+ *
+ * `/api/*` is stubbed with an immediate, generically-shaped response for
+ * these tests specifically to remove Render's cold-start variance (25-60s)
+ * from the measurement — that variance is a backend/infra concern the
+ * budgets below are not trying to catch, and would otherwise make every
+ * budget here either always-fails-cold or meaninglessly loose. Some routes
+ * may render an error state under this generic stub (their guards reject an
+ * unshaped payload) — that's fine, only render-completion timing is
+ * asserted here, not content correctness.
+ */
