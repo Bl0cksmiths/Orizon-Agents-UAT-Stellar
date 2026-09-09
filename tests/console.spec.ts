@@ -181,3 +181,66 @@ test.describe('Mobile navigation drawer', () => {
 // Overview (/app)
 // ---------------------------------------------------------------------------
 
+test.describe('Overview — loading, loaded, and failed states stay visually and semantically distinct', () => {
+  test('announces a loading state to assistive tech while the first payload is in flight', async ({
+    page,
+  }) => {
+    await hangApi(page, '/metrics/overview');
+    await hangApi(page, '/tasks');
+    await page.goto('/app');
+    const main = page.getByRole('main');
+    // The skeleton tiles are aria-hidden by design; this sr-only status is
+    // the only accessible signal that data is loading, not absent.
+    await expect(main.getByRole('status', { name: 'Loading metrics…' })).toBeAttached();
+    // Regression: tile labels must render immediately so "no data yet" never
+    // reads as "no such metric" while the fetch is pending.
+    await expect(main.getByText('Agents online', { exact: true })).toBeVisible();
+  });
+
+  test('never renders a metric as a bare 0 or dash on failure — every tile says "unavailable"', async ({
+    page,
+  }) => {
+    await failApi(page, '/metrics/overview');
+    await failApi(page, '/tasks');
+    await page.goto('/app');
+    const main = page.getByRole('main');
+    await expect(main.getByText('backend offline', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(main.getByRole('alert').first()).toContainText("couldn't reach the backend");
+    // Regression: this is the core invariant — metrics render from `overview`,
+    // which stays null on failure, so all 4 tiles must show the labeled
+    // failure state, never a fabricated "0" a viewer could mistake for real.
+    await expect(main.getByText('unavailable', { exact: true })).toHaveCount(4);
+    await expect(main.getByText('throughput unavailable', { exact: false })).toBeVisible();
+    await expect(main.getByText('skill mix unavailable', { exact: false })).toBeVisible();
+    await expect(main.getByText("couldn't load recent tasks", { exact: false })).toBeVisible();
+  });
+
+  test('the sidebar network panel reports the same backend failure independently of the page body', async ({
+    page,
+  }) => {
+    await failApi(page, '/metrics/overview');
+    await page.goto('/app');
+    const nav = page.getByRole('complementary', { name: 'Navigation' });
+    // Regression: the sidebar runs its own fetch of the same endpoint; it
+    // must not silently show placeholder dashes when that fetch fails.
+    await expect(nav.getByText('network metrics unavailable')).toBeVisible({ timeout: 30_000 });
+  });
+
+  test('renders real network metrics once the cold-start backend responds', async ({ page }) => {
+    test.setTimeout(150_000);
+    await page.goto('/app');
+    const main = page.getByRole('main');
+    const agentsValue = main
+      .getByText('Agents online', { exact: true })
+      .locator('xpath=following-sibling::*[1]');
+    // Render's free-tier backend can take 25-60s to cold-start, and the
+    // client's own GET deadline is 60s — no fixed sleep, just a wide
+    // web-first retry window on this one assertion.
+    await expect(agentsValue).toContainText(/\d/, { timeout: 120_000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Flow (/app/flow)
+// ---------------------------------------------------------------------------
+
