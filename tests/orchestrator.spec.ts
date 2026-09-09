@@ -326,3 +326,114 @@ test.describe("Execution plan actions", () => {
 // /app/orchestrator — error path
 // ─────────────────────────────────────────────────────────────────────────
 
+test.describe("Orchestrator error handling", () => {
+  test("a failed decompose surfaces a visible role=alert and never renders a blank plan card", async ({
+    page,
+  }) => {
+    // Route interception forces a deterministic failure without depending
+    // on real backend downtime — the only reliable way to exercise this
+    // path in CI.
+    await page.route("**/api/orchestrator/decompose", (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: { code: "forced_failure", message: "forced test failure" },
+        }),
+      }),
+    );
+
+    await gotoOrchestrator(page);
+    await page.getByRole("button", { name: "calculator web app" }).click();
+    await page.getByRole("button", { name: "Decompose ▸" }).click();
+
+    // Regression: page.tsx renders the error inside `role="alert"` — a
+    // plain <div> here would leave screen-reader users with zero signal
+    // that anything failed (ErrorNote / this inline block exist precisely
+    // to fix that class of silent failure).
+    const alert = page.getByRole("alert");
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText(/500|forced_failure|forced test failure/);
+
+    // Regression: AnimatePresence only mounts ExecutionPlan when
+    // plan.data is truthy — a failed decompose must leave plan.data null,
+    // so the plan card (identified by its heading) must never appear, not
+    // even as an empty/blank shell.
+    await expect(
+      page.getByRole("heading", { name: "Execution plan" }),
+    ).toHaveCount(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// /app/trace — no task param / invalid task id
+// ─────────────────────────────────────────────────────────────────────────
+
+test.describe("Trace page without a live task", () => {
+  test("with no ?task= param, renders a truthful demo/empty state", async ({
+    page,
+  }) => {
+    await page.goto(`${BASE_URL}/app/trace`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trace");
+
+    // trace/page.tsx: taskId is null → the subtitle explicitly says this is
+    // a demo replay, not a live run. Regression: showing live-run copy
+    // (or a "streaming…" state) here would misrepresent a canned replay as
+    // a real workflow execution.
+    await expect(
+      page.getByText(
+        "Demo replay — run an intent in the Orchestrator to see a live one.",
+      ),
+    ).toBeVisible();
+
+    // Demo-only transport controls.
+    await expect(page.getByRole("button", { name: /Pause|Play/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Restart/ })).toBeVisible();
+
+    // Summary row must say "demo", not fabricate a task id or a live state.
+    await expect(page.getByText("demo").first()).toBeVisible();
+
+    // No artifact exists in demo mode, so the artifact/trace tablist must
+    // not render at all (trace/page.tsx only renders it when `artifact` is
+    // truthy).
+    await expect(page.getByRole("tablist")).toHaveCount(0);
+  });
+
+  test("with an invalid task id, degrades to a visible error instead of a blank page", async ({
+    page,
+  }) => {
+    // openTraceStream's own reconnect budget (3 attempts, 1s/2s/4s backoff)
+    // plus its polling fallback (up to 3 failed polls at 4s apart) bound
+    // how long an unrecoverable task id takes to surface as an error —
+    // this ceiling is derived from those lib/api.ts constants, not guessed.
+    test.setTimeout(90_000);
+    await page.goto(`${BASE_URL}/app/trace?task=nonexistent-task-id-e2e`);
+
+    // The page must never go blank/white even while the stream is still
+    // trying — the header and h1 render synchronously from taskId alone.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trace");
+    await expect(page.getByText("nonexistent-task-id-e2e")).toBeVisible();
+
+    // Regression: openTraceStream must eventually give up (settle(false))
+    // rather than leaving the UI claiming "streaming…" forever against a
+    // task that will never produce a line — this is the exact bug class
+    // the streamError / ErrorNote path in trace/page.tsx exists to fix.
+    await expect(page.getByRole("alert").first()).toBeVisible({
+      timeout: 80_000,
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Full end-to-end run: decompose → simulate execute → trace → artifact.
+//
+// Marked slow and isolated in its own describe block deliberately. Unlike
+// decompose (a fixed ~1.4-2.4s simulated delay for demo-kit intents), the
+// *execute* path hands the plan to real agents that actually generate the
+// calculator artifact — that work is not bounded by any documented
+// constant, and its wall-clock time is not guaranteed stable run to run.
+// Rather than omit tablist/sandbox coverage (both real regressions worth
+// catching), this accepts the flakiness/runtime tradeoff explicitly instead
+// of silently skipping it.
+// ─────────────────────────────────────────────────────────────────────────
+
