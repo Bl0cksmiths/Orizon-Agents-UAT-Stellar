@@ -244,3 +244,89 @@ test.describe('Overview — loading, loaded, and failed states stay visually and
 // Flow (/app/flow)
 // ---------------------------------------------------------------------------
 
+test.describe('Flow — DAG renders nodes and edges, and fails loudly instead of an empty canvas', () => {
+  test('shows an explicit offline error in place of the graph when the flow fetch fails', async ({
+    page,
+  }) => {
+    await failApi(page, '/flow/default');
+    await page.goto('/app/flow');
+    const main = page.getByRole('main');
+    await expect(main.getByRole('alert').first()).toContainText('backend offline', { timeout: 30_000 });
+    // Regression: the stat row (Nodes/Edges/Parallel branches) is computed
+    // from the loaded flow and must stay hidden on failure rather than
+    // rendering a fabricated "0 nodes".
+    await expect(main.getByText('Nodes', { exact: true })).toHaveCount(0);
+  });
+
+  test('renders the live DAG with real node and edge counts once the backend responds', async ({
+    page,
+  }) => {
+    test.setTimeout(150_000);
+    await page.goto('/app/flow');
+    const main = page.getByRole('main');
+    // Same Render cold-start budget as Overview — wide window, no fixed sleep.
+    await expect(main.getByText(/^\d+ nodes · \d+ edges$/)).toBeVisible({ timeout: 120_000 });
+    // The stat row is gated on the same payload, so it should now be present.
+    await expect(main.getByText('Nodes', { exact: true })).toBeVisible();
+    await expect(main.getByText('Edges', { exact: true })).toBeVisible();
+    await expect(main.getByText('Parallel branches', { exact: true })).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Events (/app/events)
+// ---------------------------------------------------------------------------
+
+test.describe('Events — feed distinguishes connecting, empty, live, and failed states', () => {
+  test('shows a feed-unavailable error — never the "no events yet" empty copy — when the contract list fails to load', async ({
+    page,
+  }) => {
+    await failApi(page, '/stellar/network');
+    await page.goto('/app/events');
+    const main = page.getByRole('main');
+    await expect(main.getByText('feed unavailable', { exact: false })).toBeVisible({ timeout: 30_000 });
+    // Regression: a feed that never started must not be indistinguishable
+    // from a healthy feed that simply has nothing to show yet.
+    await expect(main.getByText('No events yet', { exact: false })).toHaveCount(0);
+  });
+
+  test('reaches a settled "live" state — not stuck on "connecting" — once the contract list loads', async ({
+    page,
+  }) => {
+    test.setTimeout(150_000);
+    await page.goto('/app/events');
+    const main = page.getByRole('main');
+    // Cold-start backend (contract id list) plus the first Soroban RPC round
+    // trip: give both legs room instead of a fixed sleep.
+    await expect(main.getByText('Connecting to the event feed…')).toBeHidden({ timeout: 120_000 });
+    // Scoped to <main> because the topbar also renders a "live" backend badge.
+    await expect(main.getByText('live', { exact: true })).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Route-level failure never white-screens the console
+// ---------------------------------------------------------------------------
+
+test.describe('Route-level failure never white-screens the console', () => {
+  test('shell chrome and the page heading stay mounted when every backend call fails', async ({
+    page,
+  }) => {
+    await page.route('**/api/**', (route) => route.abort('failed'));
+    await page.goto('/app');
+    await expect(page.getByRole('complementary', { name: 'Navigation' })).toBeVisible();
+    await expect(page.getByRole('banner')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
+    // Regression: a render-time crash falls through to Next's route
+    // error.tsx ("SUBSYSTEM FAULT") or a blank document — a purely
+    // network-level failure, handled in component state, must not.
+    const bodyText = await page.locator('body').innerText();
+    expect(bodyText.length).toBeGreaterThan(0);
+    await expect(page.getByText('SUBSYSTEM FAULT')).toHaveCount(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// No horizontal overflow
+// ---------------------------------------------------------------------------
+
