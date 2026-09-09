@@ -224,3 +224,82 @@ export function collectConsoleErrors(page: Page): ConsoleErrorCollector {
  * `visibility:hidden`, zero-size, or `[hidden]`) are excluded — they don't
  * form part of the perceivable structure a screen reader user hears.
  */
+export async function expectHeadingStructure(page: Page): Promise<void> {
+  const result = await page.evaluate(() => {
+    function isVisible(el: Element): boolean {
+      const style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden")
+        return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    }
+
+    const headings = Array.from(
+      document.querySelectorAll("h1,h2,h3,h4,h5,h6"),
+    ).filter(isVisible);
+
+    const levels = headings.map((h) => Number(h.tagName[1]));
+    const h1Count = levels.filter((l) => l === 1).length;
+
+    let skipped: { from: number; to: number } | null = null;
+    for (let i = 1; i < levels.length; i++) {
+      const prev = levels[i - 1];
+      const cur = levels[i];
+      if (cur > prev + 1) {
+        skipped = { from: prev, to: cur };
+        break;
+      }
+    }
+
+    return { h1Count, levels, skipped };
+  });
+
+  // Exactly one h1: a page-level document must have a single top-level
+  // heading — zero means no title landmark for assistive tech, more than
+  // one means the outline no longer describes a single page.
+  expect(
+    result.h1Count,
+    `expected exactly one visible h1, found ${result.h1Count} (levels: ${JSON.stringify(result.levels)})`,
+  ).toBe(1);
+
+  // A skipped level (e.g. h2 -> h4) breaks the outline screen-reader users
+  // navigate by ("jump to next heading") without a visual cue sighted users
+  // would notice.
+  expect(
+    result.skipped,
+    `heading level skipped from h${result.skipped?.from} to h${result.skipped?.to} (levels: ${JSON.stringify(result.levels)})`,
+  ).toBeNull();
+}
+
+/**
+ * Every `<img>` (excluding ones explicitly marked decorative with
+ * `role="presentation"`/`role="none"`) must carry an `alt` attribute — empty
+ * `alt=""` is a valid, deliberate "decorative" declaration and passes;
+ * a missing attribute does not.
+ */
+export async function expectAllImagesHaveAlt(page: Page): Promise<void> {
+  const offenders = await page.evaluate(() => {
+    const imgs = Array.from(document.querySelectorAll("img"));
+    return imgs
+      .filter((img) => {
+        const role = img.getAttribute("role");
+        if (role === "presentation" || role === "none") return false;
+        return !img.hasAttribute("alt");
+      })
+      .map((img) => img.getAttribute("src") ?? img.outerHTML.slice(0, 120));
+  });
+
+  expect(
+    offenders,
+    `images missing an alt attribute: ${JSON.stringify(offenders)}`,
+  ).toEqual([]);
+}
+
+/**
+ * Every interactive element (link, button, and form control) must resolve
+ * an accessible name — from visible text content, `aria-label`,
+ * `aria-labelledby`, an associated `<label>`, `title`, or (for inputs)
+ * `placeholder` as a last resort. An interactive element with no name is
+ * announced to a screen reader as just its role ("button") — unusable when
+ * there is more than one on the page.
+ */
