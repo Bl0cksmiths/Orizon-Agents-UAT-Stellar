@@ -157,3 +157,80 @@ test.describe("resilience: total backend outage never renders as a blank or fals
 // 500 vs 404-outage vs stalled connection are told apart
 // ---------------------------------------------------------------------------
 
+test.describe("resilience: the failure MODE is told apart, not just the failure", () => {
+  // These two use /app/agents specifically: it drives its fetch through
+  // `useFetch` (lib/use-fetch.ts), which auto-retries transient failures and
+  // exposes that as ErrorNote's `retrying` state. /app itself polls via a
+  // different hook (`usePolling`) with its own backoff and no automatic
+  // "retrying…" button state, so it can't demonstrate this distinction.
+  test("/app/agents: a transient 500 is retried automatically (the retry control turns into a disabled 'retrying…' state)", async ({
+    page,
+  }) => {
+    await failApi(page, 500);
+    await page.goto("/app/agents");
+
+    await expect(page.locator('[role="alert"]').first()).toBeVisible({
+      timeout: 15_000,
+    });
+    // lib/use-fetch.ts's `isTransientFetchError` treats 5xx as transient and
+    // schedules an automatic retry (2s/4s/8s backoff); ErrorNote renders that
+    // as a disabled "retrying…" button. Regression this catches: a 500 being
+    // reclassified as terminal, silently dropping the auto-recovery that
+    // matters most for a backend that free-tier-sleeps mid-session.
+    await expect(
+      page.getByRole("button", { name: /retrying/i }).first(),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("/app/agents: a 404 outage is NOT auto-retried — the control stays a manual 'retry' action", async ({
+    page,
+  }) => {
+    await blockApi(page);
+    await page.goto("/app/agents");
+
+    await expect(page.locator('[role="alert"]').first()).toBeVisible({
+      timeout: 15_000,
+    });
+    // A 404 means "this resource doesn't exist", not "try again later" —
+    // `isTransientFetchError` deliberately excludes it so a misrouted/dead
+    // proxy doesn't burn the backend's 120 req/min rate-limit budget in a
+    // retry storm. Regression this catches: 404 getting swept into the
+    // transient bucket, which is exactly what a broken proxy config looks
+    // like from the client's point of view.
+    await expect(
+      page.getByRole("button", { name: /^retry$/i }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /retrying/i }),
+    ).toHaveCount(0);
+  });
+
+  test("/app: a connection that never answers is held on its loading state until the client's own deadline, then fails — never earlier, never never", async ({
+    page,
+  }) => {
+    // Virtual clock so the real 60s client-side deadline (GET_TIMEOUT_MS in
+    // lib/api.ts) can be crossed without the test actually waiting 60s.
+    await page.clock.install();
+    await hangApi(page);
+    await page.goto("/app");
+
+    // Before the deadline: must still look like an in-progress load, not a
+    // premature failure — the whole point of the deadline is to give a cold
+    // Render instance a real chance to answer before giving up.
+    await expect(page.locator('[role="alert"]')).toHaveCount(0);
+
+    // Cross GET_TIMEOUT_MS (60s) plus slack.
+    await page.clock.fastForward(65_000);
+
+    // After the deadline: the app must give up and announce it — a stalled
+    // connection must not spin its skeleton forever.
+    await expect(page.locator('[role="alert"]').first()).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rate limiting (429) surfaces the real wait-message copy
+// ---------------------------------------------------------------------------
+
