@@ -330,3 +330,75 @@ test.describe('Route-level failure never white-screens the console', () => {
 // No horizontal overflow
 // ---------------------------------------------------------------------------
 
+test.describe('No horizontal overflow', () => {
+  const viewports = [
+    { name: 'mobile 390x844', width: 390, height: 844 },
+    { name: 'desktop 1440x900', width: 1440, height: 900 },
+  ] as const;
+
+  for (const route of ROUTES) {
+    for (const vp of viewports) {
+      test(`${route} never overflows horizontally at ${vp.name}`, async ({ page }) => {
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+        await page.goto(route);
+        await expect(page.getByRole('main')).toBeVisible();
+        await assertNoHorizontalOverflow(page);
+      });
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Accessibility smoke
+// ---------------------------------------------------------------------------
+
+test.describe('Accessibility smoke', () => {
+  for (const route of ROUTES) {
+    test(`${route} has exactly one h1 and no skipped heading levels`, async ({ page }) => {
+      await page.goto(route);
+      await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+
+      const headings = await page.getByRole('heading').all();
+      const levels = await Promise.all(
+        headings.map((h) => h.evaluate((el) => Number(el.tagName.slice(1)))),
+      );
+      for (let i = 1; i < levels.length; i++) {
+        // Regression: a jump like h1 -> h3 (skipping h2) breaks screen-reader
+        // document-outline navigation even though it looks fine visually.
+        expect(levels[i] - levels[i - 1]).toBeLessThanOrEqual(1);
+      }
+    });
+
+    test(`${route} gives every button and link an accessible name`, async ({ page }) => {
+      await page.goto(route);
+      const controls = [...(await page.getByRole('button').all()), ...(await page.getByRole('link').all())];
+      expect(controls.length).toBeGreaterThan(0);
+      for (const el of controls) {
+        const name = await el.evaluate(
+          (node) =>
+            node.getAttribute('aria-label')?.trim() ||
+            node.textContent?.trim() ||
+            node.getAttribute('title')?.trim() ||
+            '',
+        );
+        // Regression: an icon-only button/link with no aria-label reads as
+        // "button" with no name to a screen reader.
+        expect(name).not.toBe('');
+      }
+    });
+
+    test(`${route} shows a visible keyboard focus ring while tabbing`, async ({ page }) => {
+      await page.goto(route);
+      await page.keyboard.press('Tab'); // "Skip to content"
+      await page.keyboard.press('Tab'); // first real interactive control
+      const boxShadow = await page.evaluate(
+        () => window.getComputedStyle(document.activeElement as Element).boxShadow,
+      );
+      // lib/ui.ts's shared `focusRing` paints an inset cyan ring via
+      // Tailwind's focus-visible:ring-2 utility (a box-shadow, not an
+      // outline, because the cyber clip-paths clip outside box-shadows).
+      // "none" here means a keyboard user can't see where focus is.
+      expect(boxShadow).not.toBe('none');
+    });
+  }
+});
