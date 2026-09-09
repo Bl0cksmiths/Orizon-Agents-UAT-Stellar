@@ -562,3 +562,28 @@ test.describe("/app/reputation — leaderboard and stats", () => {
 // Layout: no horizontal overflow at 390x844 and 1440x900, all three routes
 // ─────────────────────────────────────────────────────────────────────────
 
+const ROUTES: { path: string; label: string; h1: string }[] = [
+  { path: "/app/agents", label: "agent registry", h1: "Agent Registry" },
+  { path: "/app/register", label: "register form", h1: "Register an Agent" },
+  { path: "/app/reputation", label: "reputation dashboard", h1: "Reputation" },
+];
+
+const VIEWPORTS = [
+  { width: 390, height: 844, label: "mobile 390x844" },
+  { width: 1440, height: 900, label: "desktop 1440x900" },
+];
+
+test.describe("layout — no horizontal overflow", () => {
+  for (const route of ROUTES) {
+    for (const vp of VIEWPORTS) {
+      test(`${route.label} has no horizontal overflow at ${vp.label}`, async ({ page }) => {
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+        await page.goto(`${BASE_URL}${route.path}`);
+        // Wait for hydration to settle (h1 present) before measuring —
+        // measuring against an unhydrated/partial DOM would under-report.
+        await expect(page.getByRole("heading", { level: 1, name: route.h1 })).toBeVisible();
+        await expectNoHorizontalOverflow(page);
+      });
+    }
+  }
+});
