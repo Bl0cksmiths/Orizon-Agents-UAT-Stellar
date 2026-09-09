@@ -406,3 +406,82 @@ export async function expectAllInteractivesHaveNames(
  * "healthy" server answering with the wrong thing, not a network drop a
  * fetch layer might treat differently.
  */
+export async function blockApi(page: Page): Promise<void> {
+  await page.route("**/api/**", (route) =>
+    route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: "Not Found",
+        error: {
+          code: "not_found",
+          message: "Not Found",
+          request_id: "e2e0000000000000",
+        },
+      }),
+    }),
+  );
+}
+
+/**
+ * Fails every `/api/*` request with the given status. Defaults to 500. Use
+ * this (rather than `blockApi`) when a test needs to distinguish "the
+ * backend answered but errored" from "the backend is unreachable" — the app
+ * is expected to render both as a visible failure, but a regression that
+ * conflates them (e.g. only handling network-level rejection) should show up
+ * as a distinct failing test.
+ */
+export async function failApi(
+  page: Page,
+  status = 500,
+  opts?: { retryAfterSeconds?: number; body?: unknown },
+): Promise<void> {
+  const headers: Record<string, string> =
+    opts?.retryAfterSeconds !== undefined
+      ? { "Retry-After": String(opts.retryAfterSeconds) }
+      : {};
+
+  const body =
+    opts?.body ??
+    (status === 429
+      ? {
+          error: {
+            code: "rate_limited",
+            message: "Too Many Requests",
+            request_id: "e2e0000000000429",
+          },
+        }
+      : {
+          error: {
+            code: "internal_error",
+            message: "Internal Server Error",
+            request_id: "e2e0000000000500",
+          },
+        });
+
+  await page.route("**/api/**", (route) =>
+    route.fulfill({
+      status,
+      contentType: "application/json",
+      headers,
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Wallet session stub
+// ---------------------------------------------------------------------------
+
+/**
+ * Storage key lib/wallet.tsx persists a session under (`STORAGE_KEY` in that
+ * file). Duplicated here rather than imported — these specs run against the
+ * built site, not the source tree — and it is a stable, documented on-disk
+ * contract (`{ walletId, address }`), not an implementation detail likely to
+ * drift silently.
+ */
+const WALLET_STORAGE_KEY = "orizon.wallet.v2";
+
+/**
+ * Seeds `localStorage` with a wallet session BEFORE the app boots, so
+ * `WalletProvider`'s mount effect restores it — `wallet.connected` is true
