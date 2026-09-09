@@ -1,0 +1,20 @@
+{
+  "name": "orizon-agents-uat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "End-to-end UAT suite for the Orizon Agents stack (orizons.xyz).",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:a11y": "playwright test --grep @a11y",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^20.16.10",
+    "typescript": "^5.6.2"
+  }
+}
