@@ -60,3 +60,35 @@ export const APP_ROUTES: RouteEntry[] = ROUTES.filter((r) =>
  * Kept generous (75s) above the documented worst case (60s) to absorb queueing
  * and DNS/TLS on top of the cold start itself.
  */
+export const COLD_START_TIMEOUT = 75_000;
+
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Fails if the page overflows horizontally. A `+1` slop absorbs sub-pixel
+ * rounding between `scrollWidth` and `innerWidth` across engines; anything
+ * beyond that is a real overflow (an unwrapped table, a fixed-width element,
+ * a long unbroken string) that produces a horizontal scrollbar on a live
+ * page — the exact class of bug that only shows up at a viewport width
+ * nobody happened to resize to during development.
+ */
+export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
+  const overflow = await page.evaluate(() => {
+    const doc = document.documentElement;
+    return {
+      scrollWidth: doc.scrollWidth,
+      innerWidth: window.innerWidth,
+    };
+  });
+  expect(
+    overflow.scrollWidth,
+    `document.scrollWidth (${overflow.scrollWidth}) exceeds window.innerWidth (${overflow.innerWidth}) + 1 — horizontal overflow`,
+  ).toBeLessThanOrEqual(overflow.innerWidth + 1);
+}
+
+// ---------------------------------------------------------------------------
+// Console / network error collection
+// ---------------------------------------------------------------------------
+
