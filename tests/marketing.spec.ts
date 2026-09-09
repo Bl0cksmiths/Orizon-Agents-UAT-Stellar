@@ -338,3 +338,113 @@ test.describe("Marquee", () => {
   });
 });
 
+test.describe("Marketing sections: presence and document order", () => {
+  test("renders all eight section headings in the order page.tsx composes them", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const headings = page.getByRole("heading", { level: 2 });
+    await expect(headings).toHaveCount(SECTION_HEADINGS.length);
+    const texts = await headings.allTextContents();
+    for (let i = 0; i < SECTION_HEADINGS.length; i++) {
+      expect(texts[i]).toMatch(SECTION_HEADINGS[i]);
+    }
+  });
+
+  test("each section carries the id its nav anchor targets", async ({ page }) => {
+    await page.goto("/");
+    for (const id of ["problem", "solution", "architecture", "reputation", "use-cases", "roadmap"]) {
+      await expect(page.locator(`section#${id}`)).toBeVisible();
+    }
+  });
+});
+
+test.describe("Final CTA section", () => {
+  test('"Launch Console" and "Browse Agents" resolve to /app and /app/agents', async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const section = page.locator("section", { hasText: "FINAL TRANSMISSION" });
+    await expect(section.getByRole("link", { name: /Launch Console/i })).toHaveAttribute(
+      "href",
+      "/app",
+    );
+    await expect(section.getByRole("link", { name: /Browse Agents/i })).toHaveAttribute(
+      "href",
+      "/app/agents",
+    );
+  });
+});
+
+test.describe("Reputation section deep links", () => {
+  test('"Explore the Reputation System" resolves to /app/reputation', async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const link = page.getByRole("link", { name: /Explore the Reputation System/i });
+    await expect(link).toHaveAttribute("href", "/app/reputation");
+    const response = await page.goto("/app/reputation");
+    expect(response?.ok()).toBeTruthy();
+  });
+
+  test('"View the ledger contract" opens the on-chain explorer in a new tab', async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const link = page.getByRole("link", { name: "View the ledger contract" });
+    // Points off-site to stellar.expert — must open in a new tab with
+    // rel="noopener" so the marketing page can't be reverse-tabnabbed.
+    await expect(link).toHaveAttribute("href", /stellar\.expert\/explorer/);
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", /noopener/);
+  });
+});
+
+test.describe("Footer", () => {
+  test("renders all four link columns", async ({ page }) => {
+    await page.goto("/");
+    const footer = page.locator("footer");
+    for (const col of FOOTER_COLUMNS) {
+      await expect(
+        footer.getByText(col.heading, { exact: true }),
+      ).toBeVisible();
+    }
+  });
+
+  for (const route of INTERNAL_APP_ROUTES) {
+    test(`footer link to ${route} resolves (not a 404)`, async ({ page }) => {
+      await page.goto("/");
+      const footer = page.locator("footer");
+      const col = FOOTER_COLUMNS.find((c) => c.links.some((l) => l.href === route))!;
+      const label = col.links.find((l) => l.href === route)!.label;
+      const link = footer.getByRole("link", { name: label, exact: true });
+      await expect(link).toHaveAttribute("href", route);
+      const response = await page.goto(route);
+      expect(response?.ok()).toBeTruthy();
+    });
+  }
+
+  test("external footer links carry correct hrefs and open safely in a new tab", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const footer = page.locator("footer");
+    for (const col of FOOTER_COLUMNS) {
+      for (const link of col.links) {
+        if (!link.href.startsWith("http")) continue;
+        const locator = footer.getByRole("link", { name: link.label, exact: true });
+        await expect(locator).toHaveAttribute("href", link.href);
+        await expect(locator).toHaveAttribute("target", "_blank");
+        // rel="noreferrer" (footer.tsx) prevents the linked site from reading
+        // document.referrer and from reverse-tabnabbing this tab.
+        await expect(locator).toHaveAttribute("rel", "noreferrer");
+      }
+    }
+  });
+
+  test("renders the build/network status line", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/build 0\.1\.0-alpha/i)).toBeVisible();
+  });
+});
+
