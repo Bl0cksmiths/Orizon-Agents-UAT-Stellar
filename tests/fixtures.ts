@@ -303,3 +303,106 @@ export async function expectAllImagesHaveAlt(page: Page): Promise<void> {
  * announced to a screen reader as just its role ("button") — unusable when
  * there is more than one on the page.
  */
+export async function expectAllInteractivesHaveNames(
+  page: Page,
+): Promise<void> {
+  const offenders = await page.evaluate(() => {
+    function accessibleName(el: Element): string {
+      const ariaLabel = el.getAttribute("aria-label");
+      if (ariaLabel && ariaLabel.trim()) return ariaLabel.trim();
+
+      const labelledBy = el.getAttribute("aria-labelledby");
+      if (labelledBy) {
+        const text = labelledBy
+          .split(/\s+/)
+          .map((id) => document.getElementById(id)?.textContent ?? "")
+          .join(" ")
+          .trim();
+        if (text) return text;
+      }
+
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        // <label for="id"> or a wrapping <label>.
+        if (el.id) {
+          const forLabel = document.querySelector(`label[for="${el.id}"]`);
+          if (forLabel?.textContent?.trim()) return forLabel.textContent.trim();
+        }
+        const wrappingLabel = el.closest("label");
+        if (wrappingLabel?.textContent?.trim())
+          return wrappingLabel.textContent.trim();
+        if (el.placeholder?.trim()) return el.placeholder.trim();
+        if (el.type === "submit" || el.type === "button") {
+          const v = (el as HTMLInputElement).value;
+          if (v?.trim()) return v.trim();
+        }
+      }
+
+      const title = el.getAttribute("title");
+      if (title && title.trim()) return title.trim();
+
+      const text = el.textContent?.trim();
+      if (text) return text;
+
+      // <img alt="..."> inside a link/button counts as its name.
+      const img = el.querySelector("img[alt]");
+      const imgAlt = img?.getAttribute("alt")?.trim();
+      if (imgAlt) return imgAlt;
+
+      return "";
+    }
+
+    function isVisible(el: Element): boolean {
+      const style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden")
+        return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    }
+
+    const selector = [
+      "a[href]",
+      "button",
+      "input:not([type=hidden])",
+      "select",
+      "textarea",
+      '[role="button"]',
+      '[role="link"]',
+      '[role="checkbox"]',
+      '[role="switch"]',
+      '[role="tab"]',
+    ].join(",");
+
+    const els = Array.from(document.querySelectorAll(selector)).filter(
+      (el) =>
+        isVisible(el) &&
+        !el.hasAttribute("disabled") &&
+        el.getAttribute("aria-disabled") !== "true",
+    );
+
+    return els
+      .filter((el) => accessibleName(el) === "")
+      .map(
+        (el) =>
+          `<${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}> ${el.outerHTML.slice(0, 100)}`,
+      );
+  });
+
+  expect(
+    offenders,
+    `interactive elements with no accessible name: ${JSON.stringify(offenders, null, 2)}`,
+  ).toEqual([]);
+}
+
+// ---------------------------------------------------------------------------
+// Network interception — resilience testing
+// ---------------------------------------------------------------------------
+
+/**
+ * Simulates a total backend outage: every `/api/*` request resolves as a 404
+ * carrying the backend's real error envelope shape. Mirrors the production
+ * incident (a misconfigured proxy silently 404ing every API call) that
+ * `e2e/failure-states.spec.ts` in the FE repo was written to catch — routes
+ * intercepted rather than aborted, so the failure looks exactly like a
+ * "healthy" server answering with the wrong thing, not a network drop a
+ * fetch layer might treat differently.
+ */
