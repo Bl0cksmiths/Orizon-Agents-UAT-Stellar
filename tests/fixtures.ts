@@ -485,3 +485,54 @@ const WALLET_STORAGE_KEY = "orizon.wallet.v2";
 /**
  * Seeds `localStorage` with a wallet session BEFORE the app boots, so
  * `WalletProvider`'s mount effect restores it — `wallet.connected` is true
+ * and `wallet.address` is set — without a real wallet extension in CI.
+ *
+ * This only satisfies the app's own "is a wallet connected" check (a
+ * non-empty `address`/`walletId` pair); it does NOT make `signXdr()` work,
+ * since that still calls into the (dynamically imported) wallet-kit module,
+ * which has nothing to talk to without a real extension. Use this for tests
+ * that need `wallet.connected`/`wallet.address` to reach a gated UI state or
+ * a build/simulate request (no signature required), not for a full
+ * sign-and-submit flow.
+ *
+ * Must be called before `page.goto(...)` — it uses `addInitScript`, which
+ * runs before any of the page's own scripts on every subsequent navigation
+ * in this page.
+ */
+export async function stubWalletSession(
+  page: Page,
+  session: { walletId?: string; address?: string } = {},
+): Promise<void> {
+  const value = JSON.stringify({
+    walletId: session.walletId ?? "freighter",
+    // Shaped like a Stellar public key (G + 55 base32 chars) so any display
+    // truncation (`address.slice(0, 6)…`) in the UI looks realistic; the app
+    // performs no strkey validation on the restored session itself.
+    address:
+      session.address ??
+      "GDEADBEEFCAFEBABE0000000000000000000000000000000000000E2ETEST",
+  });
+  await page.addInitScript(
+    ([key, val]) => {
+      window.localStorage.setItem(key, val);
+    },
+    [WALLET_STORAGE_KEY, value] as [string, string],
+  );
+}
+
+/**
+ * Simulates a backend that accepts the connection but never answers —
+ * distinct from a 4xx/5xx (which resolves immediately with an error status)
+ * and distinct from a DNS-level outage (which `blockApi`'s abort would
+ * simulate). Useful for asserting the app eventually shows a timeout/error
+ * state rather than spinning forever, without actually waiting out a real
+ * request's timeout in test time — the caller controls how long the route
+ * hangs before the test itself moves on (e.g. by racing it against an
+ * assertion with a bounded timeout).
+ */
+export async function hangApi(page: Page): Promise<void> {
+  await page.route("**/api/**", () => {
+    // Deliberately never call route.fulfill/continue/abort — the request
+    // stays pending until the page navigates away or the test ends.
+  });
+}
