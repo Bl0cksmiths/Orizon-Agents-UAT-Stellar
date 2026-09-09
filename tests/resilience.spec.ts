@@ -457,3 +457,24 @@ test.describe("performance budgets (regression guardrails, not SLAs — see comm
 // No horizontal overflow across breakpoints
 // ---------------------------------------------------------------------------
 
+const VIEWPORTS = [
+  { width: 390, height: 844, label: "mobile (390x844)" },
+  { width: 768, height: 1024, label: "tablet (768x1024)" },
+  { width: 1440, height: 900, label: "desktop (1440x900)" },
+] as const;
+
+test.describe("layout: no horizontal scrollbar at any tested breakpoint", () => {
+  for (const route of ROUTES) {
+    test(`${route.label} (${route.path}): fits its viewport at mobile, tablet, and desktop widths`, async ({
+      page,
+    }) => {
+      await page.goto(route.path);
+      for (const vp of VIEWPORTS) {
+        // eslint-disable-next-line no-await-in-loop
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+        // eslint-disable-next-line no-await-in-loop
+        await expectNoHorizontalOverflow(page);
+      }
+    });
+  }
+});
