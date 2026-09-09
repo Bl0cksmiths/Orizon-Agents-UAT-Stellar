@@ -437,3 +437,80 @@ test.describe("Trace page without a live task", () => {
 // of silently skipping it.
 // ─────────────────────────────────────────────────────────────────────────
 
+test.describe("Full run: trace tablist and sandboxed artifact preview", () => {
+  test.slow();
+
+  test("trace/artifact tablist has correct ARIA wiring and the artifact iframe is sandboxed", async ({
+    page,
+  }) => {
+    test.setTimeout(FULL_RUN_TIMEOUT_MS);
+    await decomposeCalculatorPlan(page);
+    await page.getByRole("button", { name: /simulate/i }).click();
+    await expect(page).toHaveURL(/\/app\/trace\?task=/, {
+      timeout: FULL_RUN_TIMEOUT_MS,
+    });
+
+    const tablist = page.getByRole("tablist", { name: "Trace views" });
+    // The tablist only mounts once an artifact has arrived over SSE/polling
+    // — this is the slow part of this test.
+    await expect(tablist).toBeVisible({ timeout: FULL_RUN_TIMEOUT_MS });
+
+    const traceTab = page.getByRole("tab", { name: "▸ trace log" });
+    const artifactTab = page.getByRole("tab", { name: "▣ artifact" });
+    await expect(traceTab).toHaveAttribute("aria-controls", /.+/);
+    await expect(artifactTab).toHaveAttribute("aria-controls", /.+/);
+
+    // trace/page.tsx auto-switches to the artifact tab once the artifact
+    // arrives (useEffect keyed on artifactData). Regression: aria-selected
+    // must track the actual rendered tab, or assistive tech announces the
+    // wrong panel as active.
+    await expect(artifactTab).toHaveAttribute("aria-selected", "true");
+    await expect(traceTab).toHaveAttribute("aria-selected", "false");
+
+    const artifactTabId = await artifactTab.getAttribute("id");
+    expect(artifactTabId, "artifact tab should have an id").toBeTruthy();
+    const artifactPanel = page.getByRole("tabpanel");
+    await expect(artifactPanel).toBeVisible();
+    await expect(artifactPanel).toHaveAttribute(
+      "aria-labelledby",
+      artifactTabId as string,
+    );
+
+    // Arrow-key navigation, per trace/page.tsx onTabKeyDown: ArrowLeft from
+    // "artifact" (index 1) wraps to "trace" (index 0) and moves focus.
+    await artifactTab.focus();
+    await page.keyboard.press("ArrowLeft");
+    await expect(traceTab).toHaveAttribute("aria-selected", "true");
+    await expect(traceTab).toBeFocused();
+
+    await page.keyboard.press("ArrowRight");
+    await expect(artifactTab).toHaveAttribute("aria-selected", "true");
+    await expect(artifactTab).toBeFocused();
+
+    // Home/End jump to the first/last tab regardless of current position.
+    await page.keyboard.press("Home");
+    await expect(traceTab).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("End");
+    await expect(artifactTab).toHaveAttribute("aria-selected", "true");
+
+    // ── The security-critical assertion in this suite ──
+    // artifact-viewer.tsx renders the generated HTML via
+    // `sandbox="allow-scripts"` with NO `allow-same-origin`. That
+    // combination is what stops the sandboxed document (arbitrary
+    // agent-generated HTML/JS) from ever holding a token that is
+    // simultaneously "can run script" AND "shares this page's origin" —
+    // the classic sandbox-escape pattern. A regression that adds
+    // allow-same-origin back (even for a legitimate-looking reason, e.g.
+    // "fonts wouldn't load") would let generated code read/write this
+    // page's cookies, localStorage, and DOM.
+    const iframeEl = page.locator("iframe");
+    await expect(iframeEl).toHaveAttribute("sandbox", "allow-scripts");
+    const sandboxValue = await iframeEl.getAttribute("sandbox");
+    expect(sandboxValue).not.toContain("allow-same-origin");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Responsive: no horizontal overflow
+// ─────────────────────────────────────────────────────────────────────────
+
