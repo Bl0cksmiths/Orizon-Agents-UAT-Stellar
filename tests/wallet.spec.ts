@@ -172,3 +172,89 @@ test.describe('/app/send — validation logic (untestable without a wallet)', ()
   );
 });
 
+test.describe('/app/pdax — degrades honestly when data reads are unauthenticated/failed', () => {
+  test('renders exactly one h1 and all four panel headings — no white screen', async ({ page }) => {
+    await page.goto(PDAX_URL);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('PDAX Ramp');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+
+    // Regression: a thrown render error (e.g. balances being undefined
+    // instead of null) would white-screen the whole route via the nearest
+    // error boundary — asserting every panel header is present rules that
+    // out directly instead of inferring it from "the page didn't crash".
+    await expect(page.getByText('environment', { exact: true })).toBeVisible();
+    await expect(page.getByText('balances', { exact: true })).toBeVisible();
+    await expect(page.getByText('ramp · PHP ⇄ USDCXLM')).toBeVisible();
+    await expect(page.getByText('price & quote', { exact: false })).toBeVisible();
+    await expect(page.getByText('crypto deposit address')).toBeVisible();
+    await expect(page.getByText('crypto transactions')).toBeVisible();
+  });
+
+  test('the balances panel never fabricates a number — it settles to real rows, "No assets.", or "Balances unavailable"', async ({ page }) => {
+    await page.goto(PDAX_URL);
+
+    // The three honest end-states for a PHP-key-gated read per page.tsx:
+    // real currency rows, the explicit empty state, or the explicit failure
+    // state. A skeleton-forever or a lone "0" with no label belongs to none
+    // of them, so this or() must resolve to exactly one of the three.
+    const noAssets = page.getByText('No assets.');
+    const unavailable = page.getByText('Balances unavailable', { exact: false });
+    const currencyRow = page.getByText('avail', { exact: false });
+
+    await expect(noAssets.or(unavailable).or(currencyRow.first())).toBeVisible({
+      timeout: COLD_START_TIMEOUT, // cold backend — see file header
+    });
+  });
+
+  test('an unauthenticated environment/health/balances read surfaces a role=alert banner naming which call failed, not a silent void', async ({ page }) => {
+    await page.goto(PDAX_URL);
+    // Wait for the env fetch to settle (success or failure) before judging
+    // whether any alert *should* be present — see the value-agnostic
+    // "loading…" wait explained in the a11y test below. Without this, the
+    // assertion below can run before a cold (25-60s) backend has answered
+    // and trivially pass with zero alerts regardless of the real outcome.
+    await expect(page.getByText('loading…', { exact: true })).toHaveCount(0, {
+      timeout: COLD_START_TIMEOUT, // cold backend — see file header
+    });
+
+    // page.tsx's `failures` array renders one ErrorNote (role="alert") per
+    // failed fetch, each labelled "environment" / "health" / "balances" —
+    // this is the page's actual truthful-degradation mechanism for API-key
+    // gated reads. We only assert the *shape* holds (a labelled alert, if
+    // any fetch failed) since whether the backend key is configured varies
+    // by deploy and must not be hardcoded as an expectation either way.
+    const alerts = page.getByRole('alert');
+    const alertCount = await alerts.count();
+    if (alertCount > 0) {
+      const text = await alerts.first().innerText();
+      // Regression: a bare "Error" or empty alert body gives the user
+      // nothing actionable — page.tsx always prefixes with the failing
+      // call's label ("environment — …", "health — …", "balances — …").
+      expect(text).toMatch(/^(environment|health|balances) — /);
+    }
+  });
+
+  test('the "crypto transactions" panel starts truthfully empty ("No transactions loaded yet.") rather than pre-fetching and risking a fabricated 0-row table', async ({ page }) => {
+    await page.goto(PDAX_URL);
+    // useAsyncAction-backed panel: `txns` is null until "load" is clicked.
+    // Asserting the literal empty-state copy (not just "no rows") catches a
+    // regression that silently auto-fires the fetch on mount, which would
+    // hit the API-key-gated endpoint unauthenticated on every page view.
+    await expect(page.getByText('No transactions loaded yet.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'load' })).toBeVisible();
+  });
+
+  test('the deposit-address and price panels start with no fabricated address/price — only after an explicit action', async ({ page }) => {
+    await page.goto(PDAX_URL);
+    // Neither DepositPanel nor PricePanel auto-fetch (both are
+    // useAsyncAction, click-driven) — on load there must be no address,
+    // no "firm"/"indicative" badge, and no price figure anywhere yet.
+    await expect(page.getByText('copy address')).toHaveCount(0);
+    await expect(page.getByText('firm', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('indicative', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'get address' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'indicative price' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'firm quote' })).toBeVisible();
+  });
+});
+
