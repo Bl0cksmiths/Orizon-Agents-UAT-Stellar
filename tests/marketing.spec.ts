@@ -623,3 +623,15 @@ test.describe("Accessibility smoke", () => {
   test("every link has an accessible name", async ({ page }) => {
     await page.goto("/");
     const links = page.locator("a[href]");
+    const count = await links.count();
+    for (let i = 0; i < count; i++) {
+      const link = links.nth(i);
+      const accessibleName = await link.evaluate((el) => {
+        const aria = el.getAttribute("aria-label");
+        if (aria && aria.trim()) return aria.trim();
+        return (el.textContent ?? "").trim();
+      });
+      expect(accessibleName, `link with href="${await link.getAttribute("href")}" has no accessible name`).not.toBe("");
+    }
+  });
+});
