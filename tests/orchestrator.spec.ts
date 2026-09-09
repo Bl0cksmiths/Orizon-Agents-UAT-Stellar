@@ -86,3 +86,115 @@ async function decomposeCalculatorPlan(page: Page) {
 // /app/orchestrator — intent form
 // ─────────────────────────────────────────────────────────────────────────
 
+test.describe("Orchestrator intent form", () => {
+  test("renders the intent textarea with an associated label", async ({
+    page,
+  }) => {
+    await gotoOrchestrator(page);
+    // getByLabel resolves via the <label htmlFor="intent"> / <textarea
+    // id="intent"> pairing in page.tsx. Regression this catches: the label
+    // and textarea silently losing their htmlFor/id link, which would make
+    // the field anonymous to screen readers even though it looks fine.
+    const intent = page.getByLabel(/intent/i);
+    await expect(intent).toBeVisible();
+    await expect(intent).toHaveAttribute(
+      "placeholder",
+      'e.g. "code a calculator web app"',
+    );
+  });
+
+  test("has exactly one h1 reading Orchestrator", async ({ page }) => {
+    await gotoOrchestrator(page);
+    const h1 = page.getByRole("heading", { level: 1 });
+    await expect(h1).toHaveCount(1);
+    await expect(h1).toHaveText("Orchestrator");
+  });
+
+  for (const intent of PRESET_INTENTS) {
+    test(`preset button "${intent}" populates the textarea verbatim`, async ({
+      page,
+    }) => {
+      await gotoOrchestrator(page);
+      // Accessible name is "▸ {intent}" (page.tsx prefixes every preset with
+      // the ▸ glyph), so match by substring rather than the exact string.
+      await page.getByRole("button", { name: intent }).click();
+      // Regression: a preset that populates the wrong string (or a
+      // truncated one) would silently send a different — possibly
+      // non-demo-kit, LLM-routed — intent to decompose.
+      await expect(page.getByLabel(/intent/i)).toHaveValue(intent);
+    });
+  }
+
+  test("Enter submits the form", async ({ page }) => {
+    await gotoOrchestrator(page);
+    await page.getByRole("button", { name: "calculator web app" }).click();
+    const textarea = page.getByLabel(/intent/i);
+    await textarea.press("Enter");
+    // Regression: if Enter stopped submitting, users would be forced to
+    // reach for the mouse for every single decompose — the textarea's
+    // whole reason for intercepting Enter (page.tsx `submitOnEnter`) would
+    // be dead code.
+    await expect(
+      page.getByRole("button", { name: /Decomposing/ }),
+    ).toBeVisible();
+  });
+
+  test("Shift+Enter inserts a newline instead of submitting", async ({
+    page,
+  }) => {
+    await gotoOrchestrator(page);
+    const textarea = page.getByLabel(/intent/i);
+    await textarea.fill("line one");
+    await textarea.press("Shift+Enter");
+    await textarea.type("line two");
+    // Regression: this is explicit, commented behavior in page.tsx
+    // (submitOnEnter checks `!e.shiftKey`) — losing it would make
+    // multi-line intents impossible to compose.
+    await expect(textarea).toHaveValue("line one\nline two");
+    // And critically: it must not have submitted.
+    await expect(
+      page.getByRole("button", { name: "Decompose ▸" }),
+    ).toBeEnabled();
+  });
+
+  test("submit is disabled while the intent is empty or whitespace-only", async ({
+    page,
+  }) => {
+    await gotoOrchestrator(page);
+    const submit = page.getByRole("button", { name: /Decompose/ });
+    // Regression: an enabled submit on an empty textarea lets a blank
+    // intent reach POST /orchestrator/decompose, which the backend has
+    // nothing meaningful to plan against.
+    await expect(submit).toBeDisabled();
+
+    const textarea = page.getByLabel(/intent/i);
+    await textarea.fill("   ");
+    await expect(submit).toBeDisabled();
+
+    await textarea.fill("calculator web app");
+    await expect(submit).toBeEnabled();
+
+    await textarea.fill("");
+    await expect(submit).toBeDisabled();
+  });
+
+  test("submit is disabled and shows a pending label while decompose is in flight", async ({
+    page,
+  }) => {
+    await gotoOrchestrator(page);
+    await page.getByRole("button", { name: "calculator web app" }).click();
+    await page.getByRole("button", { name: "Decompose ▸" }).click();
+    // Regression: a submit left enabled mid-flight lets a second click fire
+    // an overlapping decompose request (use-async-action.ts explicitly
+    // guards against overlapping runs winning out of order — the button
+    // should never let a user create that race in the first place).
+    const pending = page.getByRole("button", { name: /Decomposing/ });
+    await expect(pending).toBeVisible();
+    await expect(pending).toBeDisabled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// /app/orchestrator — decompose result (demo-kit intent, deterministic)
+// ─────────────────────────────────────────────────────────────────────────
+
