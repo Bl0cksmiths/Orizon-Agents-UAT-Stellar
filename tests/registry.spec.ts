@@ -253,3 +253,183 @@ test.describe("/app/agents — registry table", () => {
 // /app/register
 // ─────────────────────────────────────────────────────────────────────────
 
+test.describe("/app/register — registration form", () => {
+  test("renders every field behind a real <label>, plus the connect-wallet prompt", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/register`);
+    await expect(page.getByRole("heading", { level: 1, name: "Register an Agent" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+
+    // getByLabel only resolves when a real <label htmlFor> (or aria-label)
+    // wires to the control — this is the label-association check itself.
+    await expect(page.getByLabel("agent id")).toBeVisible();
+    await expect(page.getByLabel("display name")).toBeVisible();
+    await expect(page.getByLabel("skills")).toBeVisible();
+    await expect(page.getByLabel("price per step (USDC)")).toBeVisible();
+
+    await expect(page.getByRole("button", { name: "Connect Wallet" })).toBeVisible();
+    // Two separate elements both contain the substring "connect a wallet"
+    // (the owner-status line and the submit-button hint) — the longer,
+    // unique string avoids a strict-mode multi-match here.
+    await expect(page.getByText("connect a wallet to register")).toBeVisible();
+
+    // Submit is gated shut before anything has been entered.
+    await expect(page.getByRole("button", { name: /Register agent/i })).toBeDisabled();
+  });
+
+  test("flags a malformed agent id with the exact charset message, announced as an alert", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/register`);
+    const idField = page.getByLabel("agent id");
+    await idField.fill("bad id!");
+    await idField.blur();
+
+    // ErrorNote renders role="alert" — this is the aria-live surface the
+    // source uses for every validation message (checked in
+    // components/ui/error-note.tsx).
+    const alert = page.getByRole("alert").filter({
+      hasText: "Letters, digits and underscore only, 1-32 characters",
+    });
+    await expect(alert).toBeVisible();
+  });
+
+  test("flags the agt_ prefix as reserved for the seeded catalog", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/register`);
+    const idField = page.getByLabel("agent id");
+    await idField.fill("agt_anything");
+    await idField.blur();
+
+    // Reserved is checked before charset (source comment: id_reserved
+    // pre-empts the pattern check), so this exact message must win even
+    // though "agt_anything" is also charset-valid.
+    await expect(
+      page.getByRole("alert").filter({
+        hasText: "agt_ ids are reserved for the seeded catalog",
+      }),
+    ).toBeVisible();
+  });
+
+  test("flags a display name over 100 characters with the exact length message", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/register`);
+    const nameField = page.getByLabel("display name");
+    await nameField.fill("x".repeat(101));
+    await nameField.blur();
+
+    await expect(
+      page.getByRole("alert").filter({ hasText: "100 characters maximum" }),
+    ).toBeVisible();
+  });
+
+  test("flags a non-positive price with the exact message", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/register`);
+    const priceField = page.getByLabel("price per step (USDC)");
+    // The price input strips every non-digit/non-"." character as you type
+    // (register/page.tsx: `.replace(/[^0-9.]/g, "")`), so a literal "-5" can
+    // never actually land in the field — "0" is the reachable non-positive
+    // case through real keyboard input.
+    await priceField.fill("0");
+    await priceField.blur();
+
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Price must be greater than 0" }),
+    ).toBeVisible();
+  });
+
+  test("flags a price above the 10000 USDC cap with the exact message", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/register`);
+    const priceField = page.getByLabel("price per step (USDC)");
+    await priceField.fill("10000.01");
+    await priceField.blur();
+
+    await expect(
+      page.getByRole("alert").filter({ hasText: "10000 USDC maximum" }),
+    ).toBeVisible();
+  });
+
+  test("skills: an empty list is valid — no error is shown", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/register`);
+    // lib/register-validation.ts's validateSkills explicitly allows an empty
+    // list ("the backend defaults `skills` to an empty list") — this is the
+    // opposite of an error case. Asserting it stays this way guards against a
+    // regression that starts requiring at least one skill client-side out of
+    // step with the backend contract.
+    const skillsField = page.getByLabel("skills");
+    await skillsField.click();
+    await skillsField.blur();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+
+  test("skills: a 17th chip is silently rejected rather than surfacing a message", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/register`);
+    const skillsField = page.getByLabel("skills");
+    for (let i = 0; i < 17; i++) {
+      await skillsField.fill(`skill${i}`);
+      await skillsField.press("Enter");
+    }
+
+    // Regression this catches: SkillsInput caps additions at 16
+    // (`next.length >= max`) but the register page never marks the skills
+    // field "touched" (no onBlur handler wires touch("skills") — checked in
+    // app/app/register/page.tsx), so `validateSkills`'s "16 skills maximum"
+    // message can never actually render. If a future edit makes 17 skills
+    // reachable, this assertion is what would catch skills silently
+    // exceeding the backend's cap with no operator-visible feedback.
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    // The cap is only ever surfaced via aria-invalid on the field itself —
+    // SkillsInput's own `rejected` state, set independently of the page's
+    // (broken) touched-skills wiring above.
+    await expect(skillsField).toHaveAttribute("aria-invalid", "true");
+    // Exactly 16 chips landed — the 17th token was refused, not appended.
+    await expect(page.getByRole("button", { name: /^remove skill\d+$/ })).toHaveCount(16);
+  });
+
+  test("the id-availability check announces 'checking availability' immediately on blur", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/register`);
+    const idField = page.getByLabel("agent id");
+    await idField.fill(freshAgentId());
+    await idField.blur();
+
+    // useAsyncAction sets `pending: true` synchronously inside run(), before
+    // the network call resolves, so this text is not itself waiting on the
+    // (possibly cold-starting) backend — only its eventual replacement is.
+    await expect(page.getByText("◉ checking availability…")).toBeVisible();
+  });
+
+  test("a fresh id resolves to available, and the submit button stays disabled without a wallet", async ({ page }) => {
+    // Generous overall budget: this exercises the real GET
+    // /stellar/agent-id-available/<id> round trip, which can cold-start
+    // 25-60s on first hit.
+    test.setTimeout(120_000);
+    await page.goto(`${BASE_URL}/app/register`);
+
+    await page.getByLabel("agent id").fill(freshAgentId());
+    await page.getByLabel("agent id").blur();
+    await expect(page.getByText("✓ available")).toBeVisible({ timeout: COLD_START_TIMEOUT });
+
+    await page.getByLabel("display name").fill("QA Test Agent");
+    await page.getByLabel("skills").fill("qa");
+    await page.getByLabel("skills").press("Enter");
+    await page.getByLabel("price per step (USDC)").fill("1.5");
+    await page.getByLabel("price per step (USDC)").blur();
+
+    // Every synchronous field is valid and the id is confirmed available —
+    // the only remaining gate is the connected wallet. This is the
+    // regression that matters most on this form: submit must never become
+    // clickable while wallet.connected is false, however "ready" the rest of
+    // the form looks.
+    const submit = page.getByRole("button", { name: /Register agent/i });
+    await expect(submit).toBeDisabled();
+    await expect(page.getByText("connect a wallet to register")).toBeVisible();
+  });
+
+  test("keyboard-only navigation reaches the submit button", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/register`);
+    await page.getByLabel("agent id").focus();
+    const submit = page.getByRole("button", { name: /Register agent/i });
+    const reached = await tabUntilFocused(page, submit);
+    expect(reached).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// /app/reputation
+// ─────────────────────────────────────────────────────────────────────────
+
