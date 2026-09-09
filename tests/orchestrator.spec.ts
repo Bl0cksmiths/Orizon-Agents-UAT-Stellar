@@ -514,3 +514,105 @@ test.describe("Full run: trace tablist and sandboxed artifact preview", () => {
 // Responsive: no horizontal overflow
 // ─────────────────────────────────────────────────────────────────────────
 
+test.describe("No horizontal overflow", () => {
+  const viewports = [
+    { name: "mobile 390x844", width: 390, height: 844 },
+    { name: "desktop 1440x900", width: 1440, height: 900 },
+  ];
+  const routes = [
+    { name: "orchestrator", path: "/app/orchestrator" },
+    { name: "trace (demo)", path: "/app/trace" },
+  ];
+
+  for (const vp of viewports) {
+    for (const route of routes) {
+      test(`${route.name} has no horizontal scroll at ${vp.name}`, async ({
+        page,
+      }) => {
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+        await page.goto(`${BASE_URL}${route.path}`);
+        await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+
+        // Regression this catches: globals.css sets `overflow-x: hidden` on
+        // the document, which SILENTLY CLIPS overflow instead of scrolling
+        // it (see the comment on TraceRow in trace/page.tsx about exactly
+        // this happening to trace timestamps on a 380px viewport). A
+        // scrollWidth that exceeds clientWidth means real content is being
+        // clipped off-screen right now, invisibly.
+        await expect
+          .poll(
+            async () =>
+              page.evaluate(
+                () =>
+                  document.documentElement.scrollWidth -
+                  document.documentElement.clientWidth,
+              ),
+            {
+              message: `${route.name} at ${vp.name} should not overflow horizontally`,
+              timeout: 15_000,
+            },
+          )
+          .toBeLessThanOrEqual(1);
+      });
+    }
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Accessibility
+// ─────────────────────────────────────────────────────────────────────────
+
+test.describe("Accessibility", () => {
+  test("orchestrator page has one h1 and a labelled intent control", async ({
+    page,
+  }) => {
+    await gotoOrchestrator(page);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(page.getByLabel(/intent/i)).toBeVisible();
+  });
+
+  test("trace page has exactly one h1", async ({ page }) => {
+    await page.goto(`${BASE_URL}/app/trace`);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  });
+
+  test("submit button is keyboard-reachable by Tab from the intent field", async ({
+    page,
+  }) => {
+    await gotoOrchestrator(page);
+    const textarea = page.getByLabel(/intent/i);
+    await textarea.focus();
+    await expect(textarea).toBeFocused();
+
+    // DOM order in page.tsx: textarea → 4 preset buttons → submit button.
+    // Regression: a positive tabindex or an off-order insertion anywhere
+    // in that chain would strand keyboard users before ever reaching
+    // submit.
+    for (let i = 0; i < PRESET_INTENTS.length + 1; i++) {
+      await page.keyboard.press("Tab");
+    }
+    await expect(
+      page.getByRole("button", { name: "Decompose ▸" }),
+    ).toBeFocused();
+  });
+
+  test("the focused submit button shows a visible focus indicator", async ({
+    page,
+  }) => {
+    await gotoOrchestrator(page);
+    await page.getByRole("button", { name: "calculator web app" }).click();
+    const submit = page.getByRole("button", { name: "Decompose ▸" });
+    await submit.focus();
+    await expect(submit).toBeFocused();
+
+    // Regression: the shared `focusRing` class (lib/ui.ts) is this app's
+    // only visible focus signal on a dark, low-chrome UI — losing it (e.g.
+    // an `outline: none` override with no replacement) leaves keyboard
+    // users with no way to see where focus is.
+    const outlineStyle = await submit.evaluate(
+      (el) => getComputedStyle(el).outlineStyle,
+    );
+    const boxShadow = await submit.evaluate(
+      (el) => getComputedStyle(el).boxShadow,
+    );
+    const hasVisibleFocus =
