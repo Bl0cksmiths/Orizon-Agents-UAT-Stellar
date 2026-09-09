@@ -348,3 +348,112 @@ test.describe("resilience: a 429 tells the user how long to wait, not that somet
  * unshaped payload) — that's fine, only render-completion timing is
  * asserted here, not content correctness.
  */
+const PERF_BUDGET_MS = {
+  // Time to an interactive DOM (scripts parsed, DOMContentLoaded fired).
+  domContentLoaded: 4_000,
+  // Time to the `load` event (all sync sub-resources settled).
+  load: 6_000,
+  // Largest Contentful Paint — the single number users equate with "loaded".
+  lcp: 3_500,
+  // Time to first byte of the navigation document itself (hosting/CDN, not
+  // app code) — kept separate so a slow TTFB doesn't get misread as a slow
+  // app.
+  ttfb: 2_000,
+} as const;
+
+async function stubFastApi(page: Page): Promise<void> {
+  await page.route("**/api/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "{}",
+    }),
+  );
+}
+
+async function measurePerf(page: Page): Promise<{
+  ttfb: number;
+  domContentLoaded: number;
+  load: number;
+  lcp: number;
+}> {
+  return page.evaluate(() => {
+    const [nav] = performance.getEntriesByType(
+      "navigation",
+    ) as PerformanceNavigationTiming[];
+    const lcpEntries = performance.getEntriesByType(
+      "largest-contentful-paint",
+    ) as PerformanceEntry[];
+    const last = lcpEntries[lcpEntries.length - 1] as
+      | (PerformanceEntry & { renderTime?: number; loadTime?: number })
+      | undefined;
+    return {
+      ttfb: nav ? nav.responseStart - nav.startTime : NaN,
+      domContentLoaded: nav
+        ? nav.domContentLoadedEventEnd - nav.startTime
+        : NaN,
+      load: nav ? nav.loadEventEnd - nav.startTime : NaN,
+      lcp: last ? last.renderTime || last.loadTime || 0 : 0,
+    };
+  });
+}
+
+test.describe("performance budgets (regression guardrails, not SLAs — see comment above PERF_BUDGET_MS)", () => {
+  for (const route of ROUTES) {
+    test(`${route.label} (${route.path}): navigation timing and LCP stay within budget`, async ({
+      page,
+    }) => {
+      // Set up the LCP observer before any page script runs, or early paints
+      // are missed entirely.
+      await page.addInitScript(() => {
+        (window as unknown as { __lcpObserved?: boolean }).__lcpObserved =
+          true;
+        try {
+          new PerformanceObserver(() => {
+            /* buffered entries are read directly from the timeline in
+               measurePerf; this observer's only job is to force the browser
+               to keep recording LCP candidates past first input, per the
+               API's own semantics. */
+          }).observe({
+            type: "largest-contentful-paint",
+            buffered: true,
+          } as PerformanceObserverInit);
+        } catch {
+          // LCP unsupported in this engine — lcp reads back as 0 and the
+          // budget check is skipped below.
+        }
+      });
+
+      if (route.path.startsWith("/app")) {
+        await stubFastApi(page);
+      }
+      await page.goto(route.path, { waitUntil: "load" });
+
+      const perf = await measurePerf(page);
+
+      expect(
+        perf.ttfb,
+        `TTFB ${perf.ttfb.toFixed(0)}ms exceeds ${PERF_BUDGET_MS.ttfb}ms budget`,
+      ).toBeLessThanOrEqual(PERF_BUDGET_MS.ttfb);
+      expect(
+        perf.domContentLoaded,
+        `DOMContentLoaded ${perf.domContentLoaded.toFixed(0)}ms exceeds ${PERF_BUDGET_MS.domContentLoaded}ms budget`,
+      ).toBeLessThanOrEqual(PERF_BUDGET_MS.domContentLoaded);
+      expect(
+        perf.load,
+        `load ${perf.load.toFixed(0)}ms exceeds ${PERF_BUDGET_MS.load}ms budget`,
+      ).toBeLessThanOrEqual(PERF_BUDGET_MS.load);
+      if (perf.lcp > 0) {
+        expect(
+          perf.lcp,
+          `LCP ${perf.lcp.toFixed(0)}ms exceeds ${PERF_BUDGET_MS.lcp}ms budget`,
+        ).toBeLessThanOrEqual(PERF_BUDGET_MS.lcp);
+      }
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// No horizontal overflow across breakpoints
+// ---------------------------------------------------------------------------
+
