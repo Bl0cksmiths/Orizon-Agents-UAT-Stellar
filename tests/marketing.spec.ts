@@ -245,3 +245,96 @@ test.describe("Structured data (JSON-LD)", () => {
   });
 });
 
+test.describe("Primary navigation", () => {
+  test("renders the desktop nav with all five section links", async ({ page }) => {
+    await page.goto("/");
+    const desktopNav = page.getByRole("navigation").first();
+    for (const link of NAV_LINKS) {
+      await expect(
+        desktopNav.getByRole("link", { name: link.label, exact: true }),
+      ).toHaveAttribute("href", link.href);
+    }
+  });
+
+  for (const link of NAV_LINKS) {
+    test(`"${link.label}" nav link scrolls to the #${link.sectionId} section`, async ({
+      page,
+    }) => {
+      await page.goto("/");
+      const desktopNav = page.getByRole("navigation").first();
+      await desktopNav.getByRole("link", { name: link.label, exact: true }).click();
+      // In-page hash navigation must update the URL...
+      await expect(page).toHaveURL(new RegExp(`${link.href}$`));
+      // ...and actually land on the target section, not just change the URL.
+      await expect(page.locator(`#${link.sectionId}`)).toBeInViewport();
+    });
+  }
+
+  test('"Launch App" CTA resolves to the /app console', async ({ page }) => {
+    await page.goto("/");
+    const launchLink = page
+      .locator("header")
+      .getByRole("link", { name: /Launch App/i });
+    await expect(launchLink).toHaveAttribute("href", "/app");
+    // Navigate directly rather than clicking + waitForNavigation: Next.js
+    // <Link> routes client-side via the History API, which Playwright's
+    // navigation-lifecycle events don't reliably observe.
+    const response = await page.goto("/app");
+    expect(response?.ok()).toBeTruthy();
+  });
+});
+
+test.describe("Hero", () => {
+  test("renders the hero headline and supporting copy", async ({ page }) => {
+    await page.goto("/");
+    await expect(
+      page.getByRole("heading", { level: 1, name: /orchestration.*autonomous/is }),
+    ).toBeVisible();
+    await expect(page.getByText("System online · v0.1")).toBeVisible();
+  });
+
+  test('"Launch Console" primary CTA resolves to /app', async ({ page }) => {
+    await page.goto("/");
+    const cta = page.getByRole("link", { name: /Launch Console/i }).first();
+    await expect(cta).toHaveAttribute("href", "/app");
+    const response = await page.goto(await cta.getAttribute("href") as string);
+    expect(response?.ok()).toBeTruthy();
+  });
+
+  test('"See how it works" secondary CTA scrolls to the Solution section', async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const cta = page.getByRole("link", { name: "See how it works" });
+    await expect(cta).toHaveAttribute("href", "#solution");
+    await cta.click();
+    await expect(page.locator("#solution")).toBeInViewport();
+  });
+});
+
+test.describe("Marquee", () => {
+  // Five of the twelve agent tags (seo.brief, copywrite.v3, design.figma,
+  // code.next, deploy.v0) are *also* rendered verbatim in the Hero's
+  // CodeBlock demo and in the default-active Use Cases chain, so an
+  // unscoped page-wide text lookup would over-count. components/ui/marquee.tsx
+  // has no landmark role/label to anchor on, so this scopes to its one
+  // functional CSS hook (the seamless-loop animation class) rather than
+  // matching on styling.
+  const MARQUEE_TRACK_SELECTOR = ".animate-marquee";
+
+  test("renders every agent capability tag, doubled for the seamless loop", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const marqueeTrack = page.locator(MARQUEE_TRACK_SELECTOR);
+    await expect(marqueeTrack).toBeVisible();
+    for (const tag of AGENT_TAGS) {
+      // components/ui/marquee.tsx renders `[...items, ...items]` so the CSS
+      // animation can loop without a visible seam — each tag must appear
+      // exactly twice within the marquee track, not once (broken loop) or a
+      // stray extra time.
+      await expect(marqueeTrack.getByText(tag, { exact: false })).toHaveCount(2);
+    }
+  });
+});
+
