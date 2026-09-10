@@ -368,4 +368,32 @@ test.describe("AZ — authorization and API contract", () => {
       expect(body.error.request_id, `${label}: request id`).toBeTruthy();
     }
   });
+
+  test("AM-06 build/set-active rejects invalid input with 422 in the standard envelope", async ({ request }) => {
+    // Same field-validation-before-simulate contract as update-price (see
+    // SetActiveReq in app/routers/stellar.py); set-active carries no price
+    // field, so only the shared agent-id/owner cases apply here.
+    const cases: { label: string; data: Record<string, unknown> }[] = [
+      {
+        label: "bad agent-id charset",
+        data: { owner: ONCHAIN_AGENT_OWNER, agent_id: "bad id!", active: false },
+      },
+      {
+        label: "malformed owner address",
+        data: { owner: "not-a-valid-address", agent_id: ONCHAIN_AGENT_ID, active: false },
+      },
+    ];
+
+    for (const { label, data } of cases) {
+      const response = await request.post("/api/stellar/build/set-active", {
+        timeout: COLD_START_TIMEOUT,
+        data,
+      });
+      expect(response.status(), `${label}: expected 422`).toBe(422);
+      const body = await response.json();
+      expect(body.error.code, `${label}: error code`).toBe("validation_error");
+      expect(body.error.message, `${label}: error message`).toBeTruthy();
+      expect(body.error.request_id, `${label}: request id`).toBeTruthy();
+    }
+  });
 });
