@@ -559,7 +559,7 @@ test.describe("/app/reputation — score calculator", () => {
 });
 
 test.describe("/app/reputation — leaderboard and stats", () => {
-  test("render real data or a truthful empty/error state, never a blank page", async ({ page }) => {
+  test("RG-09 render real data or a truthful empty/error state, never a blank page", async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto(`${BASE_URL}/app/reputation`);
 
