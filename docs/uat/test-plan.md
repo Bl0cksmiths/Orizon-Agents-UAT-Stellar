@@ -395,3 +395,35 @@ Then it passes on all three.
 | Critical | A core journey is unusable with no workaround, or a security control does not hold. |
 | Major | A journey is degraded or a non-core feature is broken; a workaround exists. |
 | Minor | Cosmetic, copy, or a low-impact inconsistency with no functional effect. |
+
+## Acceptance criteria — AM, operator agent management (parent 6.01, verifies 1.08)
+
+**AM-01** — Given a connected wallet whose address equals an agent's on-chain
+owner, When its row is opened on `/app/agents`, Then a management action is
+offered (change price, delist/relist).
+
+**AM-02** — Given an agent the connected wallet does not own — including every
+seeded agent, which has no on-chain owner at all — Then no management action is
+present anywhere on that row.
+
+**AM-03** — Given the price control, When it is read, Then the confirmation
+states that a price change applies to future plans only and that a buyer who
+already authorized a workflow is charged the price they signed against.
+
+**AM-04** — Given the delist control, When delist is chosen, Then the
+confirmation states that in-flight authorized work is unaffected and that
+reputation and history are retained, and never presents the action as a delete.
+
+**AM-05** — Given a signed price change or delist, When the transaction lands,
+Then the marketplace listing and future plans reflect it, and relisting
+restores a delisted agent.
+
+**AM-06** — Given an unregistered agent id sent directly to
+`/api/stellar/build/update-price` or `/build/set-active`, Then the response is
+a plain `agent_not_found` 404 in the standard error envelope, not an opaque
+build failure.
+
+AM-05 is blocked: it requires signing a real transaction, and the target
+reports mainnet while this programme is testnet-only (D-001). AM-03 and AM-04
+are split — the confirmation copy is verified now; the on-chain landing is
+blocked with AM-05. No test may click a control that triggers a signature.
