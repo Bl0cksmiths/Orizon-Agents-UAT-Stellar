@@ -91,4 +91,32 @@ test.describe("AZ — authorization and API contract", () => {
       expect(body.detail, `${route.method} ${route.path} detail`).toBeTruthy();
     }
   });
+
+  test("AZ-03 every error body carries the unified envelope", async ({ request }) => {
+    // Deliberately spans the distinct error paths app/main.py's handlers
+    // produce (401 from a dependency, 422 from RequestValidationError, 404
+    // and 400 from a raised HTTPException) so the assertion is on the
+    // envelope contract itself, not on one lucky status code.
+    const responses = await Promise.all([
+      request.post("/api/stellar/server/charge", { timeout: COLD_START_TIMEOUT, data: {} }), // 401
+      request.get(`/api/stellar/agent/${encodeURIComponent("bad id!")}`, { timeout: COLD_START_TIMEOUT }), // 422
+      request.get("/api/totally-not-a-route", { timeout: COLD_START_TIMEOUT }), // 404
+      request.get("/api/stellar/attestation/00000000000000000000000000000000", { timeout: COLD_START_TIMEOUT }), // 400
+    ]);
+
+    for (const response of responses) {
+      const body = await response.json();
+      expect(body, `status ${response.status()} body has a detail field`).toHaveProperty("detail");
+      expect(body, `status ${response.status()} body has an error object`).toHaveProperty("error");
+      expect(typeof body.error.code, `status ${response.status()} error.code is a string`).toBe("string");
+      expect(typeof body.error.message, `status ${response.status()} error.message is a string`).toBe("string");
+      expect(typeof body.error.request_id, `status ${response.status()} error.request_id is a string`).toBe(
+        "string",
+      );
+      expect(
+        body.error.request_id.length,
+        `status ${response.status()} error.request_id is non-empty`,
+      ).toBeGreaterThan(0);
+    }
+  });
 });
