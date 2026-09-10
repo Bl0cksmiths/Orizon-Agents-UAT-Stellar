@@ -156,7 +156,7 @@ test.describe('Mobile navigation drawer', () => {
     await expect(hamburger).toBeFocused();
   });
 
-  test('background content is marked inert while the drawer is open, and interactive again once closed', async ({
+  test('CN-03 background content is marked inert while the drawer is open, and interactive again once closed', async ({
     page,
   }) => {
     await page.goto('/app');
