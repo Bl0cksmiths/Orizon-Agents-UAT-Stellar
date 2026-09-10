@@ -224,7 +224,7 @@ test.describe("Structured data (JSON-LD)", () => {
     expect(() => JSON.parse(raw ?? "")).not.toThrow();
   });
 
-  test("declares Organization and SoftwareApplication entries in @graph", async ({
+  test("MK-02 declares Organization and SoftwareApplication entries in @graph", async ({
     page,
   }) => {
     await page.goto("/");
