@@ -170,4 +170,36 @@ test.describe("AZ — authorization and API contract", () => {
     expect(body.error.code).toBe("id_reserved");
     expect(body.detail).toBe("id_reserved");
   });
+
+  test("AZ-06 build/update-price still returns unsigned XDR for an agent the caller does not own", async ({
+    request,
+  }) => {
+    // Ownership is enforced by the contract's owner.require_auth(), not by
+    // this endpoint (see app/routers/stellar.py build_update_price) — the
+    // build must succeed regardless of who is asking. This pins that
+    // deliberate behaviour so a future change toward API-level ownership
+    // enforcement is a conscious decision, not a silent regression.
+    const agentsResponse = await request.get("/api/agents", { timeout: COLD_START_TIMEOUT });
+    expect(agentsResponse.ok()).toBe(true);
+    const agents: Array<{ id: string; source: string; owner: string | null }> = await agentsResponse.json();
+    const onchainAgent = agents.find((a) => a.source === "onchain" && a.owner);
+    expect(onchainAgent, "at least one on-chain-registered agent is listed to probe against").toBeTruthy();
+
+    // A real, funded, well-known mainnet account (Circle's USDC issuer) that
+    // is provably not this agent's owner — needed so the build reaches the
+    // ownership question at all, rather than failing earlier on an unfunded
+    // source account.
+    const nonOwner = "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN";
+    expect(nonOwner).not.toBe(onchainAgent!.owner);
+
+    const response = await request.post("/api/stellar/build/update-price", {
+      timeout: COLD_START_TIMEOUT,
+      data: { owner: nonOwner, agent_id: onchainAgent!.id, price_usdc: 5 },
+    });
+
+    expect(response.status(), "the build must succeed — ownership is not checked here").toBe(200);
+    const body = await response.json();
+    expect(typeof body.xdr, "unsigned XDR is returned").toBe("string");
+    expect(body.xdr.length).toBeGreaterThan(0);
+  });
 });
