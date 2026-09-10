@@ -721,3 +721,61 @@ kit's string, not the app's, and anyone writing the 5.03 integration guide from
 
 **Distinct from D-016**, which is about *which* wallets are supported. This is
 about what one of them is called.
+
+---
+
+## D-019 — No TTL management in any contract
+
+- **Severity:** Critical
+- **Status:** Fixed in source; not deployable without redeployment
+- **Affects:** every stored record in all four contracts
+
+**Actual.** Before this fix, `extend_ttl` appeared **nowhere** in the
+repository. Every persistent entry and every contract instance entry was
+subject to Soroban archival with no renewal path in code.
+
+**Correction to how this was first reported.** An earlier summary in this
+programme said archived attestations would be *lost*. That overstated it.
+Since protocol 23, archived **persistent** entries declared in a transaction's
+read-write footprint are **restored automatically**, with the caller re-paying
+rent. So evidence is not destroyed; it becomes a cost and a friction, and a
+plain read via simulation can fail until something restores it.
+
+What is genuinely severe is the **instance** entry. If a contract's instance is
+archived, *every* entrypoint fails until it is restored — and these contracts
+are non-upgradable.
+
+**Fix prepared** — contracts branch `integration/all-fixes`, 39 commits across
+three streams (`ttl-reg`, `ttl-esc`, `ttl-att`):
+
+- `DAY_IN_LEDGERS` / `BUMP_THRESHOLD` (30d) / `BUMP_TO` (120d, under the ~180d
+  ceiling) defined per crate — not shared, because they are independent
+  contracts.
+- Instance TTL extended at the top of every entrypoint in all four contracts.
+- Persistent TTL extended on the entries each entrypoint writes.
+
+**Two judgement calls, resolved differently on purpose.** Whether a read-only
+view should extend a TTL is a real trade-off — extending lets any caller force
+rent; not extending lets untouched evidence lapse.
+
+- `ReputationLedger`'s five views do **not** extend. That contract documents
+  "views must never write", and extending a TTL *is* a write. Verified: zero
+  `extend_ttl` calls in `rep_state`, `avg_bps`, `rep_bps`, `dispute_rate_bps`
+  and `payer_weight`.
+- `AttestationRegistry.get` **does** extend — it carries no such invariant, and
+  a verifying read is a legitimate reason to renew evidence meant to be
+  verified. `exists()` bumps only the instance, since a bare presence probe
+  should not cost a persistent write.
+- `PaymentEscrow.receipt()` extends (settlement evidence, never rewritten after
+  `charge`, so a read is its only renewal point); `authorization()` does not
+  (already refreshed by every write that touches it, and a spent or expired
+  auth *should* be allowed to archive).
+
+**One trap avoided:** `extend_ttl` traps on a key that is not present, so
+`receipt()` performs its existence check first. A naive extend-then-read would
+have turned a clean `NotFound` into a panic.
+
+**Not deployable in place.** The contracts are non-upgradable; this reaches the
+chain only through a fresh deployment. Until then, an external keep-alive using
+`ExtendFootprintTTLOp` is the mitigation — anyone may extend any entry's TTL,
+no contract auth required.
