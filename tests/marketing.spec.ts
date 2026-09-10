@@ -510,7 +510,7 @@ test.describe("404 handling", () => {
     ).toBeVisible();
   });
 
-  test("the not-found page offers working ways back into the app", async ({
+  test("MK-06 the not-found page offers working ways back into the app", async ({
     page,
   }) => {
     await page.goto("/this-route-does-not-exist-e2e-check");
