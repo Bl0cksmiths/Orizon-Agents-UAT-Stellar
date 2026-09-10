@@ -482,6 +482,24 @@ test.describe("VR — agent-id availability reason codes", () => {
       owner: ONCHAIN_AGENT_OWNER,
     });
   });
+
+  test("VR-01/02/03 a well-formed, non-reserved, never-registered id is available", async ({ request }) => {
+    // The contrast case: proves the endpoint isn't hardcoded to always
+    // refuse — a genuinely free id must come back available with every
+    // reason field null, or the malformed/reserved/taken assertions above
+    // would be trivially satisfied by an endpoint that refuses everything.
+    const response = await request.get("/api/stellar/agent-id-available/fresh_id_probe_xyz", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body).toEqual({
+      available: true,
+      reason: null,
+      message: null,
+      owner: null,
+    });
+  });
 });
 
 /**
