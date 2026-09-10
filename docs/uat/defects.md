@@ -46,7 +46,7 @@ it, so no test change is needed when the target flips.
 ## D-002 — Cannot install dependencies or execute any test on the authoring machine
 
 - **Severity:** Blocker (process, not product)
-- **Status:** Open
+- **Status:** Partly resolved — see "Update" below
 - **Affects:** the verification step of every criterion
 
 **Steps to reproduce** — Run `npm ci` in this repo on the authoring machine.
@@ -68,6 +68,34 @@ cannot catch a wrong selector or a failing assertion.
 real-time antivirus is the highest-value single step; the failed delete and the
 install slowness both point at it), or add `workflow` scope to the GitHub token
 so CI becomes the verifier. See D-003.
+
+**Update — the frontend half now runs.** `npm ci` succeeded on the fourth
+attempt in a *fresh* clone of the frontend repository, with no partial
+`node_modules` to contend with: 1234 packages in 18 minutes under
+`--max-old-space-size=1024`. All seven prepared frontend fix branches were
+applied there and the toolchain executed:
+
+| check | result |
+| --- | --- |
+| `npm run typecheck` | pass |
+| `npm run lint` (`--max-warnings=0`) | no warnings or errors |
+| `npm run test:coverage` | 476 tests, 25 files, all passing |
+| coverage | 95.53 / 92.77 / 94.80 / 97.59 vs thresholds 86 / 78 / 88 / 89 |
+
+The first execution **failed**, on two type errors introduced by the fixes
+themselves — a changed return type that no longer satisfied `usePolling`'s
+callback signature, and a renamed state setter left behind in one branch of
+`skills-input.tsx`. Both had survived every static pass. The second is the
+sharper lesson: the grep meant to catch the rename was case-sensitive and so
+could never have matched `setRejected`. **The verification had a hole shaped
+exactly like the bug it was supposed to find.** This is the concrete cost this
+defect was logged to warn about, and it is now measured rather than predicted.
+
+**What is still blocked.** This repository's own Playwright suite — the 190
+test blocks that are the substance of the programme — has still never been
+installed or run. Nothing below the frontend unit layer has been executed:
+no `pytest` against the backend, no `cargo test` against the contracts. The
+sign-off recommendation is unchanged.
 
 ---
 
