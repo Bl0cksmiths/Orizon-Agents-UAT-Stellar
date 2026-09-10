@@ -117,8 +117,29 @@ future refactor of `SkillsInput` that removed the client-side guard would
 expose users to a silent failure, because the fallback message still could not
 render.
 
-**Resolution path** — Wire `touch("skills")` on blur, or delete the
-unreachable messages. Owned by the frontend repo, not this one.
+**Correction to this entry** — the messages are not merely unreachable; the
+charset message IS reachable, and reaching it produces a dead end. `sanitize`
+in `skills-input.tsx` filters the character set but **not the token length**,
+so a skill over 32 characters enters state, `validateSkills` fails it,
+`canSubmit` goes false, and the Register button disables — while the
+explanatory message stays hidden behind `touched.skills`, which only a submit
+sets, and a disabled button never submits. The user is blocked with nothing on
+screen telling them why. That is worse than dead code.
+
+**Resolution path** — Reject the over-long token at entry, the way the charset
+and the chip cap already are, and say why.
+
+**Fix prepared** — frontend branch `fix/skills-input-length`, 5 commits:
+`maxLen` (default 32, matching `AGENT_ID_RE`) enforced in `addTokens`; the
+boolean `rejected` replaced by a `refusal` message so `aria-invalid` has
+something to point at; the reason rendered in a `role="status"` region wired
+through `aria-describedby`; an `onBlur` prop added to `SkillsInput` and
+`touch("skills")` wired on the register page so any residual invalid state
+surfaces instead of silently disabling submit.
+
+**Regression test** — `components/ui/skills-input.test.tsx`, "refuses a token
+longer than maxLen and says why". Both pre-existing cap tests still pass
+unchanged. Owned by the frontend repo, not this one.
 
 ---
 
