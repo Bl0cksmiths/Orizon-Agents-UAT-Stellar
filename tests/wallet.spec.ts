@@ -65,7 +65,7 @@ test.describe('/app/wallet — disconnected state', () => {
     await expect(page.getByText('Switch networks in your wallet extension.')).toHaveCount(0);
   });
 
-  test('the contracts grid resolves to either the four live contracts (linked to stellar.expert/public) or a truthful error — never stuck placeholders', async ({ page }) => {
+  test('WL-03 the contracts grid resolves to either the four live contracts (linked to stellar.expert/public) or a truthful error — never stuck placeholders', async ({ page }) => {
     await page.goto(WALLET_URL);
     await expect(page.getByText('Deployed contracts')).toBeVisible();
 
