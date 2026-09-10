@@ -149,4 +149,25 @@ test.describe("AZ — authorization and API contract", () => {
       expect(elapsedMs, `${label}: answered without an RPC round-trip`).toBeLessThan(8_000);
     }
   });
+
+  test("AZ-05 an id in the reserved agt_ namespace is refused by build/register-agent", async ({ request }) => {
+    // Any syntactically valid G... address works here — the reserved-prefix
+    // check (agent_id.startswith("agt_")) runs before the owner account or
+    // an existing-id lookup is ever touched.
+    const owner = `G${"A".repeat(55)}`;
+    const response = await request.post("/api/stellar/build/register-agent", {
+      timeout: COLD_START_TIMEOUT,
+      data: {
+        owner,
+        agent_id: "agt_reserved_probe",
+        name: "probe",
+        skills: [],
+        price_usdc: 1,
+      },
+    });
+    expect(response.status()).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("id_reserved");
+    expect(body.detail).toBe("id_reserved");
+  });
 });
