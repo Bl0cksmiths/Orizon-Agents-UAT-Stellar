@@ -221,4 +221,25 @@ test.describe("AZ — authorization and API contract", () => {
     const body = await response.json();
     expect(body.error.code).toBe("request_too_large");
   });
+
+  test("AZ-08 every response carries the hardening headers", async ({ request }) => {
+    // SecurityHeadersMiddleware wraps the whole stack (including the rate
+    // limiter's 429s and the body limiter's 413s), and the unhandled-
+    // exception handler stamps the same headers by hand for a 500 — so a
+    // success, an auth refusal, a validation error and a not-found should
+    // all carry them identically.
+    const responses = await Promise.all([
+      request.get("/api/health", { timeout: COLD_START_TIMEOUT }), // 200
+      request.post("/api/stellar/server/charge", { timeout: COLD_START_TIMEOUT, data: {} }), // 401
+      request.get(`/api/stellar/agent/${encodeURIComponent("bad id!")}`, { timeout: COLD_START_TIMEOUT }), // 422
+      request.get("/api/totally-not-a-route", { timeout: COLD_START_TIMEOUT }), // 404
+    ]);
+
+    for (const response of responses) {
+      const headers = response.headers();
+      expect(headers["x-content-type-options"], `${response.url()} (${response.status()})`).toBe("nosniff");
+      expect(headers["referrer-policy"], `${response.url()} (${response.status()})`).toBe("no-referrer");
+      expect(headers["x-frame-options"], `${response.url()} (${response.status()})`).toBe("DENY");
+    }
+  });
 });
