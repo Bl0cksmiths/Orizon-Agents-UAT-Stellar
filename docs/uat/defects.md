@@ -217,3 +217,44 @@ mainnet while the programme is specified testnet.
 `getStellarNetwork()` like the other three call sites, or assert at render time
 that the build-time value matches the live one and surface a mismatch. Owned by
 the frontend repo.
+
+---
+
+## D-009 — Money-route protection depends on an operator setting, not on a config guard
+
+- **Severity:** Minor (latent; live posture verified safe)
+- **Status:** Open
+- **Affects:** AZ-01, AZ-02
+
+**Live posture — verified, not assumed.** Every API-key-gated route refuses an
+unauthenticated call:
+
+```
+POST /api/stellar/server/charge  -> 401 invalid_api_key
+GET  /api/pdax/balances          -> 401 invalid_api_key
+```
+
+All 24 gated PDAX routes plus `/server/charge` and `/server/seal` behave the
+same. `API_KEY` is set on the deployment and `require_api_key` is actively
+enforcing. **The money routes are protected today.**
+
+**The latent gap** — nothing in the configuration *forces* that. Both fail-fast
+validators in `app/config.py` key on the literal string `"production"`:
+`_money_capable_config_requires_api_key` and
+`_production_webhooks_require_signature`. The deployment runs
+`PDAX_ENVIRONMENT=stage` while provisioning real PDAX credentials, so neither
+validator fires. Protection currently rests on the operator having set
+`API_KEY` by hand.
+
+**Impact** — A future deploy that omits `API_KEY` under a non-`production`
+`PDAX_ENVIRONMENT` would boot cleanly and serve every money-moving route
+anonymously, with no startup error. The guard that exists to prevent exactly
+this cannot see the configuration it is deployed under.
+
+**Resolution path** — Broaden the validator's trigger from the literal
+`"production"` to "any environment where credentials capable of moving real
+value are present", or assert `API_KEY` unconditionally whenever PDAX
+credentials are set. Owned by the backend repo.
+
+**Note** — This entry supersedes an earlier working assumption in this
+programme that the gated routes might be answering anonymously. They are not.
