@@ -366,6 +366,11 @@ const PERF_BUDGET_MS = {
   // app code) — kept separate so a slow TTFB doesn't get misread as a slow
   // app.
   ttfb: 2_000,
+  // Cumulative Layout Shift — unitless; sum of unexpected layout-shift
+  // scores not preceded by user input. 0.1 is the "good" Core Web Vitals
+  // threshold. Reads back as 0 (and trivially passes) on an engine without
+  // the Layout Instability API, same fallback shape as the LCP check below.
+  cls: 0.1,
 } as const;
 
 async function stubFastApi(page: Page): Promise<void> {
@@ -383,6 +388,7 @@ async function measurePerf(page: Page): Promise<{
   domContentLoaded: number;
   load: number;
   lcp: number;
+  cls: number;
 }> {
   return page.evaluate(() => {
     const [nav] = performance.getEntriesByType(
@@ -401,6 +407,8 @@ async function measurePerf(page: Page): Promise<{
         : NaN,
       load: nav ? nav.loadEventEnd - nav.startTime : NaN,
       lcp: last ? last.renderTime || last.loadTime || 0 : 0,
+      cls:
+        (window as unknown as { __clsValue?: number }).__clsValue ?? 0,
     };
   });
 }
@@ -429,6 +437,31 @@ test.describe("performance budgets (regression guardrails, not SLAs — see comm
           // LCP unsupported in this engine — lcp reads back as 0 and the
           // budget check is skipped below.
         }
+        // Layout-shift entries have no "read the buffer later" API like
+        // navigation timing does — they only ever arrive through the
+        // observer's callback, so the running total must be accumulated
+        // here, before any layout happens.
+        (window as unknown as { __clsValue: number }).__clsValue = 0;
+        try {
+          new PerformanceObserver((list) => {
+            for (const entry of list.getEntries() as (PerformanceEntry & {
+              value?: number;
+              hadRecentInput?: boolean;
+            })[]) {
+              if (!entry.hadRecentInput) {
+                (
+                  window as unknown as { __clsValue: number }
+                ).__clsValue += entry.value ?? 0;
+              }
+            }
+          }).observe({
+            type: "layout-shift",
+            buffered: true,
+          } as PerformanceObserverInit);
+        } catch {
+          // layout-shift unsupported in this engine — cls reads back as 0
+          // and trivially passes the budget check below.
+        }
       });
 
       if (route.path.startsWith("/app")) {
@@ -456,6 +489,13 @@ test.describe("performance budgets (regression guardrails, not SLAs — see comm
           `LCP ${perf.lcp.toFixed(0)}ms exceeds ${PERF_BUDGET_MS.lcp}ms budget`,
         ).toBeLessThanOrEqual(PERF_BUDGET_MS.lcp);
       }
+      // Unconditional (unlike the LCP check above): 0 is both "no shift
+      // observed" and "unsupported engine", and both trivially satisfy the
+      // budget, so there is no ambiguous case to special-case around.
+      expect(
+        perf.cls,
+        `CLS ${perf.cls.toFixed(3)} exceeds ${PERF_BUDGET_MS.cls} budget`,
+      ).toBeLessThanOrEqual(PERF_BUDGET_MS.cls);
     });
   }
 });
