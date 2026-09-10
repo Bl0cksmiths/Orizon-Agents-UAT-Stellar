@@ -440,7 +440,7 @@ test.describe("Trace page without a live task", () => {
 test.describe("Full run: trace tablist and sandboxed artifact preview", () => {
   test.slow();
 
-  test("trace/artifact tablist has correct ARIA wiring and the artifact iframe is sandboxed", async ({
+  test("OR-09 OR-10 trace/artifact tablist has correct ARIA wiring and the artifact iframe is sandboxed", async ({
     page,
   }) => {
     test.setTimeout(FULL_RUN_TIMEOUT_MS);
