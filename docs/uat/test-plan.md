@@ -206,3 +206,39 @@ score calculator, Then the smoothed score and lower bound match
 
 **RG-09** — When the reputation leaderboard loads, Then it renders rows or a
 truthful empty/loading state.
+
+## Acceptance criteria — OR, orchestrator and trace
+
+**OR-01** — Given `/app/orchestrator`, When the page loads, Then the intent
+textarea has an associated label and each of the four preset buttons populates
+it verbatim.
+
+**OR-02** — When Enter is pressed in the textarea, Then the form submits; when
+Shift+Enter is pressed, Then a newline is inserted.
+
+**OR-03** — When the intent is empty or a decompose is in flight, Then submit
+is disabled.
+
+**OR-04** — Given a curated demo-kit intent, When decompose returns, Then a
+six-step plan renders, each step showing an agent, a price and a rationale.
+
+**OR-05** — Given a rendered plan, When the totals row is read, Then it equals
+the sum of the step prices within rounding tolerance.
+
+**OR-06** — Given no wallet, When the plan renders, Then the on-chain
+authorize path is gated behind a connect prompt and the simulated path remains
+available.
+
+**OR-07** — Given a decompose that fails, When the page settles, Then a
+visible `role="alert"` is shown and no blank plan card is mounted.
+
+**OR-08** — Given `/app/trace` with no task parameter, Then a truthful empty
+state renders; with an unknown task id, Then an error renders, not a white
+screen.
+
+**OR-09** — Given the trace view, When the tablist is used, Then roles,
+`aria-selected` and arrow/Home/End navigation behave correctly.
+
+**OR-10** — Given a rendered artifact, When the preview iframe is inspected,
+Then it carries `sandbox="allow-scripts"` and does **not** carry
+`allow-same-origin`.
