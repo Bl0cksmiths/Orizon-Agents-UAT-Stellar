@@ -242,4 +242,49 @@ test.describe("AZ — authorization and API contract", () => {
       expect(headers["x-frame-options"], `${response.url()} (${response.status()})`).toBe("DENY");
     }
   });
+
+  test("AZ-09 no signing key, API key or PDAX credential appears in the client bundle", async ({ request }) => {
+    // Crawl a representative set of routes — marketing plus the console
+    // pages most likely to embed a credential-shaped literal (wallet, send,
+    // pdax, register, orchestrator) — for their Next.js script tags, then
+    // search every unique JS chunk actually served to the browser. Reads the
+    // LIVE deployed bundle only; never builds one locally.
+    const pagesToScan = ["/", "/app", "/app/wallet", "/app/send", "/app/pdax", "/app/register", "/app/orchestrator"];
+
+    const chunkUrls = new Set<string>();
+    for (const page of pagesToScan) {
+      const response = await request.get(page, { timeout: COLD_START_TIMEOUT });
+      expect(response.ok(), `${page} should load`).toBe(true);
+      const html = await response.text();
+      for (const match of html.matchAll(/\/_next\/static\/[^"'\\]+\.js/g)) {
+        chunkUrls.add(match[0]);
+      }
+    }
+    expect(chunkUrls.size, "found at least one JS chunk to scan").toBeGreaterThan(0);
+
+    // Credential-shaped patterns that must never appear in code shipped to
+    // the browser. Structural (charset/length), not tied to any one secret's
+    // actual value, so the check holds regardless of which key is deployed.
+    const forbiddenPatterns: { label: string; re: RegExp }[] = [
+      { label: "Stellar secret seed (signing key)", re: /\bS[A-Z2-7]{55}\b/ },
+      { label: "literal X-API-Key value assignment", re: /x-api-key["']?\s*[:=]\s*["'][^"'{}$][^"']{5,}["']/i },
+      {
+        label: "literal PDAX credential assignment",
+        re: /pdax[_-]?(password|username|secret)["']?\s*[:=]\s*["'][^"']{3,}["']/i,
+      },
+      {
+        label: "literal Authorization Bearer/Basic value",
+        re: /Authorization["']?\s*[:=]\s*["'](Bearer|Basic)\s+[A-Za-z0-9+/=_.-]{10,}["']/i,
+      },
+    ];
+
+    for (const chunkUrl of chunkUrls) {
+      const response = await request.get(chunkUrl, { timeout: COLD_START_TIMEOUT });
+      expect(response.ok(), `${chunkUrl} should be fetchable`).toBe(true);
+      const source = await response.text();
+      for (const { label, re } of forbiddenPatterns) {
+        expect(re.test(source), `${label} found in ${chunkUrl}`).toBe(false);
+      }
+    }
+  });
 });
