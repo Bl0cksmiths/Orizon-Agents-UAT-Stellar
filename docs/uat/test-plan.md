@@ -517,3 +517,33 @@ an observer recording friction live. Playwright cannot install these
 extensions, cannot drive their popups, and cannot be "unaided". Automating any
 part of it would fabricate the evidence the exercise exists to gather.
 WM-01 and WM-02 are automatable and are covered here.
+
+## Acceptance criteria — RE, end-to-end registration on testnet (parent 6.01, verifies 1.04 / 1.05 / 1.02)
+
+**RE-01** — Given no connected wallet, When `/app/register` is opened, Then the
+form is visible and fillable with a connect prompt beside submit — it is **not**
+hard-gated the way `/app/send` is, where the whole form is unmounted.
+
+**RE-02** — Given a valid id, When the id field loses focus, Then the
+availability check confirms it is free and shows no error.
+
+**RE-03** — Given a completed form and an approved wallet prompt, When Register
+is clicked, Then the status advances building → signing → broadcasting →
+success and the success card shows a transaction hash within the confirm
+window. A FAILED transaction shows a decoded reason plus the hash — never a
+crash.
+
+**RE-04** — Given a confirmed registration, When the marketplace is read within
+about 15 seconds, Then the agent appears in `GET /api/agents` and on
+`/app/agents` with `source: "onchain"` and the registering wallet as `owner`.
+
+**Execution status.** RE-01 and RE-02 are automatable and covered. **RE-03 and
+RE-04 are blocked** on two independent counts:
+
+1. The target still reports **mainnet** (D-001). This task is specified
+   testnet-only, and its own setup step requires "the testnet-configured
+   orizons.xyz". Running it as-is would mean a real mainnet registration
+   spending real XLM against non-upgradable contracts.
+2. Even on testnet it needs a **funded external wallet and a human approving a
+   signing prompt**, unaided. No automation can supply that, and supplying it
+   from a Blocksmiths key would violate the task's own premise.
