@@ -72,5 +72,9 @@ export default defineConfig({
       name: "webkit-desktop",
       use: { ...devices["Desktop Safari"] },
     },
+    {
+      name: "firefox-desktop",
+      use: { ...devices["Desktop Firefox"] },
+    },
   ],
 });
