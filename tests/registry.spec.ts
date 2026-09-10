@@ -143,7 +143,7 @@ function getCalculatorCard(page: Page) {
 // ─────────────────────────────────────────────────────────────────────────
 
 test.describe("/app/agents — registry table", () => {
-  test("renders one h1 and the full set of column headers", async ({ page }) => {
+  test("RG-01 renders one h1 and the full set of column headers", async ({ page }) => {
     await page.goto(`${BASE_URL}/app/agents`);
     await expect(page.getByRole("heading", { level: 1, name: "Agent Registry" })).toBeVisible();
     // Exactly one h1 per route (accessibility requirement).
