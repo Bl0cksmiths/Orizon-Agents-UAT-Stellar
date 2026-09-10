@@ -67,61 +67,89 @@ test.describe("accessibility", () => {
       await expect(page.getByRole("navigation").first()).toBeVisible();
     });
 
-    test(`${route.label} (${route.path}): tabbing shows a visible keyboard focus indicator`, async ({
-      page,
-    }) => {
-      await page.goto(route.path);
+    test(
+      `AX-04 — ${route.label} (${route.path}): tabbing shows a visible keyboard focus indicator`,
+      { tag: ["@AX-04", "@a11y"] },
+      async ({ page }) => {
+        await page.goto(route.path);
 
-      // Tab a few times — the very first stop is often the "skip to
-      // content" link, which is intentionally sr-only until focused,
-      // so checking only the first stop would miss a real regression on
-      // the second/third element.
-      const samples: Array<{
-        tag: string;
-        outlineStyle: string;
-        outlineWidth: string;
-        boxShadow: string;
-      }> = [];
-      for (let i = 0; i < 3; i++) {
-        await page.keyboard.press("Tab");
-        // eslint-disable-next-line no-await-in-loop
-        const sample = await page.evaluate(() => {
-          const el = document.activeElement;
-          if (!el || el === document.body) {
-            return null;
-          }
-          const cs = window.getComputedStyle(el);
-          return {
-            tag: el.tagName,
-            outlineStyle: cs.outlineStyle,
-            outlineWidth: cs.outlineWidth,
-            boxShadow: cs.boxShadow,
-          };
+        // Tab a few times — the very first stop is often the "skip to
+        // content" link, which is intentionally sr-only until focused,
+        // so checking only the first stop would miss a real regression on
+        // the second/third element.
+        //
+        // Each sample compares the SAME element's computed style focused vs
+        // blurred — not merely whether some outline/box-shadow property is
+        // non-empty, which a static `outline: 1px solid transparent` would
+        // pass without ever being visible. The app draws its ring with an
+        // inset Tailwind `focus-visible:ring-*` (`focusRing` in lib/ui.ts),
+        // a box-shadow that exists only while `:focus-visible` matches, so a
+        // real regression (a global `outline: none` reset with nothing to
+        // replace it) shows up as "focused === unfocused", not as an empty
+        // string.
+        const samples: Array<{
+          tag: string;
+          focused: { outlineStyle: string; outlineWidth: string; boxShadow: string };
+          unfocused: { outlineStyle: string; outlineWidth: string; boxShadow: string };
+        }> = [];
+        for (let i = 0; i < 3; i++) {
+          await page.keyboard.press("Tab");
+          // eslint-disable-next-line no-await-in-loop
+          const sample = await page.evaluate(() => {
+            const el = document.activeElement as HTMLElement | null;
+            if (!el || el === document.body) {
+              return null;
+            }
+            const focusedCs = window.getComputedStyle(el);
+            const focused = {
+              outlineStyle: focusedCs.outlineStyle,
+              outlineWidth: focusedCs.outlineWidth,
+              boxShadow: focusedCs.boxShadow,
+            };
+            el.blur();
+            const unfocusedCs = window.getComputedStyle(el);
+            const unfocused = {
+              outlineStyle: unfocusedCs.outlineStyle,
+              outlineWidth: unfocusedCs.outlineWidth,
+              boxShadow: unfocusedCs.boxShadow,
+            };
+            // Restore focus so the next real Tab press continues forward
+            // from here instead of restarting the sequence from the top.
+            el.focus();
+            return { tag: el.tagName, focused, unfocused };
+          });
+          if (sample) samples.push(sample);
+        }
+
+        expect(
+          samples.length,
+          "no element accepted keyboard focus in the first 3 Tab presses",
+        ).toBeGreaterThan(0);
+
+        // A real focus indicator is a visible outline or box-shadow that is
+        // present while focused and gone (or different) once blurred.
+        // Regression this catches: a global `outline: none` reset with no
+        // replacement ring, which strands keyboard-only users with no
+        // visual cursor at all — including one that leaves SOME non-empty
+        // outline/box-shadow declared but identical whether focused or not.
+        const hasRealIndicator = samples.some((s) => {
+          const outlineVisible =
+            s.focused.outlineStyle !== "none" &&
+            parseFloat(s.focused.outlineWidth) > 0;
+          const outlineChanged =
+            s.focused.outlineStyle !== s.unfocused.outlineStyle ||
+            s.focused.outlineWidth !== s.unfocused.outlineWidth;
+          const shadowVisible =
+            s.focused.boxShadow !== "none" && s.focused.boxShadow !== "";
+          const shadowChanged = s.focused.boxShadow !== s.unfocused.boxShadow;
+          return (outlineVisible && outlineChanged) || (shadowVisible && shadowChanged);
         });
-        if (sample) samples.push(sample);
-      }
-
-      expect(
-        samples.length,
-        "no element accepted keyboard focus in the first 3 Tab presses",
-      ).toBeGreaterThan(0);
-
-      // A focus indicator exists if the browser/CSS draws either a
-      // non-zero outline or a box-shadow ring (the common Tailwind
-      // `focus-visible:ring-*` pattern). Regression this catches: a global
-      // `outline: none` reset with no replacement ring, which strands
-      // keyboard-only users with no visual cursor at all.
-      const hasIndicator = samples.some((s) => {
-        const outlineVisible =
-          s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0;
-        const shadowVisible = s.boxShadow !== "none" && s.boxShadow !== "";
-        return outlineVisible || shadowVisible;
-      });
-      expect(
-        hasIndicator,
-        `no focus indicator (outline or box-shadow) detected on any of: ${JSON.stringify(samples)}`,
-      ).toBe(true);
-    });
+        expect(
+          hasRealIndicator,
+          `no focus indicator that actually changes between focused and unfocused (outline or box-shadow) detected on any of: ${JSON.stringify(samples)}`,
+        ).toBe(true);
+      },
+    );
 
     test(`${route.label} (${route.path}): inline links within body text are distinguishable from surrounding text without relying on color alone`, async ({
       page,
