@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { COLD_START_TIMEOUT } from "./fixtures";
+import { COLD_START_TIMEOUT, EXPECTED_NETWORK } from "./fixtures";
 import {
   explorerSegment,
   stellarExpertUrl,
@@ -82,10 +82,10 @@ test.describe("EV-05 — evidence network is read, never hardcoded", () => {
     // The backend can cold-start (see fixtures.ts) on the first hit of a run.
     test.setTimeout(COLD_START_TIMEOUT + 30_000);
 
-    // Sensible default documents the currently-verified live value
-    // (docs/uat/defects.md D-001); UAT_EXPECTED_NETWORK overrides it once the
-    // target flips to testnet, so this test needs no edit when that happens.
-    const expectedNetwork = process.env.UAT_EXPECTED_NETWORK ?? "mainnet";
+    // EXPECTED_NETWORK is the suite's single source of truth (fixtures.ts).
+    // Read from there rather than re-deriving a default here, so this test and
+    // the config can never disagree about what an unset variable means.
+    const expectedNetwork = EXPECTED_NETWORK;
 
     const res = await page.request.get("/api/stellar/network", {
       timeout: COLD_START_TIMEOUT,
