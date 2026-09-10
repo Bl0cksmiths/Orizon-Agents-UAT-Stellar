@@ -55,4 +55,28 @@ test.describe("PR-01 — on-chain agent distinguishable from the seeded catalog"
     expect(seededIds.length).toBe(12);
     expect(onchainIds).toContain(ONCHAIN_AGENT_ID);
   });
+
+  test("the on-chain row's price and status match what GET /api/agents reports", async ({ page, request }) => {
+    test.setTimeout(120_000);
+    // Cross-view consistency: this is the assertion that catches the UI
+    // drifting from the mirror it is supposed to render.
+    const apiResponse = await request.get("/api/agents", { timeout: COLD_START_TIMEOUT });
+    expect(apiResponse.ok()).toBe(true);
+    const apiAgents: Array<{ id: string; price: number; status: string }> =
+      await apiResponse.json();
+    const apiAgent = apiAgents.find((a) => a.id === ONCHAIN_AGENT_ID);
+    if (!apiAgent) {
+      throw new Error(`onchain agent ${ONCHAIN_AGENT_ID} missing from GET /api/agents`);
+    }
+
+    await page.goto(AGENTS_URL);
+    const row = agentRow(page, ONCHAIN_AGENT_ID);
+    await expect(row).toBeVisible({ timeout: COLD_START_TIMEOUT });
+
+    // <td> order after the id <th>: agent(0), skills(1), price(2),
+    // reputation(3), runs(4), status(5), actions(6).
+    const cells = row.locator("td");
+    await expect(cells.nth(2)).toHaveText(apiAgent.price.toFixed(3));
+    await expect(cells.nth(5)).toHaveText(apiAgent.status);
+  });
 });
