@@ -178,7 +178,7 @@ test.describe('/app/wallet — connected balance states (stubbed session, no rea
 });
 
 test.describe('/app/send — disconnected + client-side validation', () => {
-  test('renders exactly one h1 and gates the entire payment form behind connecting a wallet', async ({ page }) => {
+  test('WL-04 renders exactly one h1 and gates the entire payment form behind connecting a wallet', async ({ page }) => {
     await page.goto(SEND_URL);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Send XLM');
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
