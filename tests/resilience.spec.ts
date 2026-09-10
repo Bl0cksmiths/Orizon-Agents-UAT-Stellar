@@ -235,7 +235,7 @@ test.describe("resilience: the failure MODE is told apart, not just the failure"
 // ---------------------------------------------------------------------------
 
 test.describe("resilience: a 429 tells the user how long to wait, not that something is broken", () => {
-  test("/app/register: a rate-limited build surfaces lib/rate-limit-message.ts's copy verbatim", async ({
+  test("[RS-04] /app/register: a rate-limited build surfaces lib/rate-limit-message.ts's copy verbatim", async ({
     page,
   }) => {
     // This test only exercises the rate-limit-message wiring on the
@@ -287,7 +287,7 @@ test.describe("resilience: a 429 tells the user how long to wait, not that somet
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("/app/register: a 429 with no Retry-After header still reads as a wait, not a generic failure", async ({
+  test("[RS-04] /app/register: a 429 with no Retry-After header still reads as a wait, not a generic failure", async ({
     page,
   }) => {
     await stubWalletSession(page);
