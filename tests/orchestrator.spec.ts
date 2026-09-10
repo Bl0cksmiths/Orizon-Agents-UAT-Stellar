@@ -139,7 +139,7 @@ test.describe("Orchestrator intent form", () => {
     ).toBeVisible();
   });
 
-  test("Shift+Enter inserts a newline instead of submitting", async ({
+  test("OR-02 Shift+Enter inserts a newline instead of submitting", async ({
     page,
   }) => {
     await gotoOrchestrator(page);
