@@ -50,6 +50,17 @@ export const APP_ROUTES: RouteEntry[] = ROUTES.filter((r) =>
 // ---------------------------------------------------------------------------
 
 /**
+ * The Stellar network this target is EXPECTED to report at
+ * `GET /api/stellar/network`.
+ *
+ * Single source of truth for the whole suite: specs must import this rather
+ * than reading `process.env` with their own default, or two files disagree
+ * about what an unset variable means and a test's verdict depends on which
+ * default it happened to use.
+ */
+export const EXPECTED_NETWORK = process.env.UAT_EXPECTED_NETWORK ?? "testnet";
+
+/**
  * The backend runs on Render's free tier, which spins the service down after
  * a period of inactivity and takes 25-60s to answer the first request after
  * that. Any assertion that waits on a *real* backend response (as opposed to
