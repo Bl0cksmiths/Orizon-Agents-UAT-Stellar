@@ -636,3 +636,64 @@ never exercises.
 the SOW list and to the matrix as a sixth column; if not, drop it from the
 allowlist. Either way correct the belt docs, which name a wallet the code has
 never supported.
+
+---
+
+## D-017 — The wallet picker is a keyboard trap: no Escape, and its close button has no accessible name
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** WM-01, AX-07, and every wallet journey's first step
+
+**Steps to reproduce** — On `/app/register`, activate Connect Wallet to open
+the picker. Try to dismiss it with the keyboard alone.
+
+**Expected** — Escape closes it, or the close control announces itself, as the
+app's own mobile nav drawer already does (`sidebar.tsx` handles Escape and
+returns focus to the opener).
+
+**Actual — verified by reading the dependency's source.** The picker is
+`@creit.tech/stellar-wallets-kit@2.6.0`'s own modal, rendered as plain Preact
+appended to `document.body` (no shadow DOM). Extracting the published tarball
+and grepping the whole package:
+
+- **no `Escape`, `keydown` or `onKeyDown` handler exists anywhere in it** — the
+  modal cannot be dismissed by keyboard;
+- **no `aria-label` appears anywhere in it** — the close control is icon-only
+  with no accessible name, so a screen reader announces an unnamed button.
+
+Both greps return zero matches across the entire package.
+
+**Impact.** Connecting a wallet is step one of *every* wallet journey — the
+matrix's own entry point. A keyboard-only or screen-reader user who opens the
+picker has no announced way out and no Escape. This sits directly against
+AX-07, and it is a sharper failure than anything found in the app's own code,
+which handles this pattern correctly elsewhere.
+
+**Not the app's bug, but the app's problem.** The defect is in a third-party
+dependency; it ships in the product regardless. The UAT spec works around it
+with an SVG-path selector for the close control, documented in a comment,
+because there is no accessible name to target.
+
+**Resolution options** — upstream an `aria-label` and an Escape handler to the
+kit; or wrap/patch the modal locally; or replace the picker with an in-house
+one that reuses the drawer's existing, correct focus handling.
+
+---
+
+## D-018 — The picker's wallet label disagrees with the app's own name map
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** WM-01
+
+**Actual.** `lib/wallet.tsx`'s `prettyName` map renders `hana: "Hana"`, but the
+kit's picker displays **"Hana Wallet"** — confirmed in the published package.
+
+**Impact.** Cosmetic only: a user picks "Hana Wallet" in the modal and the app
+then calls it "Hana". No functional effect, but the UAT spec must assert the
+kit's string, not the app's, and anyone writing the 5.03 integration guide from
+`prettyName` would document a label users never see.
+
+**Distinct from D-016**, which is about *which* wallets are supported. This is
+about what one of them is called.
