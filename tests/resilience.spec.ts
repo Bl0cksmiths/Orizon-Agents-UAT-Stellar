@@ -22,6 +22,13 @@ import {
  * (lib/use-fetch.ts `isTransientFetchError`) treats those differently and a
  * regression collapsing that distinction is invisible to a single
  * "is there an alert" check.
+ *
+ * RS-07 (Chromium/Firefox/WebKit) is not a distinct test here: every check
+ * in this file is plain `@playwright/test` API with no engine-specific
+ * branching, so it is satisfied by running this file under each configured
+ * project. `playwright.config.ts` (owned by the lead, not this file) already
+ * defines chromium-desktop, chromium-mobile and webkit-desktop; it has no
+ * firefox project yet.
  */
 
 // ---------------------------------------------------------------------------
