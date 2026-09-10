@@ -342,3 +342,30 @@ Then every metric above is within budget.
 **PF-02** — Given a cold backend, When the first request is made, Then the app
 resolves to content or a truthful error within the documented cold-start
 budget, and never hangs indefinitely.
+
+## Acceptance criteria — RS, resilience and error recovery
+
+**RS-01** — Given a total backend outage, When each `/app` route loads, Then
+the shell renders and a visible error state is shown — never a blank page and
+never a fabricated zero value.
+
+**RS-02** — Given a backend returning 500, When a route loads, Then the
+failure is presented as transient and recoverable, distinctly from a terminal
+404.
+
+**RS-03** — Given a backend that hangs, When the client deadline elapses, Then
+a timeout error surfaces rather than an indefinite spinner.
+
+**RS-04** — Given a 429 carrying `Retry-After`, When the response is handled,
+Then the wait is communicated with the copy from
+`lib/rate-limit-message.ts`, not a generic failure.
+
+**RS-05** — Given the SSE trace stream drops, When the client recovers, Then
+it reconnects or falls back to history polling, and the UI stops claiming to
+be live while disconnected.
+
+**RS-06** — Given each route at 390×844, 768×1024 and 1440×900, When rendered,
+Then no horizontal overflow occurs.
+
+**RS-07** — Given Chromium, Firefox and WebKit, When each core journey runs,
+Then it passes on all three.
