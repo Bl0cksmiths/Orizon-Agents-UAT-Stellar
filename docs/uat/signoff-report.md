@@ -16,12 +16,12 @@ passing run.
 
 | item | count |
 | --- | --- |
-| Acceptance criteria defined | 52 |
-| Criteria Covered | 46 |
-| Criteria Blocked | 4 (EV-01..EV-04) |
+| Acceptance criteria defined | 58 |
+| Criteria Covered | 51 |
+| Criteria Blocked | 7 (EV-01..EV-04, AM-03 on-chain, AM-04 on-chain, AM-05) |
 | Criteria Not covered | 1 (WL-04 field validation), stated reason |
 | Criteria Covered by configuration | 1 (RS-07) |
-| Test blocks authored | 159 across 9 spec files |
+| Test blocks authored | 167 across 10 spec files |
 | Shared fixtures | 549 lines |
 | Defects logged | 10 |
 | Commits on `uat` | 139 |
