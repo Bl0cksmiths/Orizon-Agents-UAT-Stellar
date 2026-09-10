@@ -400,6 +400,54 @@ test.describe("AZ — authorization and API contract", () => {
 });
 
 /**
+ * VR-01, VR-02 and VR-03 — the agent-id availability endpoint's reason
+ * codes. This is the pre-signature gate: the whole point of
+ * GET /api/stellar/agent-id-available/{id} is that it refuses a bad id
+ * BEFORE the wallet is asked to sign. If it ever started returning
+ * `available: true` for a taken or malformed id, the failure would move to
+ * the chain — the operator would sign, pay a fee, and get `AlreadyExists`
+ * instead of an inline form message. So every case below asserts
+ * `available === false` as firmly as the reason string, and for id_taken it
+ * asserts the owner is returned — that's what lets the UI say who holds the
+ * id.
+ */
+test.describe("VR — agent-id availability reason codes", () => {
+  test.beforeAll(async ({ request }) => {
+    // Render free tier cold-starts in 25-60s; warm it once before any
+    // assertion below spends its own budget waiting on a cold instance.
+    await request.get("/api/health", { timeout: COLD_START_TIMEOUT });
+  });
+
+  test("VR-01 a disallowed character or an over-length id is refused as id_malformed before any signature", async ({
+    request,
+  }) => {
+    // Two distinct ways to fail AGENT_ID_PATTERN (^[A-Za-z0-9_]{1,32}$):
+    // a charset violation, and a length violation (33+ chars). Both must be
+    // caught here, at the advisory check, rather than only at the stricter
+    // Path(..., pattern=...) 422 that /api/stellar/agent/{id} enforces —
+    // this endpoint answers 200 with a reason so the form can show it inline.
+    const cases = [
+      { label: "disallowed character (hyphen)", id: "has-hyphen" },
+      { label: "35 chars — over the 32 cap", id: "a".repeat(35) },
+    ];
+
+    for (const { label, id } of cases) {
+      const response = await request.get(`/api/stellar/agent-id-available/${id}`, {
+        timeout: COLD_START_TIMEOUT,
+      });
+      expect(response.status(), `${label}: advisory 200, never a bare 422`).toBe(200);
+      const body = await response.json();
+      expect(body, label).toEqual({
+        available: false,
+        reason: "id_malformed",
+        message: "allowed: letters, digits and underscore, 1-32 chars",
+        owner: null,
+      });
+    }
+  });
+});
+
+/**
  * PR-01, PR-05 and the mapping PR-02/PR-03 depend on — on-chain provenance
  * in the marketplace and the on-demand sync path. Every shape below was
  * confirmed against the live deployment (GET /api/agents, POST
