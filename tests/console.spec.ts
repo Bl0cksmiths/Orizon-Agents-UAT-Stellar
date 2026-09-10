@@ -290,7 +290,7 @@ test.describe('Events — feed distinguishes connecting, empty, live, and failed
     await expect(main.getByText('No events yet', { exact: false })).toHaveCount(0);
   });
 
-  test('reaches a settled "live" state — not stuck on "connecting" — once the contract list loads', async ({
+  test('CN-06 reaches a settled "live" state — not stuck on "connecting" — once the contract list loads', async ({
     page,
   }) => {
     test.setTimeout(150_000);
