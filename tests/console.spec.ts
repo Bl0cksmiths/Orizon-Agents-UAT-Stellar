@@ -226,7 +226,7 @@ test.describe('Overview — loading, loaded, and failed states stay visually and
     await expect(nav.getByText('network metrics unavailable')).toBeVisible({ timeout: 30_000 });
   });
 
-  test('renders real network metrics once the cold-start backend responds', async ({ page }) => {
+  test('CN-04 renders real network metrics once the cold-start backend responds', async ({ page }) => {
     test.setTimeout(150_000);
     await page.goto('/app');
     const main = page.getByRole('main');
