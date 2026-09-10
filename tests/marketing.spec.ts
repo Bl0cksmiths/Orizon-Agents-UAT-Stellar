@@ -468,7 +468,7 @@ test.describe("robots.txt & sitemap.xml", () => {
     expect(body).toContain("<loc>https://orizons.xyz</loc>");
   });
 
-  test("the sitemap URL declared in robots.txt matches the real sitemap route", async ({
+  test("MK-05 the sitemap URL declared in robots.txt matches the real sitemap route", async ({
     page,
   }) => {
     const robots = await (await page.request.get("/robots.txt")).text();
