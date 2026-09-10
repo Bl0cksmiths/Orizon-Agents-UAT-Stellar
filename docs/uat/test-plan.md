@@ -427,3 +427,34 @@ AM-05 is blocked: it requires signing a real transaction, and the target
 reports mainnet while this programme is testnet-only (D-001). AM-03 and AM-04
 are split — the confirmation copy is verified now; the on-chain landing is
 blocked with AM-05. No test may click a control that triggers a signature.
+
+## Acceptance criteria — PR, on-chain provenance in the marketplace (parent 6.01, verifies 1.02 / 1.08)
+
+**PR-01** — Given an agent registered on-chain, When `/api/agents` is read,
+Then it carries `source: "onchain"` and a non-null `owner`, and is thereby
+distinguishable from the seeded catalog, whose entries carry `agt_` ids,
+`source: "seeded"` and a null `owner`.
+
+**PR-02** — Given an owned agent is delisted on-chain, When the sync completes,
+Then it reports `status: "offline"` and stays present in the marketplace with
+its skills, price and owner intact — never removed, and never presented as
+deleted. Its reputation lives in ReputationLedger, independent of the listing
+flag, so it survives a delist by construction.
+
+**PR-03** — Given a delisted agent, When it is relisted, Then it returns to
+`status: "online"`.
+
+**PR-04** — Given an owned agent's price is changed on-chain, When the
+marketplace is read again, Then the new price is reflected without waiting for
+the next scheduled sync pass.
+
+**PR-05** — Given the on-demand sync endpoint, When `POST
+/api/stellar/agents/sync` is called, Then it returns the number of agents
+mirrored, which is the mechanism that makes PR-04 immediate rather than
+eventual.
+
+PR-02, PR-03 and PR-04's write halves are blocked: each needs a signed
+transaction, and the target reports mainnet while this programme is
+testnet-only (D-001). PR-01 and PR-05 are verified now, and the
+`active → status` mapping PR-02/PR-03 depend on is asserted against the
+contract that produces it.
