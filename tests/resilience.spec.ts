@@ -205,7 +205,7 @@ test.describe("resilience: the failure MODE is told apart, not just the failure"
     ).toHaveCount(0);
   });
 
-  test("/app: a connection that never answers is held on its loading state until the client's own deadline, then fails — never earlier, never never", async ({
+  test("[RS-03] /app: a connection that never answers is held on its loading state until the client's own deadline, then fails — never earlier, never never", async ({
     page,
   }) => {
     // Virtual clock so the real 60s client-side deadline (GET_TIMEOUT_MS in
