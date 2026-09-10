@@ -446,4 +446,80 @@ test.describe("accessibility — AX-07 keyboard journeys", () => {
       ).toBeVisible();
     },
   );
+
+  test(
+    "AX-07 — trace page tablist: ArrowLeft/ArrowRight/Home/End move between tabs, keyboard only",
+    { tag: ["@AX-07", "@a11y"] },
+    async ({ page }) => {
+      // The tablist (app/app/trace/page.tsx) only mounts once an artifact
+      // has resolved — reaching that state depends on a completed backend
+      // run. Routing just the two calls the tab-list's own visibility
+      // depends on (the artifact fetch and the trace stream) isolates the
+      // behavior under test — the tablist's arrow/Home/End key handling —
+      // from real backend/task availability, the same way `hangApi`/
+      // `blockApi` isolate other specs in this suite from live network
+      // state. Nothing about the keyboard interaction itself is mocked.
+      const taskId = "e2e-a11y-tablist";
+      await page.route(`**/api/tasks/${taskId}/artifact`, (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            artifact: {
+              title: "a11y fixture",
+              summary: "static fixture for the keyboard tablist journey",
+              files: [],
+              entry: "index.html",
+              preview_html: "<p>fixture</p>",
+            },
+            charge_tx: null,
+            proof_tx: null,
+          }),
+        }),
+      );
+      await page.route(`**/api/trace/${taskId}/stream*`, (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          body:
+            'event: trace\ndata: {"t":"0.10","level":"input","msg":"fixture line"}\n\n' +
+            "event: done\ndata: {}\n\n",
+        }),
+      );
+
+      await page.goto(`/app/trace?task=${taskId}`);
+
+      const tablist = page.getByRole("tablist", { name: /trace views/i });
+      await expect(tablist).toBeVisible();
+
+      const traceTab = page.getByRole("tab", { name: /trace log/i });
+      const artifactTab = page.getByRole("tab", { name: /artifact/i });
+
+      // The page auto-switches to the artifact tab once one resolves, so
+      // that is the tab a roving-tabindex keyboard user actually lands on
+      // first — the same entry point Tab would reach.
+      await expect(artifactTab).toHaveAttribute("aria-selected", "true");
+      await artifactTab.focus();
+      await expect(artifactTab).toBeFocused();
+
+      await page.keyboard.press("ArrowLeft");
+      await expect(traceTab).toBeFocused();
+      await expect(traceTab).toHaveAttribute("aria-selected", "true");
+      await expect(traceTab).toHaveAttribute("tabindex", "0");
+      await expect(artifactTab).toHaveAttribute("aria-selected", "false");
+      await expect(artifactTab).toHaveAttribute("tabindex", "-1");
+
+      await page.keyboard.press("ArrowRight");
+      await expect(artifactTab).toBeFocused();
+      await expect(artifactTab).toHaveAttribute("aria-selected", "true");
+
+      await page.keyboard.press("Home");
+      await expect(traceTab).toBeFocused();
+      await expect(traceTab).toHaveAttribute("aria-selected", "true");
+
+      await page.keyboard.press("End");
+      await expect(artifactTab).toBeFocused();
+      await expect(artifactTab).toHaveAttribute("aria-selected", "true");
+    },
+  );
 });
