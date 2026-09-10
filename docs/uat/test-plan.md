@@ -547,3 +547,27 @@ RE-04 are blocked** on two independent counts:
 2. Even on testnet it needs a **funded external wallet and a human approving a
    signing prompt**, unaided. No automation can supply that, and supplying it
    from a Blocksmiths key would violate the task's own premise.
+
+## Story 6.01 — coverage map against its seven acceptance criteria
+
+6.01 is the parent of the QA tasks already executed in this programme. Its
+criteria map onto existing coverage as follows, rather than being re-tested.
+
+| 6.01 criterion | covered by | status |
+| --- | --- | --- |
+| Registration succeeds on every SOW wallet | — | **Not verified.** Needs 5 wallets, a funded testnet account each, and a human at the signing prompt. |
+| Cross-browser behaviour verified | WM-01 (picker), RS-07 (4 browser projects) | Partial — the picker and page behaviour are covered; per-wallet *signing* behaviour is not. |
+| Rejection preserves form state | inspection + `wallet-errors.test.ts` (`user_rejected`) | Behaviour correct in source; the register page's own rejection branch is **untested** — see below. |
+| Wrong-network caught with clear message | `wallet-errors.test.ts` ("switch-network advice"), D-015 | Copy verified; **unsatisfiable for Albedo and LOBSTR**, which cannot report their network. |
+| Mobile registration on a real phone | RS-06, AX sweep (viewports) | Viewport rendering covered; a real device is not. |
+| All validation cases behave | RG-04, RG-05, RG-06, VR-01, VR-02, VR-03 | **Covered.** |
+| Every defect filed as a linked Bug | `defects.md` | Recorded here; this programme has no issue-tracker access, so none is filed as a tracker Bug. |
+
+**Why the rejection branch is untested.** `app/app/register/page.tsx` keeps
+every field and shows a neutral notice when a signature is declined — verified
+by reading it. It cannot be exercised automatically: driving it requires making
+`wallet.signXdr` reject with a user-rejected error, and the session stub used
+elsewhere in this suite seeds `localStorage` only — it cannot control the
+wallet layer. The frontend's own unit suite deliberately gates coverage to
+`lib/**`, excluding page components, so there is no second place to test it
+either. Recorded as a known gap rather than papered over.
