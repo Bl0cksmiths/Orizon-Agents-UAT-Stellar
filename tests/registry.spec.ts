@@ -309,7 +309,7 @@ test.describe("/app/register — registration form", () => {
     ).toBeVisible();
   });
 
-  test("flags a display name over 100 characters with the exact length message", async ({ page }) => {
+  test("RG-04 flags a display name over 100 characters with the exact length message", async ({ page }) => {
     await page.goto(`${BASE_URL}/app/register`);
     const nameField = page.getByLabel("display name");
     await nameField.fill("x".repeat(101));
