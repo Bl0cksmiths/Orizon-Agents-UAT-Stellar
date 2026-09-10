@@ -79,8 +79,8 @@ applied there and the toolchain executed:
 | --- | --- |
 | `npm run typecheck` | pass |
 | `npm run lint` (`--max-warnings=0`) | no warnings or errors |
-| `npm run test:coverage` | 476 tests, 25 files, all passing |
-| coverage | 95.53 / 92.77 / 94.80 / 97.59 vs thresholds 86 / 78 / 88 / 89 |
+| `npm run test:coverage` | 500 tests, 27 files, all passing |
+| coverage | 96.71 / 93.88 / 96.40 / 98.74 vs thresholds 86 / 78 / 88 / 89 |
 
 The first execution **failed**, on two type errors introduced by the fixes
 themselves — a changed return type that no longer satisfied `usePolling`'s
@@ -90,6 +90,14 @@ sharper lesson: the grep meant to catch the rename was case-sensitive and so
 could never have matched `setRejected`. **The verification had a hole shaped
 exactly like the bug it was supposed to find.** This is the concrete cost this
 defect was logged to warn about, and it is now measured rather than predicted.
+
+**A second gap the coverage report exposed.** Two of the fixed modules had no
+test at all — `lib/settlement-asset.ts` at 0% and `lib/wallet-picker-a11y.ts`
+(the D-017 keyboard-trap fix) at 64% statements / 33% branches — despite the
+handoff notes claiming every branch carried its own regression test. Both are
+now covered: 11 tests and 13 tests respectively, taking the first module to
+100% across statements, branches and functions and the second to 100 / 91.66 /
+100 / 100. Passing thresholds had been hiding two entirely untested modules.
 
 **What is still blocked.** This repository's own Playwright suite — the 190
 test blocks that are the substance of the programme — has still never been
