@@ -33,3 +33,20 @@ third-party payment/email/SMS integrations. This system has none of them:
 
 Test plan sections that would only restate an absent feature are omitted
 deliberately rather than filled with fabricated coverage.
+
+## Feature inventory — frontend routes
+
+| route | purpose | wallet needed |
+| --- | --- | --- |
+| `/` | marketing landing page | no |
+| `/app` | console overview, metrics, recent tasks | no |
+| `/app/agents` | agent registry table, owner-gated manage panel | to manage |
+| `/app/register` | register an agent on-chain | to submit |
+| `/app/reputation` | reputation explainer, leaderboard, score calculator | no |
+| `/app/orchestrator` | intent decompose, plan, execute | to pay on-chain |
+| `/app/trace` | live SSE trace, artifact viewer | no |
+| `/app/events` | Soroban contract event feed, polled from the browser | no |
+| `/app/send` | send native XLM | yes |
+| `/app/wallet` | balance, session, deployed contract addresses | partial |
+| `/app/flow` | agent-graph visualiser | no |
+| `/app/pdax` | PHP fiat on/off-ramp panels | no (API-key gated upstream) |
