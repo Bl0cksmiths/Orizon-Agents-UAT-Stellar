@@ -212,29 +212,17 @@ test.describe('/app/send — disconnected + client-side validation', () => {
   });
 });
 
-/**
- * These two validation tests document what the destination/amount fields
- * *would* enforce once a wallet is connected (isValidGAddress / amountNum
- * checks in app/app/send/page.tsx). They cannot be exercised live without a
- * wallet extension, because the entire <form> — including both inputs — is
- * unmounted while `wallet.connected` is false (see the previous describe
- * block). Recorded here as the documented, intentionally-skipped coverage
- * rather than silently omitted.
- */
-test.describe('/app/send — validation logic (untestable without a wallet)', () => {
-  test.skip(
-    'malformed-G-address and non-positive-amount validation ' +
-      '("destination must be a 56-char G… address" / "amount must be > 0") — ' +
-      'the <input id="send-destination"> / <input id="send-amount"> elements only mount ' +
-      'when wallet.connected is true (app/app/send/page.tsx), and no wallet extension is ' +
-      'available in this environment to reach that state. Covered instead by the ' +
-      'disconnected-gating test above, which proves the form — and therefore this ' +
-      'validation — is unreachable pre-connect.',
-    async () => {
-      /* Intentionally empty — see skip reason above. */
-    },
-  );
-});
+// NOT COVERED — WL-04's field-level validation (malformed-G-address and
+// non-positive-amount checks: "destination must be a 56-char G… address" /
+// "amount must be > 0", isValidGAddress / amountNum in app/app/send/page.tsx)
+// cannot be exercised here. The <input id="send-destination"> /
+// <input id="send-amount"> elements only mount once wallet.connected is
+// true, and no wallet extension is available in this environment to reach
+// that state — stubWalletSession seeds a session but cannot make signing
+// work, and reaching this form needs no signature, only a UI state this repo
+// has no way to drive. The disconnected-gating tests above prove the form —
+// and therefore this validation — is unreachable pre-connect, which is the
+// coverage this environment can offer for that path.
 
 test.describe('/app/pdax — degrades honestly when data reads are unauthenticated/failed', () => {
   test('renders exactly one h1 and all four panel headings — no white screen', async ({ page }) => {
