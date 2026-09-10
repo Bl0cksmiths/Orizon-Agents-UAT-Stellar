@@ -215,7 +215,7 @@ test.describe('Overview — loading, loaded, and failed states stay visually and
     await expect(main.getByText("couldn't load recent tasks", { exact: false })).toBeVisible();
   });
 
-  test('the sidebar network panel reports the same backend failure independently of the page body', async ({
+  test('CN-04 the sidebar network panel reports the same backend failure independently of the page body', async ({
     page,
   }) => {
     await failApi(page, '/metrics/overview');
