@@ -45,7 +45,7 @@ test.describe('/app/wallet — disconnected state', () => {
     await expect(page.getByRole('button', { name: 'Connect Wallet' }).nth(1)).toBeVisible();
   });
 
-  test('the balance card is entirely absent while disconnected — no numeric zero to misread as a real balance', async ({ page }) => {
+  test('WL-01 the balance card is entirely absent while disconnected — no numeric zero to misread as a real balance', async ({ page }) => {
     await page.goto(WALLET_URL);
     // Regression: page.tsx only renders the "native XLM balance" Card when
     // `connected` is true. If a regression made it render for a logged-out
