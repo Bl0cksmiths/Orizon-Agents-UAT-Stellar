@@ -202,4 +202,23 @@ test.describe("AZ — authorization and API contract", () => {
     expect(typeof body.xdr, "unsigned XDR is returned").toBe("string");
     expect(body.xdr.length).toBeGreaterThan(0);
   });
+
+  test("AZ-07 an oversized body is refused with 413 carrying the hardening headers", async ({ request }) => {
+    // BodyLimitMiddleware's default cap is 1 MiB; comfortably over it so the
+    // declared Content-Length short-circuit fires before any parsing — no
+    // well-formed payload of any kind is ever read.
+    const oversizedPad = "a".repeat(1_100_000);
+    const response = await request.post("/api/stellar/build/register-agent", {
+      timeout: COLD_START_TIMEOUT,
+      data: { pad: oversizedPad },
+    });
+
+    expect(response.status()).toBe(413);
+    expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers()["referrer-policy"]).toBe("no-referrer");
+    expect(response.headers()["x-frame-options"]).toBe("DENY");
+
+    const body = await response.json();
+    expect(body.error.code).toBe("request_too_large");
+  });
 });
