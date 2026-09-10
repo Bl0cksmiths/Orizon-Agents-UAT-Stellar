@@ -679,6 +679,30 @@ because there is no accessible name to target.
 kit; or wrap/patch the modal locally; or replace the picker with an in-house
 one that reuses the drawer's existing, correct focus handling.
 
+**Fix prepared** — frontend branch `fix/wallet-picker-a11y`, 4 commits.
+
+`lib/wallet-picker-a11y.ts` installs an Escape handler and gives the close
+button an accessible name, for exactly as long as the picker is open.
+`connect()` enables it immediately before `authModal()` and disposes it in a
+`finally`, so the listener and observer can never outlive the modal.
+
+Two details that matter:
+
+- Escape fires the kit's **own** `closeEvent` — the same event its close button
+  dispatches (`components/shared/header.js`) — rather than synthesising a click
+  or removing DOM. One close path, so keyboard and mouse cannot drift apart.
+  `./state` is a **declared public export** of the package, not an internal
+  reach; verified in its `package.json` exports map.
+- The close button is located by its SVG path data, because it carries no id,
+  no `aria-label` and no stable class. That is fragile against an upstream icon
+  change, so it fails **safe**: if the path stops matching, the button simply
+  goes unlabelled again — Escape keeps working regardless. A `MutationObserver`
+  waits for the lazily-mounted modal and disconnects the moment it succeeds,
+  rather than watching `document.body` forever.
+
+This is a local patch over a third-party defect. The durable fix is an upstream
+PR adding both behaviours to the kit; until then the trap is closed here.
+
 ---
 
 ## D-018 — The picker's wallet label disagrees with the app's own name map
