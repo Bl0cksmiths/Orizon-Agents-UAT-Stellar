@@ -2,9 +2,10 @@ import { test, expect } from "@playwright/test";
 import { COLD_START_TIMEOUT, ONCHAIN_AGENT_ID, ONCHAIN_AGENT_OWNER } from "./fixtures";
 
 /**
- * AZ-01..AZ-09 and AM-06 — API-contract, authorization and agent-management
- * coverage for the live backend, using Playwright's `request` fixture
- * (APIRequestContext) rather than a browser page.
+ * AZ-01..AZ-09, AM-06 and VR-01..VR-03 — API-contract, authorization,
+ * agent-management and pre-signature id-availability coverage for the live
+ * backend, using Playwright's `request` fixture (APIRequestContext) rather
+ * than a browser page.
  *
  * Every assertion below matches behaviour confirmed against the live
  * deployment by hand before being written — none of it is inferred from
