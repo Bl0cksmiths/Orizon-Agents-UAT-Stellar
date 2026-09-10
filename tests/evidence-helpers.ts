@@ -12,3 +12,12 @@
 export function explorerSegment(network: string): "public" | "testnet" {
   return network === "mainnet" || network === "public" ? "public" : "testnet";
 }
+
+/** Mirrors `stellarExpertUrl` in components/ui/stellar-link.tsx. */
+export function stellarExpertUrl(
+  kind: "tx" | "account" | "contract",
+  id: string,
+  network: string,
+): string {
+  return `https://stellar.expert/explorer/${explorerSegment(network)}/${kind}/${id}`;
+}
