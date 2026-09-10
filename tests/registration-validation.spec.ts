@@ -200,3 +200,52 @@ test.describe("VR-07: the availability check fires on blur, not per keystroke", 
     expect(requestCount).toBe(1);
   });
 });
+
+test.describe("RE-01: register stays open without a wallet; send hard-gates", () => {
+  test("[RE-01] /app/register: all three fields render editable with a connect prompt; /app/send: the payment form is not mounted", async ({
+    page,
+  }) => {
+    // No stubWalletSession anywhere in this test — RE-01 is specifically
+    // about the disconnected state, and stubbing a session here would defeat
+    // the point. Neither page load below ever connects or signs.
+    await page.goto("/app/register");
+
+    const idField = page.locator("#reg-agent-id");
+    const nameField = page.locator("#reg-name");
+    const priceField = page.locator("#reg-price");
+
+    // Visible AND actually editable — a visible-but-disabled input would
+    // still pass a bare toBeVisible() but defeats RE-01's "fillable" clause.
+    // (register/page.tsx only disables these on `submitting`, never on
+    // `!wallet.connected`.)
+    await expect(idField).toBeVisible();
+    await expect(idField).toBeEditable();
+    await expect(nameField).toBeVisible();
+    await expect(nameField).toBeEditable();
+    await expect(priceField).toBeVisible();
+    await expect(priceField).toBeEditable();
+
+    await idField.fill("re01_no_wallet_probe");
+    await nameField.fill("RE01 No Wallet Probe");
+    await priceField.fill("3.5");
+
+    // The values actually stick — proves editable, not merely enabled-looking.
+    await expect(idField).toHaveValue("re01_no_wallet_probe");
+    await expect(nameField).toHaveValue("RE01 No Wallet Probe");
+    await expect(priceField).toHaveValue("3.5");
+
+    // The connect prompt sits beside submit, not instead of the form.
+    await expect(page.getByText("connect a wallet to register")).toBeVisible();
+
+    // Contrast case, same test: /app/send hard-gates the identical
+    // disconnected state by never mounting the form at all
+    // (send/page.tsx wraps it in `{wallet.connected && (...)}`). Asserting
+    // both sides here is the point of RE-01 — a test that only checked
+    // register would still pass if send were later loosened to match it.
+    await page.goto("/app/send");
+
+    await expect(page.locator("#send-destination")).toHaveCount(0);
+    await expect(page.locator("#send-amount")).toHaveCount(0);
+    await expect(page.locator("#send-memo")).toHaveCount(0);
+  });
+});
