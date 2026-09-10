@@ -150,7 +150,7 @@ test.describe("Document head & metadata", () => {
     );
   });
 
-  test("ships a meta description for search snippets", async ({ page }) => {
+  test("MK-01 ships a meta description for search snippets", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator('meta[name="description"]')).toHaveAttribute(
       "content",
