@@ -21,3 +21,35 @@ export function stellarExpertUrl(
 ): string {
   return `https://stellar.expert/explorer/${explorerSegment(network)}/${kind}/${id}`;
 }
+
+/**
+ * Mirrors `buildRegistrationEvidence` in lib/registration-evidence.ts —
+ * same duplication rationale as above. The network line and both explorer
+ * links are derived from `e.network`, never a fixed string, which is the
+ * exact property EV-05 requires.
+ */
+export type RegistrationEvidenceInput = {
+  agentId: string;
+  owner: string;
+  txHash: string;
+  network: "testnet" | "public";
+  capturedAt?: string;
+};
+
+export function buildRegistrationEvidence(
+  e: RegistrationEvidenceInput,
+): string {
+  const captured = e.capturedAt ?? new Date().toISOString();
+  const seg = e.network === "public" ? "public" : "testnet";
+  const label = e.network === "public" ? "mainnet" : "testnet";
+  return [
+    "Orizon Agents — registration evidence",
+    `agent id:  ${e.agentId}`,
+    `owner:     ${e.owner}`,
+    `tx hash:   ${e.txHash}`,
+    `network:   ${label}`,
+    `tx:        https://stellar.expert/explorer/${seg}/tx/${e.txHash}`,
+    `account:   https://stellar.expert/explorer/${seg}/account/${e.owner}`,
+    `captured:  ${captured}`,
+  ].join("\n");
+}
