@@ -202,7 +202,17 @@ be allowlisted in the console/network-error collector (`tests/fixtures.ts`) so
 that MK-07 stays a meaningful assertion rather than permanently red.
 
 **Resolution path** — Serve `/favicon.ico`, then remove the allowlist entry so
-the assertion tightens. Owned by the frontend repo.
+the assertion tightens.
+
+**Fix prepared** — frontend branch `fix/icons-and-titles`, commit `53e3c62`.
+A `force-static` route handler at `app/favicon.ico/route.ts` serves the
+existing 512px brand PNG. A hand-built `.ico` was rejected: the source is
+512x512, an ICO entry caps at 256, and no image library is available to
+resample it — inventing a second icon asset would also let the two drift.
+Every browser that requests this path accepts a PNG payload.
+
+Once deployed, drop `/favicon.ico` from the allowlist in
+`tests/fixtures.ts` (`collectConsoleErrors`) so MK-07 tightens.
 
 ---
 
@@ -221,8 +231,20 @@ title template never overrides the layout default and both render
 **Impact** — Browser tabs and history entries are ambiguous between two
 different routes. No functional effect.
 
-**Resolution path** — Export `metadata` from each route, or move the title into
-a shared server-component wrapper. Owned by the frontend repo.
+**Correction to this entry** — flow and events are not outliers. **All eleven**
+console pages are `"use client"`, so none of them can export `metadata`, and
+every one ships `Console — Orizon Agents`. The `template: "%s · Orizon Agents"`
+declared in `app/app/layout.tsx` is dead configuration: nothing ever supplies
+`%s`. Severity is unchanged, but the scope is ten routes, not two.
+
+**Resolution path** — A client component cannot export `metadata`, so each
+route needs a server `layout.tsx` that supplies the title.
+
+**Fix prepared** — frontend branch `fix/icons-and-titles`, 10 commits: one
+`layout.tsx` per console route (agents, register, reputation, orchestrator,
+trace, events, send, wallet, flow, pdax), each exporting a title that the
+existing layout template completes. `/app` itself needs none — the layout's
+`default` is already correct for the overview.
 
 ---
 
