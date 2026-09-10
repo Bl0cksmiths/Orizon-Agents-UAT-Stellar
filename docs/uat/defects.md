@@ -779,3 +779,71 @@ have turned a clean `NotFound` into a panic.
 chain only through a fresh deployment. Until then, an external keep-alive using
 `ExtendFootprintTTLOp` is the mitigation — anyone may extend any entry's TTL,
 no contract auth required.
+
+---
+
+## D-020 — PaymentEscrow had no settler rotation or kill switch
+
+- **Severity:** Critical
+- **Status:** Fixed in source; not deployable without redeployment
+- **Affects:** recovery from a settler key compromise
+
+**Actual.** `__constructor` stored an `Admin` address and **never read it
+again**. There was no `set_settler`. Both sibling contracts already had this
+exact pattern — `AttestationRegistry.set_sealer` and
+`ReputationLedger.set_scorer`, each gated by `admin.require_auth()` — so
+PaymentEscrow was the outlier, and it is the one that moves money.
+
+**Impact.** An attacker holding the settler hot key can call `charge` against
+every outstanding authorization up to its `max_amount`. With no rotation, no
+pause and no upgrade path, there was no on-chain recourse at all.
+
+**Compounding it:** `scripts/deploy_testnet.sh` points settler, sealer *and*
+scorer at `$ADMIN_ADDR`, and the same admin key is used on testnet and mainnet.
+The documented role separation does not exist as deployed, so one leaked key is
+all three roles on both networks.
+
+**Fix prepared** — `set_settler(env, new_settler)`, gated by
+`admin.require_auth()`, reading the previously-dead `Admin` key and publishing
+an event consistent with the contract's existing ones.
+
+The verifying test asserts the property that actually matters: after rotation a
+`charge` from the **old** settler fails `Unauthorized`, and one from the new
+settler succeeds. Asserting only that the stored field changed would have
+proven nothing about access.
+
+**Still open, and not a code fix:** the deploy script's role collapse and the
+shared testnet/mainnet admin key. Rotation gives you a recovery path; it does
+not undo three roles sharing one key.
+
+---
+
+## D-021 — AgentRegistry's id list could grow without bound
+
+- **Severity:** Major
+- **Status:** Fixed in source; not deployable without redeployment
+- **Affects:** contract liveness
+
+**Actual.** `register()` pushed to a `Vec<Symbol>` at `DataKey::Ids` in
+**instance** storage with no cap, and `register()` is permissionless. The
+`list_ids` doc comment claimed the list was "capped: workspace agrees to bound
+registrations" — an unenforced social agreement, now corrected in the source.
+
+**Why instance storage makes this serious.** The Stellar reference is explicit:
+instance storage is capped at **64 KB serialized on mainnet**, and per-user or
+unbounded data must never live there. The instance entry is loaded on *every*
+invocation, so growth raises the cost of every entrypoint, and the wall is
+unrecoverable on a non-upgradable contract.
+
+*(An earlier note in this programme put that ceiling at ~128 KiB. The
+authoritative figure is 64 KB.)*
+
+**Fix prepared** — `MAX_AGENTS = 256`, enforced before any write, returning a
+new `Error::CapacityExceeded = 102`. The bound is derived rather than guessed:
+64 KB total, worst case 20 bytes per `Symbol` in a `Vec`, and only an eighth of
+the budget (8,192 bytes) handed to the id list to leave headroom for `Admin`
+and future fields → a ceiling near 409 entries, with 256 sitting ~37% under it.
+The arithmetic is stated in a comment so the next person can re-derive it.
+
+`102` was checked against every error enum in all four contracts (1-8, 100, 101
+were in use) and against `orizon_shared::codes`.
