@@ -141,3 +141,45 @@ whether waiting will help.
 
 **Resolution path** — Move Overview onto `useFetch`. This also closes an
 unguarded manual `retry()` race on the same page. Owned by the frontend repo.
+
+---
+
+## D-006 — `/favicon.ico` returns 404
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** MK-07
+
+**Steps to reproduce** — `curl -o /dev/null -w "%{http_code}" https://orizons.xyz/favicon.ico`
+
+**Expected** — 200, or no browser request for it.
+
+**Actual** — 404. The page correctly declares `<link rel="icon" href="/icon.png">`,
+but Chromium probes `/favicon.ico` unconditionally regardless.
+
+**Impact** — The only failed request on an otherwise clean page load. It had to
+be allowlisted in the console/network-error collector (`tests/fixtures.ts`) so
+that MK-07 stays a meaningful assertion rather than permanently red.
+
+**Resolution path** — Serve `/favicon.ico`, then remove the allowlist entry so
+the assertion tightens. Owned by the frontend repo.
+
+---
+
+## D-007 — `/app/flow` and `/app/events` ship the default page title
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** none directly; recorded for completeness
+
+**Expected** — Each console route sets its own document title, as the others do.
+
+**Actual** — Both are client components with no `metadata` export, so Next's
+title template never overrides the layout default and both render
+`Console — Orizon Agents`.
+
+**Impact** — Browser tabs and history entries are ambiguous between two
+different routes. No functional effect.
+
+**Resolution path** — Export `metadata` from each route, or move the title into
+a shared server-component wrapper. Owned by the frontend repo.
