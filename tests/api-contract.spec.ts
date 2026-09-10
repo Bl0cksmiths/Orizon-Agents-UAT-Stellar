@@ -438,4 +438,21 @@ test.describe("PR — on-chain provenance and sync", () => {
       expect(agent.id.startsWith("agt_"), `on-chain agent ${agent.id} is outside the agt_ namespace`).toBe(false);
     }
   });
+
+  test("PR-01 the on-chain agent's marketplace owner mirrors the raw contract read", async ({ request }) => {
+    const agentsResponse = await request.get("/api/agents", { timeout: COLD_START_TIMEOUT });
+    expect(agentsResponse.ok()).toBe(true);
+    const agents: Array<{ id: string; owner: string | null }> = await agentsResponse.json();
+    const onchainAgent = agents.find((a) => a.id === ONCHAIN_AGENT_ID);
+    expect(onchainAgent, `${ONCHAIN_AGENT_ID} is listed in the marketplace`).toBeTruthy();
+
+    const rawResponse = await request.get(`/api/stellar/agent/${ONCHAIN_AGENT_ID}`, { timeout: COLD_START_TIMEOUT });
+    expect(rawResponse.ok()).toBe(true);
+    const raw: { agent: { owner: string } } = await rawResponse.json();
+
+    // The assertion that proves the marketplace mirrors the chain rather
+    // than inventing a value: the same owner must appear on both reads.
+    expect(onchainAgent!.owner, "marketplace owner matches the raw contract owner").toBe(raw.agent.owner);
+    expect(onchainAgent!.owner, "matches the known on-chain agent owner").toBe(ONCHAIN_AGENT_OWNER);
+  });
 });
