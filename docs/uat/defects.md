@@ -93,3 +93,51 @@ nothing in this programme has executed anywhere.
 **Resolution path** — Add `workflow` scope to the token, then
 `git mv ci/e2e.workflow.yml .github/workflows/e2e.yml`. The workflow already
 covers three browser projects, a backend warm-up step, and report artifacts.
+
+---
+
+## D-004 — Skills validation messages are unreachable
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** RG-04
+
+**Expected** — The "16 skills maximum" and per-token charset messages defined
+in `lib/register-validation.ts` render when a user violates those rules.
+
+**Actual** — They can never render, for two independent reasons:
+`components/ui/skills-input.tsx` sanitises invalid characters as they are typed
+and refuses a 17th chip client-side, so the invalid state never occurs; and
+`app/app/register/page.tsx` never calls `touch("skills")` — there is no
+`onBlur` wiring for the field — so the error text is gated behind a `touched`
+flag nothing ever sets. Only `aria-invalid` reflects the cap.
+
+**Impact** — Dead validation code implying coverage the form does not have. A
+future refactor of `SkillsInput` that removed the client-side guard would
+expose users to a silent failure, because the fallback message still could not
+render.
+
+**Resolution path** — Wire `touch("skills")` on blur, or delete the
+unreachable messages. Owned by the frontend repo, not this one.
+
+---
+
+## D-005 — Overview cannot distinguish a transient 500 from a terminal 404
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** RS-02
+
+**Expected** — A 5xx presents as transient and recoverable ("retrying…"),
+distinctly from a terminal 404, as every other data-backed console route does.
+
+**Actual** — `app/app/page.tsx` drives its own state around `usePolling`
+instead of `useFetch`, so it never gets `useFetch`'s transient-error retry
+indicator and renders both failure modes identically.
+
+**Impact** — On the console's landing route, a temporary backend blip is
+indistinguishable from a permanently missing resource, so a tester cannot tell
+whether waiting will help.
+
+**Resolution path** — Move Overview onto `useFetch`. This also closes an
+unguarded manual `retry()` race on the same page. Owned by the frontend repo.
