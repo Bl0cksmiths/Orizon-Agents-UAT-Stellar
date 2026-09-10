@@ -278,7 +278,7 @@ test.describe('Flow — DAG renders nodes and edges, and fails loudly instead of
 // ---------------------------------------------------------------------------
 
 test.describe('Events — feed distinguishes connecting, empty, live, and failed states', () => {
-  test('shows a feed-unavailable error — never the "no events yet" empty copy — when the contract list fails to load', async ({
+  test('CN-06 shows a feed-unavailable error — never the "no events yet" empty copy — when the contract list fails to load', async ({
     page,
   }) => {
     await failApi(page, '/stellar/network');
