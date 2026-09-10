@@ -380,3 +380,75 @@ element and silently do nothing.
 **Reproduction test** — `tests/a11y.spec.ts`, "AX-07 — a closed mobile drawer
 keeps its nav links out of the tab order", marked `test.fail` while the defect
 is live. It flips to a plain `test` in the commit that confirms the deploy.
+
+---
+
+## D-011 — `AgentRegistry` accepts a negative price on both write paths
+
+- **Severity:** Major
+- **Status:** Fix prepared, not deployed
+- **Affects:** AM-03, AM-05, and marketplace data integrity
+
+**Steps to reproduce** — Call `AgentRegistry.register` (or `update_price`)
+directly via RPC with `price = -1`. `register` is permissionless, so no
+backend involvement is possible.
+
+**Expected** — Refused.
+
+**Actual** — Stored verbatim. `contract/agent-registry/src/lib.rs` validates
+the price in neither `register` (line ~45) nor `update_price` (line ~79). The
+backend's `gt=0, le=10_000` check on `/build/register-agent` is bypassed
+entirely by talking to the chain directly.
+
+**Impact** — `registry_sync` mirrors on-chain agents into the marketplace as
+`price = raw["price"] / 1e7`, so a negative price propagates into listings,
+plan totals and the reputation weight derived from step price. The contract is
+non-upgradable, so the value cannot be corrected in place once written.
+
+**Not to be confused with** — a price of **zero**, which is legitimate and in
+use: `orizon_batch` is registered free on purpose so the payer sets the spend
+cap per workflow via `PaymentEscrow.authorize`. A guard of `price <= 0` would
+break the deployed system.
+
+**Fix prepared** — contracts branch `fix/price-validation`, 6 commits: a
+`BadAmount = 101` variant matching `orizon_shared::codes::BAD_AMOUNT` and
+payment-escrow's existing numbering; a `price < 0` guard on both write paths;
+and three tests — negative rejected on register, negative rejected on
+update_price, and zero still accepted on both. The last one exists so nobody
+"tightens" the guard to `<= 0`.
+
+**Not deployed.** These contracts are live and non-upgradable, so this fix
+only reaches the chain through a fresh deployment and a migration of the
+existing registrations.
+
+---
+
+## D-012 — The repository account cannot push to the frontend or contract repos
+
+- **Severity:** Blocker (process)
+- **Status:** Open
+- **Affects:** delivery of every prepared fix
+
+**Actual**
+
+```
+remote: Permission to Bl0cksmiths/Orizon-Agents-Smart-Contract-Stellar.git
+        denied to rie-hash14.
+fatal: ... The requested URL returned error: 403
+```
+
+The same 403 occurs on `Bl0cksmiths/Orizon-Agents-FE-Stellar`. Fetch works on
+both; only writes are refused. Pushes to this UAT repository succeed.
+
+**This is an account-permission problem, not a token-scope one.** The remote
+names the account explicitly. Regenerating a Personal Access Token with wider
+scopes cannot fix it — a token grants no access the account does not already
+hold. Someone with admin on the `Bl0cksmiths` org must grant `rie-hash14`
+write access to those two repositories.
+
+**Impact** — 32 prepared commits across six branches (five frontend, one
+contracts) exist only on the local machine and cannot be opened as pull
+requests.
+
+**Workaround** — export the branches as patches (`git format-patch`) and apply
+them from an account that does have write access.
