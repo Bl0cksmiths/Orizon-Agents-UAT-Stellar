@@ -9,7 +9,7 @@ executed**, so there is no evidence to sign off on. Two blockers put every
 result in this programme in the "authored and statically checked" category
 rather than the "observed passing" one.
 
-This report states that plainly rather than presenting 148 authored tests as a
+This report states that plainly rather than presenting 167 authored tests as a
 passing run.
 
 ## What was delivered
@@ -24,7 +24,7 @@ passing run.
 | Test blocks authored | 167 across 10 spec files |
 | Shared fixtures | 549 lines |
 | Defects logged | 10 |
-| Commits on `uat` | 139 |
+| Commits on `uat` | 164 |
 
 Parameterized sweeps expand well past the raw test count at runtime: the a11y
 and resilience suites alone run their assertions across 12 routes and up to 4
