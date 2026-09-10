@@ -400,7 +400,7 @@ async function measurePerf(page: Page): Promise<{
 
 test.describe("performance budgets (regression guardrails, not SLAs — see comment above PERF_BUDGET_MS)", () => {
   for (const route of ROUTES) {
-    test(`${route.label} (${route.path}): navigation timing and LCP stay within budget`, async ({
+    test(`[PF-01] ${route.label} (${route.path}): navigation timing and LCP stay within budget`, async ({
       page,
     }) => {
       // Set up the LCP observer before any page script runs, or early paints
