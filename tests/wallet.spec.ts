@@ -203,7 +203,7 @@ test.describe('/app/send — disconnected + client-side validation', () => {
     await expect(page.getByRole('button', { name: 'Connect Wallet' })).toHaveCount(2);
   });
 
-  test('the TxStatus lifecycle tracker is absent when idle — no phantom "building/signing" steps before a send is attempted', async ({ page }) => {
+  test('WL-05 the TxStatus lifecycle tracker is absent when idle — no phantom "building/signing" steps before a send is attempted', async ({ page }) => {
     await page.goto(SEND_URL);
     // TxStatus returns null for state "idle" (tx-status.tsx) — asserting its
     // role="status" region is absent catches a regression that renders the
