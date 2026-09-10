@@ -387,4 +387,33 @@ test.describe("accessibility — AX-07 keyboard journeys", () => {
         .toBe("open menu");
     },
   );
+
+  test(
+    "AX-07 — orchestrator intent box inserts a newline on Shift+Enter instead of submitting, keyboard only",
+    { tag: ["@AX-07", "@a11y"] },
+    async ({ page }) => {
+      await page.goto("/app/orchestrator");
+
+      const reachedTextarea = await tabToMatch(
+        page,
+        (el) => el.tag === "TEXTAREA",
+        15,
+      );
+      expect(reachedTextarea, "could not tab to the intent textarea").toBe(
+        true,
+      );
+
+      await page.keyboard.type("line one");
+      await page.keyboard.press("Shift+Enter");
+      await page.keyboard.type("line two");
+
+      await expect(page.locator("#intent")).toHaveValue("line one\nline two");
+
+      // Shift+Enter must not have triggered a submit — the button stays in
+      // its idle label, never "Decomposing…".
+      await expect(page.getByRole("button", { name: /decompose/i })).toHaveText(
+        "Decompose ▸",
+      );
+    },
+  );
 });
