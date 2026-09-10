@@ -249,3 +249,29 @@ test.describe("RE-01: register stays open without a wallet; send hard-gates", ()
     await expect(page.locator("#send-memo")).toHaveCount(0);
   });
 });
+
+test.describe("RE-02: a free id confirms availability on blur", () => {
+  test("[RE-02] /app/register: blurring a valid, unregistered id shows the affirmative available state and no error", async ({
+    page,
+  }) => {
+    // No stubWalletSession — the id-availability check is wired to onBlur
+    // regardless of wallet.connected (register/page.tsx), so RE-02 needs no
+    // wallet either, and this test never connects or signs.
+    await stubIdAvailable(page);
+
+    await page.goto("/app/register");
+
+    const idField = page.locator("#reg-agent-id");
+    await idField.fill("re02_available_probe");
+    await idField.blur();
+
+    // The affirmative confirmation itself — the exact "✓ available" copy
+    // register/page.tsx renders once idCheck.data.available is true. This is
+    // what VR-07 never asserts: it counts requests, not the resulting state.
+    await expect(page.getByText("✓ available")).toBeVisible();
+
+    // And no error note takes its place.
+    await expect(page.locator("#reg-agent-id-err")).toHaveCount(0);
+    await expect(idField).toHaveAttribute("aria-invalid", "false");
+  });
+});
