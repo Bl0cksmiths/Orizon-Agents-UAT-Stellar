@@ -126,3 +126,25 @@ test.describe("PR-02 — a delisted agent stays visible, never removed or presen
     await expect(cells.nth(5)).toHaveText("offline");
   });
 });
+
+test.describe("PR-03 — relisting returns the agent to online", () => {
+  test("status: online renders as online — the mirror-image stub pinning the same mapping PR-02 depends on", async ({ page }) => {
+    await page.route("**/api/agents", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([stubOnchainAgent("online")]),
+      }),
+    );
+    await page.route("**/api/stellar/reputation", (route) => route.abort());
+
+    await page.goto(AGENTS_URL);
+    const row = agentRow(page, ONCHAIN_AGENT_ID);
+    await expect(row).toBeVisible();
+
+    const cells = row.locator("td");
+    await expect(cells.nth(1)).toContainText("workflow");
+    await expect(cells.nth(2)).toHaveText("0.050");
+    await expect(cells.nth(5)).toHaveText("online");
+  });
+});
