@@ -9,7 +9,7 @@ executed**, so there is no evidence to sign off on. Two blockers put every
 result in this programme in the "authored and statically checked" category
 rather than the "observed passing" one.
 
-This report states that plainly rather than presenting 195 authored tests as a
+This report states that plainly rather than presenting 190 authored tests as a
 passing run.
 
 ## What was delivered
@@ -21,7 +21,7 @@ passing run.
 | Criteria Blocked | 12 (EV-01..EV-04, AM-03/AM-04 on-chain, AM-05, PR-04, WM-02..WM-04, RE-03, RE-04) |
 | Criteria Not covered | 1 (WL-04 field validation), stated reason |
 | Criteria Covered by configuration | 1 (RS-07) |
-| Test blocks authored | 195 across 13 spec files |
+| Test blocks authored | 190 across 13 spec files |
 | Shared fixtures | 549 lines |
 | Defects logged | 22 |
 | Commits on `uat` | 164 |
