@@ -242,3 +242,26 @@ screen.
 **OR-10** — Given a rendered artifact, When the preview iframe is inspected,
 Then it carries `sandbox="allow-scripts"` and does **not** carry
 `allow-same-origin`.
+
+## Acceptance criteria — WL, wallet, payments and fiat ramp
+
+**WL-01** — Given no wallet, When `/app/wallet` renders, Then the connect
+prompt is shown and no numeric balance appears anywhere on the page.
+
+**WL-02** — Given the four states of a balance read (disconnected, loading,
+failed, genuinely zero), When each renders, Then all four are distinguishable
+and none of the first three renders as `0`.
+
+**WL-03** — When the contracts grid resolves, Then it shows four contract
+addresses, each linking to `stellar.expert` on the network the deployment
+reports — never a hardcoded segment.
+
+**WL-04** — Given no wallet, When `/app/send` renders, Then the payment form
+is not mounted and the connect prompt is offered.
+
+**WL-05** — Given no wallet, When `/app/send` is idle, Then no transaction
+lifecycle indicator is shown.
+
+**WL-06** — Given `/app/pdax` and an unauthenticated upstream, When the panels
+settle, Then each shows real data or a labelled error — never a fabricated
+number, address or price.
