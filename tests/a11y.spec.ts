@@ -523,3 +523,51 @@ test.describe("accessibility — AX-07 keyboard journeys", () => {
     },
   );
 });
+
+test.describe("accessibility — AX-07 closed mobile drawer", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  // Reproduces defect D-010. Marked `fail` because the defect is OPEN in the
+  // deployed build: the drawer is hidden with `-translate-x-full`, and a
+  // transformed element stays rendered, in the accessibility tree, and
+  // focusable — so all eleven nav links sit in the tab order ahead of the
+  // hamburger that reveals them (WCAG 2.4.3).
+  //
+  // The fix applies `inert` to the aside while closed below `md`. Once that
+  // ships, this test starts passing and MUST be changed from `test.fail` to
+  // `test` in the same commit that confirms the deploy — a `fail` test that
+  // passes is reported as an unexpected pass, not silently ignored.
+  test.fail(
+    "AX-07 — a closed mobile drawer keeps its nav links out of the tab order",
+    async ({ page }) => {
+      await page.goto("/app");
+
+      const hamburger = page.getByRole("button", { name: /open menu/i });
+      await expect(hamburger).toBeVisible();
+
+      // Tab from the top of the document. The hamburger is the first control
+      // a keyboard user should reach that belongs to the console chrome; the
+      // off-screen drawer links must never take focus before it.
+      await page.locator("body").press("Tab");
+      for (let i = 0; i < 15; i += 1) {
+        const inClosedDrawer = await page.evaluate(() => {
+          const el = document.activeElement;
+          if (!el) return false;
+          const aside = el.closest("aside");
+          if (!aside) return false;
+          // A drawer that is off-screen to the left is the closed one.
+          return aside.getBoundingClientRect().right <= 0;
+        });
+        expect(
+          inClosedDrawer,
+          `keyboard focus landed inside the closed off-screen drawer on Tab press ${i + 1}`,
+        ).toBe(false);
+        if (await hamburger.evaluate((el) => el === document.activeElement)) {
+          return;
+        }
+        await page.keyboard.press("Tab");
+      }
+      throw new Error("never reached the hamburger within 15 Tab presses");
+    },
+  );
+});
