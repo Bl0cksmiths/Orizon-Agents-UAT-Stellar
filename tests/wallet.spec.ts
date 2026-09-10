@@ -286,7 +286,7 @@ test.describe('/app/pdax — degrades honestly when data reads are unauthenticat
     }
   });
 
-  test('the "crypto transactions" panel starts truthfully empty ("No transactions loaded yet.") rather than pre-fetching and risking a fabricated 0-row table', async ({ page }) => {
+  test('WL-06 the "crypto transactions" panel starts truthfully empty ("No transactions loaded yet.") rather than pre-fetching and risking a fabricated 0-row table', async ({ page }) => {
     await page.goto(PDAX_URL);
     // useAsyncAction-backed panel: `txns` is null until "load" is clicked.
     // Asserting the literal empty-state copy (not just "no rows") catches a
