@@ -149,3 +149,16 @@ Supporting: a well-formed, never-registered id returns `available: true`
 Pydantic guard is pinned as a **separate** mechanism answering 422
 `validation_error` rather than `id_malformed` — so unifying the two layers
 cannot silently remove the pre-signature gate.
+
+## WM — wallet × browser registration matrix (verifies 1.05)
+
+| criterion | spec | status |
+| --- | --- | --- |
+| WM-01 | wallet-picker.spec.ts | Covered — all six allowlisted wallets listed; picker dismissible without connecting; no auto-connect |
+| WM-02 | — | **Not covered by automation.** The guard needs a real wallet reporting a network. Worse, it *cannot* fire for Albedo or LOBSTR at all — defect D-015. Verify per cell, by hand. |
+| WM-03 | — | **Manual.** 25 cells in `wallet-browser-matrix.md`. Needs real extensions and a human signature; cannot be automated. |
+| WM-04 | — | **Manual.** Recorded live in `docs/evidence/1.07-friction-log.md` (backend repo) by an observer, during the run. |
+
+WM-03 and WM-04 have no automated cell and never will — that is a property of
+the criteria, not a gap in the suite. Automating them would fabricate the
+evidence they exist to gather.
