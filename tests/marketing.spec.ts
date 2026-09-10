@@ -457,7 +457,7 @@ test.describe("robots.txt & sitemap.xml", () => {
     expect(body).toMatch(/Allow:\s*\//i);
   });
 
-  test("sitemap.xml is served with valid XML containing the canonical homepage URL", async ({
+  test("MK-05 sitemap.xml is served with valid XML containing the canonical homepage URL", async ({
     page,
   }) => {
     const response = await page.request.get("/sitemap.xml");
