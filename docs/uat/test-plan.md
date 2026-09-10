@@ -50,3 +50,30 @@ deliberately rather than filled with fabricated coverage.
 | `/app/wallet` | balance, session, deployed contract addresses | partial |
 | `/app/flow` | agent-graph visualiser | no |
 | `/app/pdax` | PHP fiat on/off-ramp panels | no (API-key gated upstream) |
+
+## Feature inventory — backend endpoints
+
+Open (no credential):
+
+| method | path |
+| --- | --- |
+| GET | `/health`, `/api/health`, `/readiness`, `/` |
+| GET | `/api/agents`, `/api/agents/{id}` |
+| POST | `/api/orchestrator/decompose`, `/api/orchestrator/execute` |
+| GET | `/api/tasks`, `/api/tasks/{id}`, `/api/tasks/{id}/artifact` |
+| GET | `/api/trace/{id}`, `/api/trace/{id}/stream` (SSE) |
+| GET | `/api/metrics/overview`, `/api/flow/default` |
+| POST | `/api/payments/x402` |
+| GET | `/api/stellar/network`, `/agent/{id}`, `/agent-id-available/{id}` |
+| GET | `/api/stellar/reputation`, `/reputation/params`, `/reputation/{id}` |
+| GET | `/api/stellar/attestation/{job_id}`, `/new-id` |
+| POST | `/api/stellar/build/{register-agent,update-price,set-active,authorize}` |
+| POST | `/api/stellar/submit`, `/api/stellar/agents/sync` |
+| GET | `/api/pdax/environment`, `/health`, `/reference*` |
+
+API-key gated (`X-API-Key`):
+
+| method | path |
+| --- | --- |
+| POST | `/api/stellar/server/charge`, `/api/stellar/server/seal` |
+| GET/POST | `/api/pdax/*` except the open routes above — balances, trade, fiat and crypto withdraw, ramp, webhooks/register |
