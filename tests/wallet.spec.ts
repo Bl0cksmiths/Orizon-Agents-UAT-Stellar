@@ -25,7 +25,7 @@ const VIEWPORTS = [
 ] as const;
 
 test.describe('/app/wallet — disconnected state', () => {
-  test('renders exactly one h1 and the connect prompt, no wallet extension needed', async ({ page }) => {
+  test('WL-01 renders exactly one h1 and the connect prompt, no wallet extension needed', async ({ page }) => {
     await page.goto(WALLET_URL);
     // Regression: a second h1 (e.g. leaking a section heading) breaks the
     // page's document outline for screen-reader users.
