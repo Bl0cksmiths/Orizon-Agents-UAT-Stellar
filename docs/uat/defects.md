@@ -258,3 +258,51 @@ credentials are set. Owned by the backend repo.
 
 **Note** — This entry supersedes an earlier working assumption in this
 programme that the gated routes might be answering anonymously. They are not.
+
+---
+
+## D-010 — Off-screen mobile nav links stay keyboard-focusable when the drawer is closed
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** AX-04, AX-07
+
+**Steps to reproduce** — Load any `/app` route at a mobile viewport (390x844)
+with the drawer closed. Press Tab repeatedly from the top of the page.
+
+**Expected** — Focus reaches the "open menu" button. The eleven navigation
+links are off screen and must not be in the tab order until the drawer opens.
+
+**Actual** — Focus moves through all eleven off-screen navigation links first.
+They precede the topbar hamburger in DOM order, so a keyboard user presses Tab
+eleven times against invisible targets before reaching the control that would
+reveal them.
+
+**Cause — confirmed in source.** `app/app/_components/sidebar.tsx:361-366`
+hides the drawer with a transform only:
+
+```
+open ? "translate-x-0" : "-translate-x-full",
+"md:translate-x-0",
+```
+
+A transform moves an element out of view but leaves it rendered, visible to
+the accessibility tree, and focusable — unlike `display:none`,
+`visibility:hidden`, or `inert`. The `<aside>` carries `tabIndex={-1}`
+(line 357), which affects only the aside itself, never its children, and the
+`<Link>` elements have no conditional `tabIndex`. The `aria-hidden={!open}` at
+line 346 is on the backdrop, not on the drawer.
+
+**Why it is not trivial to fix** — the same element must stay focusable at
+`md:` and above, where `md:translate-x-0` makes it a permanently visible
+sidebar. So the fix is viewport-conditional and cannot be pure CSS.
+
+**Impact** — Fails WCAG 2.4.3 Focus Order for every keyboard and
+switch-control user on a small viewport, on every console route. The project
+already solved the mirror-image problem correctly — `console-content.tsx`
+applies the native `inert` attribute to background content while the drawer is
+*open* — so the pattern to reuse exists in the codebase.
+
+**Resolution path** — Apply `inert` to the `<aside>` when the drawer is closed
+*and* the viewport is below `md`, mirroring the existing
+`console-content.tsx` treatment. Owned by the frontend repo.
