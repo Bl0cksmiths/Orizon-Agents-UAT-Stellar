@@ -503,4 +503,21 @@ test.describe("PR — on-chain provenance and sync", () => {
       "the same set of agent ids is present after a sync pass",
     ).toEqual(beforeAgents.map((a) => a.id).sort());
   });
+
+  test("marketplace price mirrors the raw contract price divided by 1e7", async ({ request }) => {
+    const rawResponse = await request.get(`/api/stellar/agent/${ONCHAIN_AGENT_ID}`, { timeout: COLD_START_TIMEOUT });
+    expect(rawResponse.ok()).toBe(true);
+    const raw: { agent: { price: number } } = await rawResponse.json();
+
+    const agentsResponse = await request.get("/api/agents", { timeout: COLD_START_TIMEOUT });
+    expect(agentsResponse.ok()).toBe(true);
+    const agents: Array<{ id: string; price: number }> = await agentsResponse.json();
+    const onchainAgent = agents.find((a) => a.id === ONCHAIN_AGENT_ID);
+    expect(onchainAgent, `${ONCHAIN_AGENT_ID} is listed in the marketplace`).toBeTruthy();
+
+    // orizon_batch is registered free (price 0) ON PURPOSE — a free
+    // meta-agent, with the payer setting the spend cap per workflow. 0 is a
+    // valid mirrored price here, not a sign the mapping failed.
+    expect(onchainAgent!.price, "marketplace price equals raw price / 1e7").toBe(raw.agent.price / 1e7);
+  });
 });
