@@ -524,7 +524,7 @@ test.describe("/app/reputation — score calculator", () => {
     await expect(card.getByText(`★ ${scoreOutOfFive(expectedLower)}`)).toBeVisible();
   });
 
-  test("max mean + max evidence pushes the score near the ceiling and stays routable", async ({ page }) => {
+  test("RG-08 max mean + max evidence pushes the score near the ceiling and stays routable", async ({ page }) => {
     await page.goto(`${BASE_URL}/app/reputation`);
     await page.getByLabel("raw on-chain mean").press("End");
     await page.getByLabel("settled evidence").press("End");
