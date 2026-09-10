@@ -483,7 +483,7 @@ test.describe("/app/reputation — score calculator", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   });
 
-  test("default inputs (mean 85/100, 25 USDC evidence) match lib/reputation-math.ts", async ({ page }) => {
+  test("RG-08 default inputs (mean 85/100, 25 USDC evidence) match lib/reputation-math.ts", async ({ page }) => {
     await page.goto(`${BASE_URL}/app/reputation`);
     // The params fetch failing is itself announced, not swallowed.
     await expect(
