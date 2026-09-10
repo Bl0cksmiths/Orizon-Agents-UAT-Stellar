@@ -458,3 +458,34 @@ transaction, and the target reports mainnet while this programme is
 testnet-only (D-001). PR-01 and PR-05 are verified now, and the
 `active → status` mapping PR-02/PR-03 depend on is asserted against the
 contract that produces it.
+
+## Acceptance criteria — VR, registration validation and rate-limit recovery (parent 6.01, verifies 1.03 / 1.09)
+
+**VR-01** — Given an agent id with a disallowed character, or longer than 32
+characters, When availability is checked, Then it is refused as `id_malformed`
+before any signature is requested.
+
+**VR-02** — Given an `agt_`-prefixed id, Then it is refused as `id_reserved`.
+
+**VR-03** — Given an id already registered on-chain, Then it is refused as
+`id_taken` at check time — before signing, not only as the contract's
+`AlreadyExists` — and the response names the current owner.
+
+**VR-04** — Given a price of 0, or above the 10,000 cap, Then a validation
+error is shown and submit stays blocked.
+
+**VR-05** — Given a wallet with no funded account, When the build is
+attempted, Then the operator is told to fund the wallet
+(`owner_account_unfunded`), not shown a generic failure.
+
+**VR-06** — Given a 429 while registering, When it is handled, Then the wait
+is communicated in plain language, **and every value already typed into the
+form survives** — the form is recoverable, not dead.
+
+**VR-07** — Given continuous typing in the id field, Then the on-chain
+availability check fires on blur, not once per keystroke.
+
+Coverage note: VR-01's charset case, VR-02, VR-03 and VR-04 are already
+covered by RG-04, RG-05 and RG-06, and VR-06's message by RS-04. This round
+adds only what those miss — the over-length id, the reason codes at the API,
+VR-05, VR-06's form-state survival, and VR-07.
