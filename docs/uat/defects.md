@@ -492,3 +492,68 @@ does not yet support.
 **Resolution path** — register at least two agents from wallets that are not
 the admin key. `POST /api/stellar/build/register-agent` plus an owner signature
 is the supported path; `scripts/register_batch_agent.py` shows the shape.
+
+---
+
+## D-014 — The stack settles in XLM while naming the asset USDC throughout
+
+- **Severity:** Critical
+- **Status:** Partially fixed; the remainder is deliberately deferred
+- **Affects:** every priced surface, and three safety limits
+
+**Actual — verified end to end.** `scripts/deploy_testnet.sh` defaults
+`ASSET="${ASSET:-native}"`, i.e. the XLM SAC. `payment-escrow` stores that
+address under `DataKey::Usdc`. `GET /api/stellar/network` reported a hardcoded
+`asset: "native"`. Meanwhile the codebase says USDC in 658 places across 90
+files — `usdc_to_i128`, `max_charge_usdc`, `max_amount_usdc`, `total_usdc`,
+`MAX_WEIGHT` ("100 USDC per rating"), and the marketplace UI.
+
+**Impact.** Three limits are denominated in a different asset from the one
+their names claim:
+
+| limit | reads as | actually is |
+| --- | --- | --- |
+| `max_charge_usdc = 100.0` | 100 USD of value | 100 XLM |
+| `MAX_WEIGHT = 1_000_000_000` | 100 USDC per rating | 100 XLM |
+| `reputation_max_rating_weight_usdc = 100.0` | 100 USD | 100 XLM |
+
+A buyer reading "0.166 USDC" on a plan authorizes against a figure whose unit
+is wrong, and reputation weight — which is meant to make ratings proportional
+to settled value — is scaled against a different asset than intended.
+
+**What was fixed** — backend `fix/settlement-asset-symbol` (5 commits) and
+frontend `fix/settlement-asset-symbol` (3 commits):
+
+- `STELLAR_ASSET_SYMBOL` added, documented, and defaulted to `XLM`, giving the
+  deployment one place that states which token settles.
+- `/api/stellar/network` now reports it instead of the hardcoded `"native"` —
+  which was correct by accident today and would have lied outright the moment
+  anyone deployed with `ASSET="USDC:G..."`.
+- A `useSettlementAsset()` hook reads that value **live**, and the two
+  money-critical surfaces use it: the orchestrator plan total (the figure a
+  buyer authorizes against) and the operator's price control. Its fallback is
+  the neutral `"units"`, never a guessed token name — guessing is the same
+  mistake in miniature.
+- Both value caps now carry an explicit denomination warning at their
+  definitions.
+
+**What was deliberately NOT done, and why**
+
+*Renaming the 658 identifiers.* `usdc_to_i128`, `total_usdc` and the rest are a
+7-decimal **unit convention**, not a currency claim. Renaming them is a large
+mechanical change across three repos with zero runtime verification available
+(D-002) — high regression risk for no behavioural gain. The names should be
+neutralised, but as a tracked refactor with a green suite behind it.
+
+*Marketing copy.* `hero.tsx` quotes agent prices "(0.009 USDC)" and
+`reputation.tsx` claims a "100 USDC" cap and "backed by settled USDC". These
+are factual claims about the deployed system and are currently wrong, but they
+are content decisions for the team, not a unilateral code edit.
+
+*The on-chain constants.* `MAX_WEIGHT` is compiled into a non-upgradable
+contract. It cannot be retuned without a redeployment.
+
+**The real decision this defect surfaces** — either deploy against an actual
+USDC SAC so the names become true, or accept XLM as the settlement asset and
+neutralise the naming. The fixes above make the system *honest about which it
+is*; they do not make that choice.
