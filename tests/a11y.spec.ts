@@ -226,3 +226,36 @@ test.describe("accessibility", () => {
     });
   }
 });
+
+/**
+ * AX-07: core journeys completable by keyboard alone. The per-route sweep
+ * above checks static structure; these tests drive real journeys with
+ * `page.keyboard` only — no `.click()`, no `.tap()` — and assert the journey
+ * actually completed (a route changed, a form submitted, focus landed
+ * somewhere real), not just that some element was reachable.
+ */
+test.describe("accessibility — AX-07 keyboard journeys", () => {
+  test(
+    "AX-07 — marketing home to the console via the Launch App CTA, using only Tab and Enter",
+    { tag: ["@AX-07", "@a11y"] },
+    async ({ page }) => {
+      await page.goto("/");
+
+      const reachedCta = await tabToMatch(
+        page,
+        (el) => el.tag === "A" && el.text.toLowerCase().includes("launch app"),
+        25,
+      );
+      expect(
+        reachedCta,
+        "could not reach the Launch App CTA by tabbing alone from the marketing home page",
+      ).toBe(true);
+
+      await page.keyboard.press("Enter");
+
+      await expect(page).toHaveURL(/\/app\/?(\?.*)?$/);
+      // A real page landed, not a blank shell mid-navigation.
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    },
+  );
+});
