@@ -110,7 +110,7 @@ test.describe('Sidebar navigation', () => {
     });
   }
 
-  test('aria-current moves with the route instead of sticking to the first-painted link', async ({
+  test('CN-02 aria-current moves with the route instead of sticking to the first-painted link', async ({
     page,
   }) => {
     await page.goto('/app');
