@@ -270,7 +270,7 @@ test.describe("Primary navigation", () => {
     });
   }
 
-  test('"Launch App" CTA resolves to the /app console', async ({ page }) => {
+  test('MK-03 "Launch App" CTA resolves to the /app console', async ({ page }) => {
     await page.goto("/");
     const launchLink = page
       .locator("header")
