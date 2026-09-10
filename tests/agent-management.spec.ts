@@ -133,3 +133,41 @@ test.describe("AM-03 — price control confirmation copy", () => {
     await expect(page.getByRole("button", { name: "Update price" })).toBeVisible();
   });
 });
+
+test.describe("AM-04 — delist control confirmation copy", () => {
+  test("AM-04 the delist confirmation states in-flight work is unaffected, history/reputation are retained, and never calls it a delete", async ({ page }) => {
+    await stubWalletSession(page, { address: ONCHAIN_AGENT_OWNER });
+    await page.goto(AGENTS_URL);
+
+    const row = agentRow(page, ONCHAIN_AGENT_ID);
+    await expect(row).toBeVisible({ timeout: COLD_START_TIMEOUT });
+    await row.getByRole("button", { name: "⚙ manage" }).click();
+
+    // Before confirming: the standing note next to the (unclicked) Delist
+    // button, verbatim from manage-panel.tsx.
+    const delistBtn = page.getByRole("button", { name: "Delist", exact: true });
+    await expect(delistBtn).toBeVisible();
+    await expect(
+      page.getByText(
+        "Delisting is reversible and never a delete — history and reputation survive.",
+      ),
+    ).toBeVisible();
+
+    // "Delist" only flips local state (setConfirmingDelist(true)) — it
+    // builds/signs/submits nothing. Safe to click. "Confirm delist" (which
+    // signs and submits) is asserted visible below but is NEVER clicked.
+    await delistBtn.click();
+
+    await expect(
+      page.getByText(
+        "Delisting stops new work being routed to this agent. In-flight authorized work is unaffected, and your reputation and history are retained. You can relist any time.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Confirm delist" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Cancel" })).toBeVisible();
+
+    // The action is never presented as a delete anywhere in the panel.
+    await expect(page.getByRole("button", { name: /delete/i })).toHaveCount(0);
+    await expect(page.getByText(/\bdelete\b/i)).toHaveCount(0);
+  });
+});
