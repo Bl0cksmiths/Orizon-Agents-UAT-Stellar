@@ -498,7 +498,7 @@ test.describe("PWA manifest", () => {
 });
 
 test.describe("404 handling", () => {
-  test("an unknown route renders the not-found page with a 404 status", async ({
+  test("MK-06 an unknown route renders the not-found page with a 404 status", async ({
     page,
   }) => {
     const response = await page.goto("/this-route-does-not-exist-e2e-check");
