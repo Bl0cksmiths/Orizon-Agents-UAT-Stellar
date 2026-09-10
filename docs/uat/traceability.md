@@ -116,3 +116,18 @@ passing".
 | AM-04 (on-chain) | — | **Blocked** — D-001 |
 | AM-05 | — | **Blocked** — D-001, needs a signed transaction that lands |
 | AM-06 | api-contract.spec.ts | Covered — 404 `agent_not_found` on both endpoints, plus 422 validation on both |
+
+## PR — on-chain provenance in the marketplace (verifies 1.02 / 1.08)
+
+| criterion | spec | status |
+| --- | --- | --- |
+| PR-01 (API) | api-contract.spec.ts | Covered — both directions asserted, plus owner cross-checked against the raw contract read |
+| PR-01 (UI) | provenance.spec.ts | Covered — on-chain id is not `agt_`-prefixed beside exactly 12 seeded rows; price and status match the API |
+| PR-02 | provenance.spec.ts, api-contract.spec.ts | Covered for the render path and the `active → status` mapping; the write half is **Blocked** — D-001 |
+| PR-03 | provenance.spec.ts | Covered for the render path; write half **Blocked** — D-001 |
+| PR-04 | — | **Blocked** — D-001, needs a signed price change to observe |
+| PR-05 | api-contract.spec.ts | Covered — sync returns a numeric count and is idempotent for an unchanged chain |
+
+Supporting: `price` fidelity (`marketplace price == raw / 1e7`, zero explicitly
+allowed) is asserted in api-contract.spec.ts, and an empty agent list rendering
+a truthful empty state is asserted in provenance.spec.ts.
