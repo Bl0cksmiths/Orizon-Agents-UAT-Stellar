@@ -315,4 +315,76 @@ test.describe("accessibility — AX-07 keyboard journeys", () => {
       },
     );
   }
+
+  test(
+    "AX-07 — mobile nav drawer: opens with the keyboard, traps focus inside via inert background, Escape closes it, focus returns to the opener",
+    { tag: ["@AX-07", "@a11y"] },
+    async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto("/app");
+
+      const reachedHamburger = await tabToMatch(
+        page,
+        (el) => el.ariaLabel === "open menu",
+        30,
+      );
+      expect(
+        reachedHamburger,
+        "could not tab to the hamburger button on a mobile viewport",
+      ).toBe(true);
+
+      await page.keyboard.press("Enter");
+
+      const dialog = page.locator('aside[role="dialog"]');
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toHaveAttribute("aria-modal", "true");
+
+      // Focus moves INTO the drawer itself (app/app/_components/sidebar.tsx
+      // focuses the <aside> on open), not merely "somewhere on the page".
+      await expect
+        .poll(() => page.evaluate(() => document.activeElement?.tagName))
+        .toBe("ASIDE");
+
+      // Background content (the ConsoleContent wrapper around topbar + main)
+      // is marked `inert` while the drawer is open — see
+      // app/app/_components/console-content.tsx. That native attribute is
+      // the actual trap mechanism: repeated Tabs must never land on
+      // anything inside it.
+      const trappedOnOpen = await page.evaluate(() => {
+        const main = document.querySelector("main");
+        return main ? main.closest("[inert]") !== null : false;
+      });
+      expect(
+        trappedOnOpen,
+        "background content (main) is not inert while the mobile drawer is open",
+      ).toBe(true);
+
+      // Tab through the drawer's own eleven nav links (plus a little slack)
+      // — none of these presses may ever land inside the inert background.
+      for (let i = 0; i < 13; i++) {
+        await page.keyboard.press("Tab");
+        // eslint-disable-next-line no-await-in-loop
+        const escapedToBackground = await page.evaluate(() => {
+          const el = document.activeElement;
+          if (!el || el === document.body) return false;
+          return el.closest("[inert]") !== null;
+        });
+        expect(
+          escapedToBackground,
+          `keyboard focus escaped into inert background content on Tab press ${i + 1} while the drawer was open`,
+        ).toBe(false);
+      }
+
+      await page.keyboard.press("Escape");
+
+      // The dialog role/aria-modal are only present while open — once
+      // closed, this locator matches nothing.
+      await expect(page.locator('aside[role="dialog"]')).toHaveCount(0);
+
+      // Focus returns to the hamburger button that opened the drawer.
+      await expect
+        .poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label")))
+        .toBe("open menu");
+    },
+  );
 });
