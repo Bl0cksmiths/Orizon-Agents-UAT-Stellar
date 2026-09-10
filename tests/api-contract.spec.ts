@@ -445,6 +445,23 @@ test.describe("VR — agent-id availability reason codes", () => {
       });
     }
   });
+
+  test("VR-02 an agt_-prefixed id is refused as id_reserved", async ({ request }) => {
+    // The seeded catalog owns the agt_ namespace — an operator-chosen id in
+    // that namespace must be refused here, before a signature, not only at
+    // build/register-agent (see AZ-05) after the wallet is already involved.
+    const response = await request.get("/api/stellar/agent-id-available/agt_01h8", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body).toEqual({
+      available: false,
+      reason: "id_reserved",
+      message: "agt_ ids belong to the seeded catalog",
+      owner: null,
+    });
+  });
 });
 
 /**
