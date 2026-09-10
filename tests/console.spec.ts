@@ -98,7 +98,7 @@ test.describe('Console shell', () => {
 
 test.describe('Sidebar navigation', () => {
   for (const item of NAV_ITEMS) {
-    test(`"${item.label}" navigates to ${item.href} and marks itself current via aria-current`, async ({
+    test(`CN-02 "${item.label}" navigates to ${item.href} and marks itself current via aria-current`, async ({
       page,
     }) => {
       await page.goto('/app');
