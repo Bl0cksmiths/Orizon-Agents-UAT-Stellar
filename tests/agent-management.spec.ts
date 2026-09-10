@@ -72,4 +72,36 @@ test.describe("AM-01/AM-02 — owner gating on /app/agents", () => {
     // not just absent on this one row.
     await expect(page.getByRole("button", { name: "⚙ manage" })).toHaveCount(0);
   });
+
+  test("AM-02 seeded agents (owner: null) never show a management action, even for the wallet that owns the on-chain agent", async ({ page }) => {
+    await stubWalletSession(page, { address: ONCHAIN_AGENT_OWNER });
+    await page.goto(AGENTS_URL);
+
+    const onchainRow = agentRow(page, ONCHAIN_AGENT_ID);
+    await expect(onchainRow).toBeVisible({ timeout: COLD_START_TIMEOUT });
+    // Sanity: the wallet does own the one on-chain agent, so this run is
+    // actually exercising "owned wallet, unowned other rows" and not an
+    // accidentally-disconnected session.
+    await expect(onchainRow.getByRole("button", { name: "⚙ manage" })).toBeVisible();
+
+    // Every other row belongs to a seeded agent with `owner: null`, which
+    // can never satisfy `a.owner === wallet.address` — assert the disabled
+    // affordance on each of them explicitly rather than trusting a page-wide
+    // count, so a future extra on-chain agent doesn't silently blind this
+    // assertion.
+    const otherRows = page
+      .locator("tbody tr")
+      .filter({ hasNot: page.getByRole("rowheader", { name: ONCHAIN_AGENT_ID, exact: true }) });
+    const otherRowCount = await otherRows.count();
+    expect(otherRowCount).toBeGreaterThan(0);
+    for (let i = 0; i < otherRowCount; i++) {
+      const r = otherRows.nth(i);
+      await expect(r.getByRole("button", { name: "▸ view" })).toBeVisible();
+      await expect(r.getByRole("button", { name: "▸ view" })).toBeDisabled();
+      await expect(r.getByRole("button", { name: "⚙ manage" })).toHaveCount(0);
+    }
+
+    // Exactly one management action exists on the whole page.
+    await expect(page.getByRole("button", { name: "⚙ manage" })).toHaveCount(1);
+  });
 });
