@@ -77,3 +77,24 @@ API-key gated (`X-API-Key`):
 | --- | --- |
 | POST | `/api/stellar/server/charge`, `/api/stellar/server/seal` |
 | GET/POST | `/api/pdax/*` except the open routes above — balances, trade, fiat and crypto withdraw, ramp, webhooks/register |
+
+## Actor and permission matrix
+
+There is no role table. Authorization is three independent mechanisms:
+
+| actor | credential | may do | must be blocked from |
+| --- | --- | --- | --- |
+| Anonymous visitor | none | read every open route; decompose; execute simulated | server charge/seal; any PDAX money route; managing an agent they do not own |
+| Wallet owner | Stellar keypair in a browser wallet | register an agent; update price / set active for agents they own; authorize an escrow payment; send XLM | mutating another owner's agent — enforced on-chain by `owner.require_auth()`, not by the API |
+| Operator | `X-API-Key` | server-signed charge and seal; all PDAX routes | nothing additional; the key is the highest privilege in the system |
+| Backend settler | `STELLAR_SIGNING_KEY` (server-side only) | `PaymentEscrow.charge`, `AttestationRegistry.seal`, `ReputationLedger.submit` | never exposed to any client |
+
+Two properties worth testing explicitly because they are easy to regress:
+
+- Ownership is enforced by the **contract**, not the build endpoint. The API
+  will happily build unsigned XDR for an agent the caller does not own; the
+  transaction fails on-chain. A UAT test must assert the build succeeds and the
+  submission fails, not that the build is refused.
+- With `TASK_AUTH_REQUIRED` off (the deployed default) every task id is
+  world-readable. That is a deliberate demo posture, not a defect — but it is
+  worth pinning so a future flip is a conscious change.
