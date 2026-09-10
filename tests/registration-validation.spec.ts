@@ -2,22 +2,27 @@ import { test, expect } from "@playwright/test";
 import { stubWalletSession } from "./fixtures";
 
 /**
- * VR-05 / VR-06 / VR-07 — the three /app/register behaviours nothing else in
- * the suite covers (see docs/uat/test-plan.md's "Coverage note" under the VR
- * section). RG-04/05/06/07 in registry.spec.ts already own field-level
- * validation, reserved/taken ids and the disabled-without-a-wallet case;
- * RS-04 in resilience.spec.ts already owns the 429 copy itself. This file
- * adds only what those miss: the unfunded-wallet form-level error, that the
- * form survives a 429 (not just that the message is right), and that the
- * availability check is blur-driven rather than per-keystroke.
+ * VR-05 / VR-06 / VR-07 / RE-01 / RE-02 — the /app/register behaviours
+ * nothing else in the suite covers (see docs/uat/test-plan.md's "Coverage
+ * note" under VR, and the RE section). RG-04/05/06/07 in registry.spec.ts
+ * already own field-level validation, reserved/taken ids and the
+ * disabled-without-a-wallet case; RS-04 in resilience.spec.ts already owns
+ * the 429 copy itself. This file adds only what those miss: the
+ * unfunded-wallet form-level error, that the form survives a 429 (not just
+ * that the message is right), that the availability check is blur-driven
+ * rather than per-keystroke, that the disconnected form stays fillable
+ * (contrasted against /app/send's hard gate), and the affirmative free-id
+ * confirmation on blur.
  *
- * Every test here stubs a wallet session (`stubWalletSession` — seeds
- * localStorage, no real extension) and intercepts both the availability GET
- * and the build POST with `page.route`. Nothing ever reaches the real
- * Soroban RPC or a signer: `signAndSubmit` is never exercised because every
- * build below is made to fail before the page would call it, which is what
- * keeps this safe against D-001 (the target reports mainnet; this programme
- * is testnet-only, and no test here may cause a real signature).
+ * VR-05/06/07 each stub a wallet session (`stubWalletSession` — seeds
+ * localStorage, no real extension) and intercept both the availability GET
+ * and the build POST with `page.route`. RE-01 and RE-02 deliberately stub no
+ * wallet at all — that disconnected state is the thing under test. Nothing
+ * in this file ever reaches the real Soroban RPC or a signer: `signAndSubmit`
+ * is never exercised, either because a stubbed build fails before the page
+ * would call it or because a test never submits, which is what keeps this
+ * safe against D-001 (the target reports mainnet; this programme is
+ * testnet-only, and no test here may cause a real signature).
  */
 
 /** Fulfils the id-availability GET as always-available — every test here
