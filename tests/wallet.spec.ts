@@ -192,7 +192,7 @@ test.describe('/app/send — disconnected + client-side validation', () => {
     await expect(page.getByRole('button', { name: /Send XLM/ })).toHaveCount(0);
   });
 
-  test('offers the connect prompt with the literal "wallet required" copy and a Connect Wallet action', async ({ page }) => {
+  test('WL-04 offers the connect prompt with the literal "wallet required" copy and a Connect Wallet action', async ({ page }) => {
     await page.goto(SEND_URL);
     await expect(page.getByText('wallet required', { exact: false })).toBeVisible();
     await expect(
