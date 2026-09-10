@@ -455,4 +455,24 @@ test.describe("PR — on-chain provenance and sync", () => {
     expect(onchainAgent!.owner, "marketplace owner matches the raw contract owner").toBe(raw.agent.owner);
     expect(onchainAgent!.owner, "matches the known on-chain agent owner").toBe(ONCHAIN_AGENT_OWNER);
   });
+
+  test("PR-02/PR-03 the raw contract's active flag agrees with the marketplace status", async ({ request }) => {
+    // app/services/registry_sync.py maps status = "online" if raw["active"]
+    // else "offline". Flipping the flag needs a signed transaction (out of
+    // scope: testnet-only programme, target reports mainnet — D-001), but
+    // pinning that the two views currently agree is exactly what a broken
+    // sync pass would violate.
+    const rawResponse = await request.get(`/api/stellar/agent/${ONCHAIN_AGENT_ID}`, { timeout: COLD_START_TIMEOUT });
+    expect(rawResponse.ok()).toBe(true);
+    const raw: { agent: { active: boolean } } = await rawResponse.json();
+
+    const agentsResponse = await request.get("/api/agents", { timeout: COLD_START_TIMEOUT });
+    expect(agentsResponse.ok()).toBe(true);
+    const agents: Array<{ id: string; status: string }> = await agentsResponse.json();
+    const onchainAgent = agents.find((a) => a.id === ONCHAIN_AGENT_ID);
+    expect(onchainAgent, `${ONCHAIN_AGENT_ID} is listed in the marketplace`).toBeTruthy();
+
+    const expectedStatus = raw.agent.active ? "online" : "offline";
+    expect(onchainAgent!.status, "active <-> status mapping holds").toBe(expectedStatus);
+  });
 });
