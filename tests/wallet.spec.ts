@@ -296,7 +296,7 @@ test.describe('/app/pdax — degrades honestly when data reads are unauthenticat
     await expect(page.getByRole('button', { name: 'load' })).toBeVisible();
   });
 
-  test('the deposit-address and price panels start with no fabricated address/price — only after an explicit action', async ({ page }) => {
+  test('WL-06 the deposit-address and price panels start with no fabricated address/price — only after an explicit action', async ({ page }) => {
     await page.goto(PDAX_URL);
     // Neither DepositPanel nor PricePanel auto-fetch (both are
     // useAsyncAction, click-driven) — on load there must be no address,
