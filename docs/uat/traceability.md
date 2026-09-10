@@ -162,3 +162,17 @@ cannot silently remove the pre-signature gate.
 WM-03 and WM-04 have no automated cell and never will — that is a property of
 the criteria, not a gap in the suite. Automating them would fabricate the
 evidence they exist to gather.
+
+## RE — end-to-end registration on testnet (verifies 1.04 / 1.05 / 1.02)
+
+| criterion | spec | status |
+| --- | --- | --- |
+| RE-01 | registration-validation.spec.ts | Covered — register renders all three fields editable with a connect prompt; `/app/send` mounts no payment form. Both sides asserted in one test, since the criterion is the contrast. |
+| RE-02 | registration-validation.spec.ts | Covered — blurring a free id shows the affirmative available state, no error, `aria-invalid="false"` |
+| RE-03 | — | **Blocked** — D-001 (target is mainnet) and needs a human approving a wallet prompt |
+| RE-04 | — | **Blocked** — same; requires a confirmed on-chain registration to observe |
+
+RE-03 and RE-04 cannot be automated even after the flip: they need a funded
+external wallet and an unaided human. See also D-022 — following the flip
+runbook exactly would leave `orizon_batch` unregistered on testnet, so the
+settlement half of this journey would fail at charge time.
