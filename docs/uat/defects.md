@@ -847,3 +847,44 @@ The arithmetic is stated in a comment so the next person can re-derive it.
 
 `102` was checked against every error enum in all four contracts (1-8, 100, 101
 were in use) and against `orizon_shared::codes`.
+
+---
+
+## D-022 — The testnet flip runbook omits the on-chain batch agent, and its own verification would not catch it
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** RE-04, and the execute→settle path after any flip
+
+**Context.** `docs/testnet-flip-runbook.md` (backend repo) is the procedure that
+unblocks this whole testnet programme. It is otherwise careful and correct —
+verified against the code: the FE really does default to testnet in
+`lib/env.ts`; the build guards there really do fail `next build` on a half-flip;
+registration really is client-signed, so 1.07 works with an empty server key;
+and the `render.yaml` lines 49-66 it cites really do still hold the mainnet
+Stellar block.
+
+**The gap.** The runbook never mentions `orizon_batch` — zero occurrences of it
+or of `scripts/register_batch_agent.py`.
+
+That agent is a **per-network on-chain registration**. The flip repoints
+`STELLAR_AGENT_REGISTRY` at the testnet contract, where `orizon_batch` will not
+exist unless someone registered it there. `PaymentEscrow.charge` cross-calls
+`AgentRegistry.owner_of(auth.agent_id)`, and the frontend authorizes against
+`agent_id: "orizon_batch"` (`execution-plan.tsx`), so on a freshly flipped
+testnet every Authorize & Execute settlement fails `NotFound` at charge time.
+
+**Why the runbook's own verification misses it.** Step 4 checks
+`curl .../api/agents | jq 'length'` expecting `>= 12`. The seeded catalog alone
+satisfies that — the check passes with **zero** on-chain agents. Nothing in the
+procedure would reveal the missing registration until a buyer's payment failed.
+
+**Knock-on.** Post-flip the marketplace would carry 12 seeded agents and no
+on-chain ones, so PR-01's provenance assertions would have nothing to assert
+against, and D-013 (zero externally operated agents) becomes strictly worse.
+
+**Resolution path** — add a step between the current 3 and 4: run
+`python scripts/register_batch_agent.py` against the flipped backend, and extend
+the step-4 verification from a bare length check to one that asserts at least
+one agent with `source: "onchain"`. The script already handles the
+already-registered case, so it is safe to re-run.
