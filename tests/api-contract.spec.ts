@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { COLD_START_TIMEOUT, ONCHAIN_AGENT_OWNER } from "./fixtures";
+import { COLD_START_TIMEOUT, ONCHAIN_AGENT_ID, ONCHAIN_AGENT_OWNER } from "./fixtures";
 
 /**
  * AZ-01..AZ-09 — API-contract and authorization coverage for the live
@@ -327,5 +327,45 @@ test.describe("AZ — authorization and API contract", () => {
     const setActiveBody = await setActive.json();
     expect(setActiveBody.detail).toBe("agent_not_found");
     expect(setActiveBody.error.code).toBe("agent_not_found");
+  });
+
+  test("AM-06 build/update-price rejects invalid input with 422 in the standard envelope", async ({ request }) => {
+    // Each case is refused by UpdatePriceReq's Pydantic field validation
+    // before any Soroban simulate/build is attempted — never a 500 and
+    // never an opaque build_failed from a doomed build.
+    const cases: { label: string; data: Record<string, unknown> }[] = [
+      {
+        label: "bad agent-id charset",
+        data: { owner: ONCHAIN_AGENT_OWNER, agent_id: "bad id!", price_usdc: 5 },
+      },
+      {
+        label: "price is zero",
+        data: { owner: ONCHAIN_AGENT_OWNER, agent_id: ONCHAIN_AGENT_ID, price_usdc: 0 },
+      },
+      {
+        label: "price is negative",
+        data: { owner: ONCHAIN_AGENT_OWNER, agent_id: ONCHAIN_AGENT_ID, price_usdc: -5 },
+      },
+      {
+        label: "price exceeds the 10,000 cap",
+        data: { owner: ONCHAIN_AGENT_OWNER, agent_id: ONCHAIN_AGENT_ID, price_usdc: 10_001 },
+      },
+      {
+        label: "malformed owner address",
+        data: { owner: "not-a-valid-address", agent_id: ONCHAIN_AGENT_ID, price_usdc: 5 },
+      },
+    ];
+
+    for (const { label, data } of cases) {
+      const response = await request.post("/api/stellar/build/update-price", {
+        timeout: COLD_START_TIMEOUT,
+        data,
+      });
+      expect(response.status(), `${label}: expected 422`).toBe(422);
+      const body = await response.json();
+      expect(body.error.code, `${label}: error code`).toBe("validation_error");
+      expect(body.error.message, `${label}: error message`).toBeTruthy();
+      expect(body.error.request_id, `${label}: request id`).toBeTruthy();
+    }
   });
 });
