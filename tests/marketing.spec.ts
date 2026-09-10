@@ -449,7 +449,7 @@ test.describe("Footer", () => {
 });
 
 test.describe("robots.txt & sitemap.xml", () => {
-  test("robots.txt is served and allows crawling", async ({ page }) => {
+  test("MK-05 robots.txt is served and allows crawling", async ({ page }) => {
     const response = await page.request.get("/robots.txt");
     expect(response.ok()).toBeTruthy();
     const body = await response.text();
