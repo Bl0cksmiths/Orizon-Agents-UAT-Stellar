@@ -86,3 +86,26 @@ Every hesitation, question, confusion or error goes in
 **during** the run. Coaching a step is a finding, not a pass — if the
 contributor had to be told what to do, the cell is not clean, even if the
 transaction landed.
+
+## Per-wallet failure paths (story 6.01)
+
+The matrix above records whether registration *succeeds*. 6.01 also requires
+each failure path to be exercised per wallet, because wallets differ in exactly
+these behaviours — which is why `lib/wallet-errors.ts` exists at all.
+
+For every cell, also record:
+
+| failure path | what to check |
+| --- | --- |
+| Reject the signature | The form retains **every** value and shows a neutral message, not an error. Expected copy: "Signing cancelled — your details are saved." |
+| Lock the wallet mid-flow | The failure is classified and readable, not a raw exception. |
+| Point the wallet at mainnet | The user is told to switch to testnet. **Albedo and LOBSTR cannot satisfy this (D-015)** — record what actually happens instead. |
+| Disconnect mid-submit | The submit-interrupted path warns that the transaction may still have landed and does not auto-retry. |
+
+The rejection path is the one to watch most closely. It is correct in source
+and it is the single most common way an operator is lost — but it is **not
+covered by any automated test** (see the 6.01 coverage map in
+`test-plan.md`), so this manual pass is its only verification.
+
+Record the wallet's own wording for each, not just pass/fail: the differences
+between wallets are the finding, and they feed story 5.03's integration guide.
