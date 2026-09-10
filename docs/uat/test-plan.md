@@ -265,3 +265,36 @@ lifecycle indicator is shown.
 **WL-06** — Given `/app/pdax` and an unauthenticated upstream, When the panels
 settle, Then each shows real data or a labelled error — never a fabricated
 number, address or price.
+
+## Acceptance criteria — AZ, authorization and API contract
+
+**AZ-01** — Given no credential, When `POST /api/stellar/server/charge` is
+called, Then it is refused, and the same for `/server/seal`.
+
+**AZ-02** — Given no credential, When each API-key-gated PDAX route is called,
+Then every one is refused with a consistent error shape.
+
+**AZ-03** — Given any error response, When the body is read, Then it carries
+the unified envelope: a `detail` field plus an `error` object with `code`,
+`message` and `request_id`.
+
+**AZ-04** — Given a malformed path parameter (bad agent id charset, non-hex
+job id), When the endpoint is called, Then it answers 422 without a stack
+trace and without a Soroban round-trip.
+
+**AZ-05** — Given an id in the reserved `agt_` namespace, When
+`/build/register-agent` is called, Then it is refused as reserved.
+
+**AZ-06** — Given an agent the caller does not own, When `/build/update-price`
+is called, Then unsigned XDR is still returned — ownership is enforced on
+chain, not here — and this is asserted deliberately so a future change is a
+conscious one.
+
+**AZ-07** — Given a request that exceeds the body limit, Then it is refused
+with 413 carrying the hardening headers.
+
+**AZ-08** — Given every response, When headers are inspected, Then
+`x-content-type-options`, `referrer-policy` and `x-frame-options` are present.
+
+**AZ-09** — Given the client bundle, When it is searched, Then no signing key,
+API key or PDAX credential appears in it.
