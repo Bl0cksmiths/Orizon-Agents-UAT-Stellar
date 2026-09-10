@@ -242,7 +242,7 @@ test.describe('/app/pdax — degrades honestly when data reads are unauthenticat
     await expect(page.getByText('crypto transactions')).toBeVisible();
   });
 
-  test('the balances panel never fabricates a number — it settles to real rows, "No assets.", or "Balances unavailable"', async ({ page }) => {
+  test('WL-06 the balances panel never fabricates a number — it settles to real rows, "No assets.", or "Balances unavailable"', async ({ page }) => {
     await page.goto(PDAX_URL);
 
     // The three honest end-states for a PHP-key-gated read per page.tsx:
