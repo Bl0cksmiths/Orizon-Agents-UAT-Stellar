@@ -168,7 +168,7 @@ test.describe("Document head & metadata", () => {
     );
   });
 
-  test("exposes Open Graph tags for social link previews", async ({ page }) => {
+  test("MK-01 exposes Open Graph tags for social link previews", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
       "content",
