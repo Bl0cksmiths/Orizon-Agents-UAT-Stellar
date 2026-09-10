@@ -125,7 +125,7 @@ test.describe("Orchestrator intent form", () => {
     });
   }
 
-  test("Enter submits the form", async ({ page }) => {
+  test("OR-02 Enter submits the form", async ({ page }) => {
     await gotoOrchestrator(page);
     await page.getByRole("button", { name: "calculator web app" }).click();
     const textarea = page.getByLabel(/intent/i);
