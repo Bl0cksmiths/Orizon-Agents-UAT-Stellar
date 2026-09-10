@@ -585,4 +585,35 @@ test.describe("resilience: an SSE trace-stream drop reconnects, and the UI stops
       0,
     );
   });
+
+  test("[RS-05] /app/trace: once the reconnect budget is exhausted, the stream falls back to history polling and still never claims to be live", async ({
+    page,
+  }) => {
+    await page.clock.install();
+    await hangTraceStream(page);
+    await page.goto("/app/trace?task=e2e_sse_probe_2");
+
+    // Exhaust all MAX_RECONNECTS (3) reconnect attempts (lib/api.ts): each
+    // costs one STREAM_CONNECT_TIMEOUT_MS (12s) connect deadline, and the
+    // three BACKOFF_MS gaps (1s/2s/4s) sit between the four connect attempts
+    // this makes — 4 * 12s + (1s + 2s + 4s) = 55s — after which
+    // openTraceStream gives up on SSE and falls back to polling
+    // GET /api/trace/{id}. A few seconds of slack, but not enough to reach
+    // the fallback's own first poll retry (TRACE_POLL_MS later).
+    await page.clock.fastForward(57_000);
+
+    await expect(
+      page.getByText(
+        "live stream unavailable — following the recorded trace instead",
+      ),
+    ).toBeVisible();
+    await expect(page.getByText("streaming…", { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByText(
+        "connection dropped — reconnecting; the lines above are the last received",
+      ),
+    ).toHaveCount(0);
+  });
 });
