@@ -174,7 +174,7 @@ test.describe("/app/agents — registry table", () => {
     }
   });
 
-  test("renders agent rows with skills badges and a price formatted to 3 decimals", async ({ page }) => {
+  test("RG-01 renders agent rows with a name, skills badges, and a price formatted to 3 decimals", async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto(`${BASE_URL}/app/agents`);
 
@@ -190,6 +190,8 @@ test.describe("/app/agents — registry table", () => {
     // Row <td> order after the id <th>: agent name(0), skills(1), price(2),
     // reputation(3), runs(4), status(5), actions(6).
     const cells = firstRow.locator("td");
+    // Name column renders the agent's display name — every catalog agent has one.
+    await expect(cells.nth(0)).not.toBeEmpty();
     // Skills render as badge chips — every catalog agent has at least one.
     await expect(cells.nth(1)).not.toBeEmpty();
     // Price column renders `price.toFixed(3)` — asserting the shape (not a
