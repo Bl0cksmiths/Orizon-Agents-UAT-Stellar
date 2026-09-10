@@ -178,7 +178,7 @@ test.describe("Orchestrator intent form", () => {
     await expect(submit).toBeDisabled();
   });
 
-  test("submit is disabled and shows a pending label while decompose is in flight", async ({
+  test("OR-03 submit is disabled and shows a pending label while decompose is in flight", async ({
     page,
   }) => {
     await gotoOrchestrator(page);
