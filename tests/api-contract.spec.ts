@@ -42,4 +42,53 @@ test.describe("AZ — authorization and API contract", () => {
     const sealBody = await seal.json();
     expect(sealBody.error?.code).toBe("invalid_api_key");
   });
+
+  test("AZ-02 every API-key-gated PDAX route refuses an unauthenticated call with a consistent error shape", async ({
+    request,
+  }) => {
+    // Every route mounted on pdax.py's `secured` sub-router (the
+    // require_api_key dependency) — the money-moving and account-revealing
+    // PDAX surface. require_api_key resolves before any query/body
+    // validation (confirmed against the live deployment), so no PDAX call is
+    // ever reached and no well-formed payload is needed to probe refusal.
+    const gatedRoutes: { method: "GET" | "POST"; path: string }[] = [
+      { method: "GET", path: "/api/pdax/health/deep" },
+      { method: "GET", path: "/api/pdax/trade/price" },
+      { method: "GET", path: "/api/pdax/trade/price/v2" },
+      { method: "POST", path: "/api/pdax/trade/quote" },
+      { method: "POST", path: "/api/pdax/trade/quote/v2" },
+      { method: "POST", path: "/api/pdax/trade/order" },
+      { method: "GET", path: "/api/pdax/trade/orders/1" },
+      { method: "GET", path: "/api/pdax/trade/orders" },
+      { method: "GET", path: "/api/pdax/crypto/deposit" },
+      { method: "POST", path: "/api/pdax/fiat/deposit" },
+      { method: "POST", path: "/api/pdax/fiat/withdraw" },
+      { method: "POST", path: "/api/pdax/fiat/user-info-upload" },
+      { method: "POST", path: "/api/pdax/crypto/withdraw" },
+      { method: "GET", path: "/api/pdax/fiat/transactions" },
+      { method: "GET", path: "/api/pdax/crypto/transactions" },
+      { method: "GET", path: "/api/pdax/balances" },
+      { method: "POST", path: "/api/pdax/webhooks/register" },
+      { method: "POST", path: "/api/pdax/ramp/estimate" },
+      { method: "POST", path: "/api/pdax/ramp/funding-quote" },
+      { method: "POST", path: "/api/pdax/ramp/onramp" },
+      { method: "POST", path: "/api/pdax/ramp/offramp" },
+      { method: "GET", path: "/api/pdax/ramp" },
+      { method: "GET", path: "/api/pdax/ramp/abc123" },
+      { method: "POST", path: "/api/pdax/ramp/abc123/reconcile" },
+    ];
+
+    for (const route of gatedRoutes) {
+      const response =
+        route.method === "GET"
+          ? await request.get(route.path, { timeout: COLD_START_TIMEOUT })
+          : await request.post(route.path, { timeout: COLD_START_TIMEOUT, data: {} });
+      expect(response.status(), `${route.method} ${route.path} should refuse with 401`).toBe(401);
+      const body = await response.json();
+      expect(body.error?.code, `${route.method} ${route.path} error code`).toBe("invalid_api_key");
+      expect(body.error?.message, `${route.method} ${route.path} error message`).toBeTruthy();
+      expect(body.error?.request_id, `${route.method} ${route.path} request id`).toBeTruthy();
+      expect(body.detail, `${route.method} ${route.path} detail`).toBeTruthy();
+    }
+  });
 });
