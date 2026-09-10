@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { COLD_START_TIMEOUT } from "./fixtures";
+import { COLD_START_TIMEOUT, ONCHAIN_AGENT_OWNER } from "./fixtures";
 
 /**
  * AZ-01..AZ-09 — API-contract and authorization coverage for the live
@@ -286,5 +286,35 @@ test.describe("AZ — authorization and API contract", () => {
         expect(re.test(source), `${label} found in ${chunkUrl}`).toBe(false);
       }
     }
+  });
+
+  test("AM-06 an unregistered agent id returns a plain agent_not_found 404 from both management endpoints", async ({
+    request,
+  }) => {
+    // A syntactically valid but never-registered id: it passes the router's
+    // AGENT_ID_PATTERN so the request reaches _agent_exists (see
+    // app/routers/stellar.py build_update_price / build_set_active), which
+    // is the exact code path this criterion pins — a plain 404 in the
+    // standard envelope, not an opaque build_failed surfacing after a
+    // failed simulate.
+    const unregisteredId = "definitely_not_registered_xyz";
+
+    const updatePrice = await request.post("/api/stellar/build/update-price", {
+      timeout: COLD_START_TIMEOUT,
+      data: { owner: ONCHAIN_AGENT_OWNER, agent_id: unregisteredId, price_usdc: 5 },
+    });
+    expect(updatePrice.status(), "update-price: unregistered id is 404").toBe(404);
+    const updatePriceBody = await updatePrice.json();
+    expect(updatePriceBody.detail).toBe("agent_not_found");
+    expect(updatePriceBody.error.code).toBe("agent_not_found");
+
+    const setActive = await request.post("/api/stellar/build/set-active", {
+      timeout: COLD_START_TIMEOUT,
+      data: { owner: ONCHAIN_AGENT_OWNER, agent_id: unregisteredId, active: false },
+    });
+    expect(setActive.status(), "set-active: unregistered id is 404").toBe(404);
+    const setActiveBody = await setActive.json();
+    expect(setActiveBody.detail).toBe("agent_not_found");
+    expect(setActiveBody.error.code).toBe("agent_not_found");
   });
 });
