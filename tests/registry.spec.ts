@@ -335,7 +335,7 @@ test.describe("/app/register — registration form", () => {
     ).toBeVisible();
   });
 
-  test("flags a price above the 10000 USDC cap with the exact message", async ({ page }) => {
+  test("RG-04 flags a price above the 10000 USDC cap with the exact message", async ({ page }) => {
     await page.goto(`${BASE_URL}/app/register`);
     const priceField = page.getByLabel("price per step (USDC)");
     await priceField.fill("10000.01");
