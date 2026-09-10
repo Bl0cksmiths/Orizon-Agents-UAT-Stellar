@@ -105,3 +105,31 @@ test.describe("AM-01/AM-02 — owner gating on /app/agents", () => {
     await expect(page.getByRole("button", { name: "⚙ manage" })).toHaveCount(1);
   });
 });
+
+test.describe("AM-03 — price control confirmation copy", () => {
+  test("AM-03 the price note states future-plans-only and that an already-authorized buyer is charged the signed price", async ({ page }) => {
+    await stubWalletSession(page, { address: ONCHAIN_AGENT_OWNER });
+    await page.goto(AGENTS_URL);
+
+    const row = agentRow(page, ONCHAIN_AGENT_ID);
+    await expect(row).toBeVisible({ timeout: COLD_START_TIMEOUT });
+
+    // Opening the manage panel only expands local UI state — it builds,
+    // signs and submits nothing.
+    await row.getByRole("button", { name: "⚙ manage" }).click();
+
+    // Verbatim string from manage-panel.tsx's price section — never
+    // paraphrased, so a copy edit there fails this test rather than sliding
+    // past it.
+    await expect(
+      page.getByText(
+        "A price change applies to future plans only. A buyer who already authorized a workflow is charged the price they signed against.",
+      ),
+    ).toBeVisible();
+
+    // This note is unconditional on the price field's validity/edited state
+    // — it must not depend on the "Update price" button having been clicked
+    // (which this suite never does, since that signs and submits).
+    await expect(page.getByRole("button", { name: "Update price" })).toBeVisible();
+  });
+});
