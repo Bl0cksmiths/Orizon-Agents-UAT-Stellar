@@ -111,7 +111,7 @@ test.describe("Orchestrator intent form", () => {
   });
 
   for (const intent of PRESET_INTENTS) {
-    test(`preset button "${intent}" populates the textarea verbatim`, async ({
+    test(`OR-01 preset button "${intent}" populates the textarea verbatim`, async ({
       page,
     }) => {
       await gotoOrchestrator(page);
