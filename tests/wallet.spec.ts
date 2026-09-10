@@ -258,7 +258,7 @@ test.describe('/app/pdax — degrades honestly when data reads are unauthenticat
     });
   });
 
-  test('an unauthenticated environment/health/balances read surfaces a role=alert banner naming which call failed, not a silent void', async ({ page }) => {
+  test('WL-06 an unauthenticated environment/health/balances read surfaces a role=alert banner naming which call failed, not a silent void', async ({ page }) => {
     await page.goto(PDAX_URL);
     // Wait for the env fetch to settle (success or failure) before judging
     // whether any alert *should* be present — see the value-agnostic
