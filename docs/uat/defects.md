@@ -183,3 +183,37 @@ different routes. No functional effect.
 
 **Resolution path** — Export `metadata` from each route, or move the title into
 a shared server-component wrapper. Owned by the frontend repo.
+
+---
+
+## D-008 — The registration evidence block names a build-time network, not the live one
+
+- **Severity:** Critical
+- **Status:** Open
+- **Affects:** EV-05
+
+**Expected** — The network named in the copied evidence block is the network
+the backend actually reports at `GET /api/stellar/network`. That is the entire
+point of EV-05: the evidence must describe the chain the transaction really
+landed on.
+
+**Actual** — `app/app/register/page.tsx` sources the evidence block's network
+from `defaultExplorerNetwork` in `components/ui/stellar-link.tsx`, which is
+derived from the **build-time** `NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE`
+(`IS_MAINNET` in `lib/env.ts`). It never calls the live endpoint. By contrast
+`app/app/_components/topbar.tsx`, `app/app/wallet/page.tsx` and
+`app/app/events/page.tsx` all call `getStellarNetwork()` for their network
+display, so the register page is the outlier.
+
+**Impact** — If the frontend is built with a passphrase env that disagrees with
+what the backend reports, the evidence block prints the wrong network with no
+runtime guard, and the `stellar.expert` links it emits point at the wrong
+explorer. A reviewer following EV-04 would then be shown a link that 404s, or
+worse, a link to the same-shaped id on the wrong chain. This is precisely the
+failure EV-05 exists to catch, and it is live now: the deployment reports
+mainnet while the programme is specified testnet.
+
+**Resolution path** — Source the network in the evidence builder from
+`getStellarNetwork()` like the other three call sites, or assert at render time
+that the build-time value matches the live one and surface a mismatch. Owned by
+the frontend repo.
