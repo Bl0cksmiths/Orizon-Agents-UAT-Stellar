@@ -87,7 +87,7 @@ async function decomposeCalculatorPlan(page: Page) {
 // ─────────────────────────────────────────────────────────────────────────
 
 test.describe("Orchestrator intent form", () => {
-  test("renders the intent textarea with an associated label", async ({
+  test("OR-01 renders the intent textarea with an associated label", async ({
     page,
   }) => {
     await gotoOrchestrator(page);
