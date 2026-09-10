@@ -426,7 +426,7 @@ test.describe("/app/register — registration form", () => {
     await expect(page.getByText("connect a wallet to register")).toBeVisible();
   });
 
-  test("a fresh id resolves to available, and the submit button stays disabled without a wallet", async ({ page }) => {
+  test("RG-07 a fresh id resolves to available, and the submit button stays disabled without a wallet", async ({ page }) => {
     // Generous overall budget: this exercises the real GET
     // /stellar/agent-id-available/<id> round trip, which can cold-start
     // 25-60s on first hit.
