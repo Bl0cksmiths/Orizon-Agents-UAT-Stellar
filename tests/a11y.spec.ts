@@ -7,7 +7,18 @@ import {
 } from "./fixtures";
 
 /**
- * Accessibility sweep, parameterized across all 12 live routes.
+ * Accessibility sweep, parameterized across all 12 live routes, covering
+ * AX-01 through AX-07 from docs/uat/test-plan.md. Every test is tagged with
+ * the criterion id(s) it verifies (`{ tag: ["@AX-0N", ...] }` plus `@a11y`)
+ * so `--grep @AX-0N` or `--grep @a11y` isolates exactly what a reviewer
+ * needs.
+ *
+ * AX-01..AX-06 are static/structural checks against every route. AX-07 (a
+ * core journey is completable by keyboard alone) is the one criterion static
+ * sweeps cannot cover — it needs real keyboard-driven journeys, added below
+ * the per-route loop: marketing home -> console, sidebar navigation, the
+ * mobile drawer's focus trap, the orchestrator intent form, and the trace
+ * tablist.
  *
  * Deliberately hand-rolled with `page.evaluate` rather than @axe-core/playwright
  * so the suite carries no extra dependency — see the task brief. This trades
@@ -18,9 +29,10 @@ import {
 
 test.describe("accessibility", () => {
   for (const route of ROUTES) {
-    test(`${route.label} (${route.path}): document has one h1, no skipped heading levels, alt text on every image, and a name on every interactive control`, async ({
-      page,
-    }) => {
+    test(
+      `AX-01/AX-02/AX-03 — ${route.label} (${route.path}): document has one h1, no skipped heading levels, alt text on every image, and a name on every interactive control`,
+      { tag: ["@AX-01", "@AX-02", "@AX-03", "@a11y"] },
+      async ({ page }) => {
       await page.goto(route.path);
       // Let client-rendered content (metrics, tables) settle before auditing —
       // an h1 rendered by a client component after mount must still count.
