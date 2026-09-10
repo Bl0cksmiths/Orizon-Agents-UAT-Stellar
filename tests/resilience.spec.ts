@@ -163,7 +163,7 @@ test.describe("resilience: the failure MODE is told apart, not just the failure"
   // exposes that as ErrorNote's `retrying` state. /app itself polls via a
   // different hook (`usePolling`) with its own backoff and no automatic
   // "retrying…" button state, so it can't demonstrate this distinction.
-  test("/app/agents: a transient 500 is retried automatically (the retry control turns into a disabled 'retrying…' state)", async ({
+  test("[RS-02] /app/agents: a transient 500 is retried automatically (the retry control turns into a disabled 'retrying…' state)", async ({
     page,
   }) => {
     await failApi(page, 500);
@@ -182,7 +182,7 @@ test.describe("resilience: the failure MODE is told apart, not just the failure"
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("/app/agents: a 404 outage is NOT auto-retried — the control stays a manual 'retry' action", async ({
+  test("[RS-02] /app/agents: a 404 outage is NOT auto-retried — the control stays a manual 'retry' action", async ({
     page,
   }) => {
     await blockApi(page);
