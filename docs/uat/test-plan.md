@@ -489,3 +489,31 @@ Coverage note: VR-01's charset case, VR-02, VR-03 and VR-04 are already
 covered by RG-04, RG-05 and RG-06, and VR-06's message by RS-04. This round
 adds only what those miss — the over-length id, the reason codes at the API,
 VR-05, VR-06's form-state survival, and VR-07.
+
+## Acceptance criteria — WM, wallet × browser registration matrix (parent 6.01, verifies 1.05)
+
+**WM-01** — Given each SOW §3.3 wallet (Freighter, xBull, Albedo, LOBSTR,
+Hana), When the connect picker is opened on `/app/register`, Then that wallet
+is offered.
+
+**WM-02** — Given a connected wallet, When its reported network differs from
+the network this build expects, Then signing is refused with a wrong-network
+error before the signing popup opens — never silently signed.
+
+**WM-03** — Given each wallet × browser cell (5 wallets × Chrome, Firefox,
+desktop Safari, mobile Safari, mobile Chrome), When an unaided external
+contributor registers an agent, Then the transaction lands and the agent
+lists, or the failure is captured.
+
+**WM-04** — Given any hesitation, question, confusion or error during a cell,
+Then it is recorded in `docs/evidence/1.07-friction-log.md` with a severity,
+whether or not it was a defect. Coaching a step is a finding, not a pass.
+
+**Execution note.** WM-03 and WM-04 are **manual and cannot be automated**.
+Each cell needs a real browser extension installed, a human approving a
+signature in that extension's own UI, and — per the friction log's own
+instructions — an *external, non-Blocksmiths* contributor working unaided with
+an observer recording friction live. Playwright cannot install these
+extensions, cannot drive their popups, and cannot be "unaided". Automating any
+part of it would fabricate the evidence the exercise exists to gather.
+WM-01 and WM-02 are automatable and are covered here.
