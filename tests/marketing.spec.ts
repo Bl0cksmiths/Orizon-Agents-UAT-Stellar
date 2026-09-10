@@ -257,7 +257,7 @@ test.describe("Primary navigation", () => {
   });
 
   for (const link of NAV_LINKS) {
-    test(`"${link.label}" nav link scrolls to the #${link.sectionId} section`, async ({
+    test(`MK-03 "${link.label}" nav link scrolls to the #${link.sectionId} section`, async ({
       page,
     }) => {
       await page.goto("/");
