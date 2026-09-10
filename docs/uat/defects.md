@@ -142,6 +142,25 @@ whether waiting will help.
 **Resolution path** — Move Overview onto `useFetch`. This also closes an
 unguarded manual `retry()` race on the same page. Owned by the frontend repo.
 
+**Fix prepared** — frontend branch `fix/overview-fetch-guards`, 3 commits.
+
+A full move to `useFetch` was considered and rejected: `useFetch` fetches
+once, it does not poll, so swapping it in would have silently dropped the 5s
+refresh this page exists to provide. Instead the page keeps `usePolling` and
+adopts the two things it was missing:
+
+1. A monotonic run guard inside `load`, so the poll tick and the manual retry
+   can no longer clobber each other. The race was never only in `retry()` —
+   `load` wrote state unconditionally, so a stale in-flight request overwrote
+   a newer result whichever caller started it. `load` now returns whether its
+   result was the one applied, and `retry` only dates the data when it was.
+2. Classification with the same exported `isTransientFetchError` predicate the
+   `useFetch` routes use, so a 5xx reads as recoverable and a 404 as terminal.
+
+**Reproduction test** — `tests/resilience.spec.ts`, "[RS-02] /app: a transient
+500 is presented as recoverable, distinctly from a terminal 404", marked
+`test.fail` until the fix is deployed.
+
 ---
 
 ## D-006 — `/favicon.ico` returns 404
