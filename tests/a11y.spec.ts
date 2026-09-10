@@ -258,4 +258,61 @@ test.describe("accessibility — AX-07 keyboard journeys", () => {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     },
   );
+
+  // Mirrors the eleven items rendered by app/app/_components/sidebar.tsx —
+  // labels and hrefs kept in lockstep with that source rather than reused
+  // from fixtures.ts's route labels, which are worded for reporter output
+  // ("Console overview") rather than for matching the sidebar link text
+  // ("Overview") a keyboard user actually tabs onto.
+  const SIDEBAR_ITEMS: Array<{ label: string; path: string }> = [
+    { label: "Overview", path: "/app" },
+    { label: "Agents", path: "/app/agents" },
+    { label: "Register", path: "/app/register" },
+    { label: "Reputation", path: "/app/reputation" },
+    { label: "Orchestrator", path: "/app/orchestrator" },
+    { label: "Trace", path: "/app/trace" },
+    { label: "Events", path: "/app/events" },
+    { label: "Send XLM", path: "/app/send" },
+    { label: "PDAX Ramp", path: "/app/pdax" },
+    { label: "Wallet", path: "/app/wallet" },
+    { label: "Flow", path: "/app/flow" },
+  ];
+
+  for (const item of SIDEBAR_ITEMS) {
+    test(
+      `AX-07 — console sidebar reaches ${item.label} (${item.path}) by keyboard alone, and focus lands somewhere sensible`,
+      { tag: ["@AX-07", "@a11y"] },
+      async ({ page }) => {
+        await page.goto("/app");
+
+        const reached = await tabToMatch(
+          page,
+          (el) => el.tag === "A" && el.text === item.label,
+          30,
+        );
+        expect(
+          reached,
+          `could not tab to the "${item.label}" sidebar link`,
+        ).toBe(true);
+
+        await page.keyboard.press("Enter");
+
+        await expect(page).toHaveURL(
+          new RegExp(`${item.path.replace(/\//g, "\\/")}$`),
+        );
+
+        // "Somewhere sensible" means focus did not fall back to <body> — a
+        // keyboard user is never left with no visible cursor after a
+        // client-side route change.
+        const focusedTag = await page.evaluate(() => {
+          const el = document.activeElement;
+          return el && el !== document.body ? el.tagName : null;
+        });
+        expect(
+          focusedTag,
+          "focus was lost (fell back to <body>) after navigating via the sidebar",
+        ).not.toBeNull();
+      },
+    );
+  }
 });
