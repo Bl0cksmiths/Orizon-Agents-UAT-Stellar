@@ -225,7 +225,7 @@ test.describe('/app/send — disconnected + client-side validation', () => {
 // coverage this environment can offer for that path.
 
 test.describe('/app/pdax — degrades honestly when data reads are unauthenticated/failed', () => {
-  test('renders exactly one h1 and all four panel headings — no white screen', async ({ page }) => {
+  test('WL-06 renders exactly one h1 and all four panel headings — no white screen', async ({ page }) => {
     await page.goto(PDAX_URL);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('PDAX Ramp');
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
