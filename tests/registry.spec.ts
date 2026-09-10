@@ -395,6 +395,37 @@ test.describe("/app/register — registration form", () => {
     await expect(page.getByText("◉ checking availability…")).toBeVisible();
   });
 
+  test("RG-06 an id already registered on-chain is reported taken before any signature is requested", async ({ page }) => {
+    // "orizon_batch" is a real, non-agt_ agent already registered on-chain on
+    // the live backend (source: "onchain" in GET /api/agents) — confirmed via
+    // GET /api/stellar/agent-id-available/orizon_batch returning
+    // {"available":false,"reason":"id_taken", ...}. It is charset-valid, so
+    // (unlike the agt_ reserved case) this actually exercises the async
+    // availability round trip rather than being pre-empted by client-side
+    // validation.
+    test.setTimeout(120_000);
+    await page.goto(`${BASE_URL}/app/register`);
+
+    const idField = page.getByLabel("agent id");
+    await idField.fill("orizon_batch");
+    await idField.blur();
+
+    // register/page.tsx maps reason "id_taken" to this literal copy,
+    // regardless of the (here null) server `message`.
+    await expect(
+      page.getByRole("alert").filter({
+        hasText: "Already registered — pick another id.",
+      }),
+    ).toBeVisible({ timeout: COLD_START_TIMEOUT });
+    await expect(idField).toHaveAttribute("aria-invalid", "true");
+
+    // No wallet is connected and nothing here ever reaches for a signature —
+    // the id is refused purely from the availability read.
+    const submit = page.getByRole("button", { name: /Register agent/i });
+    await expect(submit).toBeDisabled();
+    await expect(page.getByText("connect a wallet to register")).toBeVisible();
+  });
+
   test("a fresh id resolves to available, and the submit button stays disabled without a wallet", async ({ page }) => {
     // Generous overall budget: this exercises the real GET
     // /stellar/agent-id-available/<id> round trip, which can cold-start
