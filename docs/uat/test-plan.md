@@ -150,3 +150,28 @@ a route back into the app.
 
 **MK-07** — When `/` finishes loading, Then no console error and no failed
 network request occurs, excluding a documented allowlist.
+
+## Acceptance criteria — CN, console shell and read-only journeys
+
+**CN-01** — Given any console route, When it loads, Then the shell renders a
+sidebar with all eleven nav items, a topbar, and a `main` landmark.
+
+**CN-02** — When a sidebar item is activated, Then the app navigates to that
+route and the item marks itself current.
+
+**CN-03** — Given a mobile viewport, When the hamburger is activated, Then the
+drawer opens with `role="dialog"` and `aria-modal`, Escape closes it, focus
+returns to the opener, and background content carries `inert` while open.
+
+**CN-04** — Given the overview, When metrics are loading, Then skeletons show;
+When loaded, values render; When the fetch fails, an error surfaces — and a
+failure is never rendered as a zero or a dash.
+
+**CN-05** — When `/app/flow` loads, Then the agent graph renders its nodes and
+edges, or fails loudly.
+
+**CN-06** — When `/app/events` loads, Then the feed renders, or shows a
+truthful connecting/empty/unavailable state.
+
+**CN-07** — Given a failed data load on any console route, When the page
+settles, Then the shell still renders and no white screen occurs.
