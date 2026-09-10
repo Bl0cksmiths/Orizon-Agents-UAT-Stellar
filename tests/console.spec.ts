@@ -197,7 +197,7 @@ test.describe('Overview — loading, loaded, and failed states stay visually and
     await expect(main.getByText('Agents online', { exact: true })).toBeVisible();
   });
 
-  test('never renders a metric as a bare 0 or dash on failure — every tile says "unavailable"', async ({
+  test('CN-04 never renders a metric as a bare 0 or dash on failure — every tile says "unavailable"', async ({
     page,
   }) => {
     await failApi(page, '/metrics/overview');
