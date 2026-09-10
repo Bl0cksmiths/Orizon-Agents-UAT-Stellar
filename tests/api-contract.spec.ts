@@ -462,6 +462,26 @@ test.describe("VR — agent-id availability reason codes", () => {
       owner: null,
     });
   });
+
+  test("VR-03 an id already registered on-chain is refused as id_taken and names the current owner", async ({
+    request,
+  }) => {
+    // ONCHAIN_AGENT_ID/OWNER are read from the live registry (fixtures.ts),
+    // not hardcoded blind, so a reseed fails this loudly rather than
+    // silently asserting nothing. `owner` is the field that lets the UI
+    // say who holds the id — assert it as firmly as `available` and `reason`.
+    const response = await request.get(`/api/stellar/agent-id-available/${ONCHAIN_AGENT_ID}`, {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body).toEqual({
+      available: false,
+      reason: "id_taken",
+      message: null,
+      owner: ONCHAIN_AGENT_OWNER,
+    });
+  });
 });
 
 /**
