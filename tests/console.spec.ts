@@ -245,7 +245,7 @@ test.describe('Overview — loading, loaded, and failed states stay visually and
 // ---------------------------------------------------------------------------
 
 test.describe('Flow — DAG renders nodes and edges, and fails loudly instead of an empty canvas', () => {
-  test('shows an explicit offline error in place of the graph when the flow fetch fails', async ({
+  test('CN-05 shows an explicit offline error in place of the graph when the flow fetch fails', async ({
     page,
   }) => {
     await failApi(page, '/flow/default');
