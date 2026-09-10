@@ -293,7 +293,7 @@ test.describe("/app/register — registration form", () => {
     await expect(alert).toBeVisible();
   });
 
-  test("flags the agt_ prefix as reserved for the seeded catalog", async ({ page }) => {
+  test("RG-05 flags the agt_ prefix as reserved for the seeded catalog", async ({ page }) => {
     await page.goto(`${BASE_URL}/app/register`);
     const idField = page.getByLabel("agent id");
     await idField.fill("agt_anything");
