@@ -14,6 +14,14 @@ import { defineConfig, devices } from "@playwright/test";
 const BASE_URL = process.env.UAT_BASE_URL ?? "https://orizons.xyz";
 
 /**
+ * The Stellar network this target is EXPECTED to run. Configuration, never a
+ * constant: the programme is specified testnet-only while the default target
+ * currently reports mainnet (defect D-001), so tests assert against this value
+ * and the suite turns green on a flip without a single test edit.
+ */
+export const EXPECTED_NETWORK = process.env.UAT_EXPECTED_NETWORK ?? "testnet";
+
+/**
  * The backend sleeps on Render's free tier and takes 25-60s to answer its
  * first request. Measured, not guessed: a cold /api/health returned 200 at
  * >25s and <90s. Every timeout below is sized around that single fact —
