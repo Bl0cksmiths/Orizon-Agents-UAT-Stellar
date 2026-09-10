@@ -557,3 +557,52 @@ contract. It cannot be retuned without a redeployment.
 USDC SAC so the names become true, or accept XLM as the settlement asset and
 neutralise the naming. The fixes above make the system *honest about which it
 is*; they do not make that choice.
+
+---
+
+## D-015 — The wrong-network guard cannot fire for two of the five SOW wallets
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** WM-02, and story 1.05's "never silently signed" requirement
+
+**The requirement.** Per the 1.05 matrix: *"connection succeeds and the network
+reads testnet — a wrong-network wallet is caught, never silently signed."*
+
+**What the guard does, and does well.** `lib/wallet.tsx`'s `signXdr` checks the
+connect-time snapshot, then **re-probes the wallet immediately before signing**
+— correct, because a user can switch networks in the extension between connect
+and sign, and the stale snapshot would miss it.
+
+**Where it cannot work.** The probe depends on `getNetwork()`, and the code
+says plainly which wallets do not implement it:
+
+> Not every wallet implements getNetwork() (Albedo and Lobstr reject with code
+> -3), so any failure or malformed response resolves to null — "unknown",
+> never a false alarm.
+
+`walletNetworkMismatch` requires a non-null `walletNetwork`, so for **Albedo**
+and **LOBSTR** the probe returns null, no mismatch is ever asserted, and
+signing proceeds.
+
+**Impact.** For 2 of the 5 SOW §3.3 wallets — 40% of the matrix — a
+wrong-network wallet is **not** caught up front. The transaction is signed
+against the app's expected passphrase and then fails downstream, so this is not
+a fund-loss path; but the user gets a confusing late failure instead of the
+upfront catch the criterion requires, which is exactly the friction the 1.05
+matrix exists to surface.
+
+**Resolution options** (a product decision, not a code fix I should make
+unilaterally):
+
+1. Surface the *unknown* state in the UI before signing — "this wallet cannot
+   report its network; confirm you are on testnet" — turning a silent gap into
+   an informed choice.
+2. Verify after the fact: submit and map the resulting `tx_bad_auth` to a
+   wrong-network message rather than a generic failure.
+3. Accept and document it in the 5.03 integration guide as a known limitation
+   of those two wallets.
+
+Option 1 is the smallest change that satisfies "never silently signed" in
+spirit. Whichever is chosen, the matrix should not record Albedo or LOBSTR as
+a clean pass on WM-02 without it.
