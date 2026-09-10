@@ -199,7 +199,7 @@ test.describe("Orchestrator intent form", () => {
 // ─────────────────────────────────────────────────────────────────────────
 
 test.describe("Orchestrator decompose result", () => {
-  test("a demo-kit intent returns a plan with step rows, totals, and per-step detail", async ({
+  test("OR-04 OR-05 a demo-kit intent returns a six-step plan whose totals row equals the sum of step prices", async ({
     page,
   }) => {
     test.setTimeout(DECOMPOSE_TIMEOUT_MS + 30_000);
