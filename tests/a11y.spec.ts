@@ -1,10 +1,49 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
   ROUTES,
   expectHeadingStructure,
   expectAllImagesHaveAlt,
   expectAllInteractivesHaveNames,
+  hangApi,
 } from "./fixtures";
+
+/**
+ * Presses Tab repeatedly (never a click/pointer action) until the focused
+ * element satisfies `isMatch`, or `maxPresses` is exhausted. Returns whether
+ * a match was reached — the caller asserts on that, so a broken tab order
+ * (an unreachable CTA, a focus trap that swallows Tab) fails loudly instead
+ * of the loop just running out silently.
+ *
+ * Reads `document.activeElement` fresh on every press rather than walking a
+ * precomputed list of focusable elements — that's what makes this a real
+ * keyboard-navigation check rather than a DOM query with a keyboard-shaped
+ * label: it only "sees" what the browser's own tab order actually reaches.
+ */
+async function tabToMatch(
+  page: Page,
+  isMatch: (el: {
+    tag: string;
+    text: string;
+    ariaLabel: string | null;
+  }) => boolean,
+  maxPresses = 25,
+): Promise<boolean> {
+  for (let i = 0; i < maxPresses; i++) {
+    await page.keyboard.press("Tab");
+    // eslint-disable-next-line no-await-in-loop
+    const info = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body) return null;
+      return {
+        tag: el.tagName,
+        text: (el.textContent ?? "").trim(),
+        ariaLabel: el.getAttribute("aria-label"),
+      };
+    });
+    if (info && isMatch(info)) return true;
+  }
+  return false;
+}
 
 /**
  * Accessibility sweep, parameterized across all 12 live routes, covering
