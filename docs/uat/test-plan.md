@@ -298,3 +298,47 @@ with 413 carrying the hardening headers.
 
 **AZ-09** — Given the client bundle, When it is searched, Then no signing key,
 API key or PDAX credential appears in it.
+
+## Acceptance criteria — AX, accessibility
+
+**AX-01** — Given each of the twelve routes, When the document is inspected,
+Then it has exactly one `h1` and heading levels do not skip.
+
+**AX-02** — Given each route, When images are inspected, Then every one has an
+`alt` attribute.
+
+**AX-03** — Given each route, When interactive elements are inspected, Then
+every one has an accessible name.
+
+**AX-04** — Given each route, When Tab is pressed, Then the focused element
+has a visible focus indicator.
+
+**AX-05** — Given each route, When landmarks are inspected, Then `main` and
+`nav` are present and `html` carries a `lang` attribute.
+
+**AX-06** — Given inline prose links, When they are inspected, Then they do
+not rely on colour alone to be distinguishable.
+
+**AX-07** — Given each core journey, When navigated by keyboard only, Then it
+is completable without a pointer.
+
+## Acceptance criteria — PF, performance
+
+Budgets are regression guardrails against the deployed free-tier stack, not
+vendor SLAs. Measured with the API stubbed, to isolate frontend render cost
+from backend cold-start variance.
+
+| metric | budget |
+| --- | --- |
+| TTFB | 2.0 s |
+| DOMContentLoaded | 4.0 s |
+| Load | 6.0 s |
+| LCP | 3.5 s |
+| CLS | 0.1 |
+
+**PF-01** — Given each of the twelve routes, When loaded with the API stubbed,
+Then every metric above is within budget.
+
+**PF-02** — Given a cold backend, When the first request is made, Then the app
+resolves to content or a truthful error within the documented cold-start
+budget, and never hangs indefinitely.
