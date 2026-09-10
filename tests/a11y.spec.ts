@@ -416,4 +416,34 @@ test.describe("accessibility — AX-07 keyboard journeys", () => {
       );
     },
   );
+
+  test(
+    "AX-07 — orchestrator intent box submits on Enter alone, keyboard only",
+    { tag: ["@AX-07", "@a11y"] },
+    async ({ page }) => {
+      // The API is left hanging rather than resolved/mocked with a plan:
+      // the behavior under test is "did Enter trigger the form's submit
+      // handler", which flips `plan.pending` synchronously before any
+      // network response — hanging the request just keeps that pending
+      // state observable instead of racing a real decompose call.
+      await hangApi(page);
+      await page.goto("/app/orchestrator");
+
+      const reachedTextarea = await tabToMatch(
+        page,
+        (el) => el.tag === "TEXTAREA",
+        15,
+      );
+      expect(reachedTextarea, "could not tab to the intent textarea").toBe(
+        true,
+      );
+
+      await page.keyboard.type("tetris game in html");
+      await page.keyboard.press("Enter");
+
+      await expect(
+        page.getByRole("button", { name: /decomposing/i }),
+      ).toBeVisible();
+    },
+  );
 });
