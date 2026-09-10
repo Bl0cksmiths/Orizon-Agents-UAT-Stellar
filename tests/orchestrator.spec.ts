@@ -289,7 +289,7 @@ test.describe("Execution plan actions", () => {
     });
   });
 
-  test("gates the on-chain Authorize & Execute path behind a wallet connect prompt", async ({
+  test("OR-06 gates the on-chain Authorize & Execute path behind a wallet connect prompt", async ({
     page,
   }) => {
     test.setTimeout(DECOMPOSE_TIMEOUT_MS + 30_000);
