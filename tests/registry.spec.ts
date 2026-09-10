@@ -278,7 +278,7 @@ test.describe("/app/register — registration form", () => {
     await expect(page.getByRole("button", { name: /Register agent/i })).toBeDisabled();
   });
 
-  test("flags a malformed agent id with the exact charset message, announced as an alert", async ({ page }) => {
+  test("RG-04 flags a malformed agent id with the exact charset message, announced as an alert", async ({ page }) => {
     await page.goto(`${BASE_URL}/app/register`);
     const idField = page.getByLabel("agent id");
     await idField.fill("bad id!");
