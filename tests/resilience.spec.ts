@@ -525,3 +525,64 @@ test.describe("layout: no horizontal scrollbar at any tested breakpoint", () => 
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// SSE trace-stream drop: reconnect / degrade-to-polling, never a silent lie
+// ---------------------------------------------------------------------------
+
+/**
+ * Routes every `/api/*` call to an inert 200, then overrides the SSE
+ * trace-stream endpoint specifically so the connection is accepted but never
+ * answered. `openTraceStream` (lib/api.ts) pairs this with its own
+ * STREAM_CONNECT_TIMEOUT_MS (12s, a plain `setTimeout`) — EventSource itself
+ * never fires `error` on a request that simply hangs, so that client-side
+ * deadline is the only thing standing between this and an indefinite
+ * "streaming…" claim. Registered after the catch-all so it wins for stream
+ * URLs (Playwright resolves the most-recently-added matching route first).
+ */
+async function hangTraceStream(page: Page): Promise<void> {
+  await page.route("**/api/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "{}",
+    }),
+  );
+  await page.route("**/api/trace/*/stream**", () => {
+    // Deliberately never fulfill/abort — the EventSource connection stays
+    // pending, exactly like a sleeping Render instance or a dead proxy.
+  });
+}
+
+test.describe("resilience: an SSE trace-stream drop reconnects, and the UI stops claiming to be live while disconnected", () => {
+  test("[RS-05] /app/trace: a stalled connection is treated as dropped — the badge stops claiming to be live once the connect deadline passes", async ({
+    page,
+  }) => {
+    // Virtual clock: STREAM_CONNECT_TIMEOUT_MS (12s) and the reconnect
+    // backoff (1s/2s/4s, lib/api.ts BACKOFF_MS) are real durations this test
+    // must cross without actually waiting them out.
+    await page.clock.install();
+    await hangTraceStream(page);
+    await page.goto("/app/trace?task=e2e_sse_probe_1");
+
+    // Before the connect deadline: EventSource is still "connecting", so the
+    // live claim is correct.
+    await expect(page.getByText("streaming…", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Cross STREAM_CONNECT_TIMEOUT_MS (12s) plus the first reconnect's 1s
+    // backoff — the point where onReset fires and the UI must stop claiming
+    // to be live.
+    await page.clock.fastForward(14_000);
+
+    await expect(
+      page.getByText(
+        "connection dropped — reconnecting; the lines above are the last received",
+      ),
+    ).toBeVisible();
+    await expect(page.getByText("streaming…", { exact: true })).toHaveCount(
+      0,
+    );
+  });
+});
