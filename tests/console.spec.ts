@@ -309,7 +309,7 @@ test.describe('Events — feed distinguishes connecting, empty, live, and failed
 // ---------------------------------------------------------------------------
 
 test.describe('Route-level failure never white-screens the console', () => {
-  test('shell chrome and the page heading stay mounted when every backend call fails', async ({
+  test('CN-07 shell chrome and the page heading stay mounted when every backend call fails', async ({
     page,
   }) => {
     await page.route('**/api/**', (route) => route.abort('failed'));
