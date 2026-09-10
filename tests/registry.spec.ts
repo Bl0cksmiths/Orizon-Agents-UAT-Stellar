@@ -199,7 +199,7 @@ test.describe("/app/agents — registry table", () => {
     await expect(cells.nth(2)).toHaveText(/^\d+\.\d{3}$/);
   });
 
-  test("does not offer the owner-gated manage panel without a connected wallet", async ({ page }) => {
+  test("RG-03 does not offer the owner-gated manage panel without a connected wallet", async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto(`${BASE_URL}/app/agents`);
     await expect(page.getByRole("table").locator("tbody tr").first()).toBeVisible({
