@@ -258,7 +258,7 @@ test.describe('Flow — DAG renders nodes and edges, and fails loudly instead of
     await expect(main.getByText('Nodes', { exact: true })).toHaveCount(0);
   });
 
-  test('renders the live DAG with real node and edge counts once the backend responds', async ({
+  test('CN-05 renders the live DAG with real node and edge counts once the backend responds', async ({
     page,
   }) => {
     test.setTimeout(150_000);
