@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { explorerSegment, stellarExpertUrl } from "./evidence-helpers";
+import {
+  explorerSegment,
+  stellarExpertUrl,
+  buildRegistrationEvidence,
+} from "./evidence-helpers";
 
 /**
  * Registration-evidence coverage (EV-01..EV-05, docs/uat/test-plan.md).
@@ -50,4 +54,24 @@ test.describe("EV-05 — evidence network is read, never hardcoded", () => {
       "https://stellar.expert/explorer/testnet/tx/deadbeef",
     );
   });
+
+  for (const network of ["testnet", "public"] as const) {
+    test(`evidence block for network="${network}" names that network, not a fixed one`, () => {
+      const block = buildRegistrationEvidence({
+        agentId: "weather_bot",
+        owner: "GDEADBEEFCAFEBABE0000000000000000000000000000000000000E2ETEST",
+        txHash: "a".repeat(64),
+        network,
+        capturedAt: "2026-01-01T00:00:00.000Z",
+      });
+      const expectedLabel = network === "public" ? "mainnet" : "testnet";
+      const expectedSegment = explorerSegment(network);
+      // Regression: a hardcoded label/segment would print the same value for
+      // both loop iterations instead of tracking `network`.
+      expect(block).toContain(`network:   ${expectedLabel}`);
+      expect(block).toContain(
+        `tx:        https://stellar.expert/explorer/${expectedSegment}/tx/${"a".repeat(64)}`,
+      );
+    });
+  }
 });
