@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { COLD_START_TIMEOUT } from "./fixtures";
 import {
   explorerSegment,
   stellarExpertUrl,
@@ -74,4 +75,24 @@ test.describe("EV-05 — evidence network is read, never hardcoded", () => {
       );
     });
   }
+
+  test("GET /api/stellar/network's reported network matches the environment's expected network — read from env, never hardcoded", async ({
+    page,
+  }) => {
+    // The backend can cold-start (see fixtures.ts) on the first hit of a run.
+    test.setTimeout(COLD_START_TIMEOUT + 30_000);
+
+    // Sensible default documents the currently-verified live value
+    // (docs/uat/defects.md D-001); UAT_EXPECTED_NETWORK overrides it once the
+    // target flips to testnet, so this test needs no edit when that happens.
+    const expectedNetwork = process.env.UAT_EXPECTED_NETWORK ?? "mainnet";
+
+    const res = await page.request.get("/api/stellar/network", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(res.ok()).toBe(true);
+    const body = (await res.json()) as { network?: unknown };
+    expect(typeof body.network).toBe("string");
+    expect(body.network).toBe(expectedNetwork);
+  });
 });
