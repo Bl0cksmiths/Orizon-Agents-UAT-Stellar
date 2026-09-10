@@ -143,7 +143,7 @@ const AGENT_TAGS = [
 test.use({ viewport: DESKTOP_VIEWPORT });
 
 test.describe("Document head & metadata", () => {
-  test("ships the exact <title> configured in app/layout.tsx", async ({ page }) => {
+  test("MK-01 ships the exact <title> configured in app/layout.tsx", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle(
       "Orizon Agents — Orchestration for autonomous digital labor",
