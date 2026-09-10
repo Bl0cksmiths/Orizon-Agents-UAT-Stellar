@@ -108,6 +108,39 @@ the remaining entries should weigh that hit rate.
   that should require it keys on `"production"` and the deployment runs
   `stage`.
 
+## Operator agent management (verifies 1.08)
+
+Assessed this round. **The copy requirements pass outright** — all three
+statements 1.08 demands are present verbatim in
+`app/app/agents/manage-panel.tsx`: a price change applies to future plans only
+and an already-authorized buyer is charged the price they signed against;
+delisting leaves in-flight authorized work unaffected and retains reputation
+and history; and delisting is named as reversible and "never a delete".
+
+Owner-gating is correct by construction: `app/app/agents/page.tsx` gates on
+`wallet.connected && !!a.owner && a.owner === wallet.address`, comparing
+against the **on-chain** owner. Seeded catalog agents carry `owner: null`, so
+they can never offer a management action — the strongest negative case, and
+the one a naive loosening of the gate would still pass. It is asserted
+explicitly.
+
+`AM-06` passes live: an unregistered id on either management endpoint returns
+a plain `agent_not_found` 404 in the standard envelope, and malformed input
+returns 422 `validation_error` rather than an opaque build failure.
+
+**What is not verified:** AM-05, and the on-chain halves of AM-03 and AM-04.
+Each needs a signed transaction that actually lands. The target reports
+mainnet, so signing here would be a real transaction against non-upgradable
+contracts — no test attempts it, and no test clicks "Update price" or "Confirm
+delist". Clicking "Delist" is safe and is used to reveal the confirmation copy:
+its handler is `setConfirmingDelist(true)`, pure local state, verified in
+source before any click was written.
+
+One observation worth an operator's attention: the single on-chain agent,
+`orizon_batch`, reports a price of **0.0**. `AgentRegistry.register` does not
+validate price, so this is reachable — and it means the AM-03 "new price is
+reflected" journey would currently be exercising an agent that costs nothing.
+
 ## To reach GO
 
 1. Add `workflow` scope to the token; move the workflow into place (D-003).
