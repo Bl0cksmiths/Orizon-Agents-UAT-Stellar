@@ -7,3 +7,4 @@ playwright/.cache/
 .env.local
 *.log
 .DS_Store
+.env.uat
