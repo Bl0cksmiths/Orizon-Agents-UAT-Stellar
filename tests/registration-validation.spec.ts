@@ -88,3 +88,61 @@ test.describe("VR-05: an unfunded wallet reads as friendly copy, not a generic f
     ).toBeVisible();
   });
 });
+
+test.describe("VR-06: a 429 while registering is recoverable, not dead", () => {
+  test("[VR-06] /app/register: the wait is communicated in plain language AND every typed field survives", async ({
+    page,
+  }) => {
+    await stubWalletSession(page);
+    await stubIdAvailable(page);
+    const retryAfterSeconds = 22;
+    // RS-04 (resilience.spec.ts) already proves this exact copy renders on a
+    // 429 — what it never checks is what's left in the form afterwards. That
+    // survival is the whole point of this test, asserted below alongside the
+    // message so a regression that clears the form on error still fails a
+    // VR-06-labelled test even if RS-04 stays green.
+    await page.route("**/api/stellar/build/register-agent", (route) =>
+      route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        headers: { "Retry-After": String(retryAfterSeconds) },
+        body: JSON.stringify({
+          error: { code: "rate_limited", message: "Too Many Requests" },
+        }),
+      }),
+    );
+
+    await page.goto("/app/register");
+
+    const idField = page.locator("#reg-agent-id");
+    const nameField = page.locator("#reg-name");
+    const priceField = page.locator("#reg-price");
+
+    const typedId = "vr06_retry_probe";
+    const typedName = "VR06 Retry Probe";
+    const typedPrice = "2.5";
+
+    await idField.fill(typedId);
+    await idField.blur();
+    await expect(page.getByText("✓ available")).toBeVisible();
+
+    await nameField.fill(typedName);
+    await priceField.fill(typedPrice);
+
+    await page.getByRole("button", { name: /register agent/i }).click();
+
+    // The wait, in plain language — lib/rate-limit-message.ts's exact copy.
+    await expect(
+      page.getByRole("alert").filter({
+        hasText: `Too many requests — wait ${retryAfterSeconds}s and try again. Nothing was lost.`,
+      }),
+    ).toBeVisible();
+
+    // Recoverable, not dead: every value already typed is still there — the
+    // page never clears the form on this error path (register/page.tsx's
+    // catch only sets formError/txState, none of the field setters).
+    await expect(idField).toHaveValue(typedId);
+    await expect(nameField).toHaveValue(typedName);
+    await expect(priceField).toHaveValue(typedPrice);
+  });
+});
