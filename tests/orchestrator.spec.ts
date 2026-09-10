@@ -399,7 +399,7 @@ test.describe("Trace page without a live task", () => {
     await expect(page.getByRole("tablist")).toHaveCount(0);
   });
 
-  test("with an invalid task id, degrades to a visible error instead of a blank page", async ({
+  test("OR-08 with an invalid task id, degrades to a visible error instead of a blank page", async ({
     page,
   }) => {
     // openTraceStream's own reconnect budget (3 attempts, 1s/2s/4s backoff)
