@@ -2,9 +2,9 @@ import { test, expect } from "@playwright/test";
 import { COLD_START_TIMEOUT, ONCHAIN_AGENT_ID, ONCHAIN_AGENT_OWNER } from "./fixtures";
 
 /**
- * AZ-01..AZ-09 — API-contract and authorization coverage for the live
- * backend, using Playwright's `request` fixture (APIRequestContext) rather
- * than a browser page.
+ * AZ-01..AZ-09 and AM-06 — API-contract, authorization and agent-management
+ * coverage for the live backend, using Playwright's `request` fixture
+ * (APIRequestContext) rather than a browser page.
  *
  * Every assertion below matches behaviour confirmed against the live
  * deployment by hand before being written — none of it is inferred from
@@ -14,8 +14,8 @@ import { COLD_START_TIMEOUT, ONCHAIN_AGENT_ID, ONCHAIN_AGENT_OWNER } from "./fix
  * Deliberately never sends a well-formed money-moving payload: the
  * server-signed charge/seal routes and every PDAX write are probed with a
  * body that fails validation regardless of auth, and the on-chain build
- * routes (register/update-price) only ever produce unsigned XDR, never a
- * signed submit.
+ * routes (register/update-price/set-active) only ever produce unsigned XDR,
+ * never a signed submit.
  */
 
 test.describe("AZ — authorization and API contract", () => {
