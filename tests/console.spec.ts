@@ -182,7 +182,7 @@ test.describe('Mobile navigation drawer', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('Overview — loading, loaded, and failed states stay visually and semantically distinct', () => {
-  test('announces a loading state to assistive tech while the first payload is in flight', async ({
+  test('CN-04 announces a loading state to assistive tech while the first payload is in flight', async ({
     page,
   }) => {
     await hangApi(page, '/metrics/overview');
