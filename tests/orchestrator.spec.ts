@@ -370,7 +370,7 @@ test.describe("Orchestrator error handling", () => {
 // ─────────────────────────────────────────────────────────────────────────
 
 test.describe("Trace page without a live task", () => {
-  test("with no ?task= param, renders a truthful demo/empty state", async ({
+  test("OR-08 with no ?task= param, renders a truthful demo/empty state", async ({
     page,
   }) => {
     await page.goto(`${BASE_URL}/app/trace`);
