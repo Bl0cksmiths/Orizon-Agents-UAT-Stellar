@@ -526,7 +526,7 @@ test.describe("404 handling", () => {
 });
 
 test.describe("Console & network health", () => {
-  test("loading the homepage produces no console errors and no failed requests", async ({
+  test("MK-07 loading the homepage produces no console errors and no failed requests", async ({
     page,
   }) => {
     const consoleErrors: string[] = [];
