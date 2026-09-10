@@ -83,7 +83,7 @@ test.describe("resilience: against the real backend, a cold start always resolve
     // reasonable; every route shares the same `useFetch`/`usePolling` +
     // client-side-deadline plumbing, so this is a shared-infrastructure
     // guarantee, not a per-route one.
-    test(`${path}: the loading state clears — to data or to an error — within the cold-start budget, never indefinitely`, async ({
+    test(`[PF-02] ${path}: the loading state clears — to data or to an error — within the cold-start budget, never indefinitely`, async ({
       page,
     }) => {
       await page.goto(path);
