@@ -61,3 +61,45 @@ passing".
 | OR-08 | orchestrator.spec.ts | Covered — empty state and invalid-task-id error |
 | OR-09 | orchestrator.spec.ts | Covered — tablist ARIA and arrow/Home/End |
 | OR-10 | orchestrator.spec.ts | Covered — iframe sandbox without `allow-same-origin` |
+
+## WL — wallet and money · AZ — authorization
+
+| criterion | spec | status |
+| --- | --- | --- |
+| WL-01 | wallet.spec.ts | Covered — connect prompt, no numeric balance while disconnected |
+| WL-02 | wallet.spec.ts | **Added** — loading, failed and genuine-zero states each distinct |
+| WL-03 | wallet.spec.ts | Covered — four contracts, explorer segment from reported network |
+| WL-04 (route gating) | wallet.spec.ts | Covered — form unmounted, connect prompt offered |
+| WL-04 (field validation) | — | **Not covered** — the destination and amount inputs only mount once `wallet.connected` is true, and no wallet extension exists in this environment. `stubWalletSession` reaches gated UI but cannot make signing work. Recorded as a comment in the spec, not a skipped test. |
+| WL-05 | wallet.spec.ts | Covered — no lifecycle indicator while idle |
+| WL-06 | wallet.spec.ts | Covered — 5 tests, no fabricated number, address or price |
+| AZ-01 | api-contract.spec.ts | Covered — charge and seal both 401 without a key |
+| AZ-02 | api-contract.spec.ts | Covered — 24 gated PDAX routes probed for refusal |
+| AZ-03 | api-contract.spec.ts | Covered — envelope shape across 401/422/404/400 |
+| AZ-04 | api-contract.spec.ts | Covered — bad charset and non-hex job id both 422 |
+| AZ-05 | api-contract.spec.ts | Covered — reserved `agt_` namespace refused |
+| AZ-06 | api-contract.spec.ts | Covered — XDR returned for a non-owner, pinning the on-chain boundary |
+| AZ-07 | api-contract.spec.ts | Covered — 413 with hardening headers |
+| AZ-08 | api-contract.spec.ts | Covered — three hardening headers on every response |
+| AZ-09 | api-contract.spec.ts | Covered — no credential in any reachable JS chunk |
+
+## AX — accessibility · PF — performance · RS — resilience
+
+| criterion | spec | status |
+| --- | --- | --- |
+| AX-01 | a11y.spec.ts | Covered — 12-route sweep, one h1, no skipped levels |
+| AX-02 | a11y.spec.ts | Covered — 12-route sweep |
+| AX-03 | a11y.spec.ts | Covered — 12-route sweep |
+| AX-04 | a11y.spec.ts | Covered — focused vs blurred computed style diff |
+| AX-05 | a11y.spec.ts | Covered — landmarks and `html[lang]` |
+| AX-06 | a11y.spec.ts | Covered — inline links not colour-only |
+| AX-07 | a11y.spec.ts | **Added** — 6 keyboard journeys incl. drawer focus trap |
+| PF-01 | resilience.spec.ts | Covered — 12 routes, TTFB/DCL/Load/LCP/CLS |
+| PF-02 | resilience.spec.ts | Covered — cold start resolves within budget |
+| RS-01 | resilience.spec.ts | Covered — outage sweep, no blank page, no fabricated zero |
+| RS-02 | resilience.spec.ts | Covered — 500 auto-retried, 404 not |
+| RS-03 | resilience.spec.ts | Covered — hang surfaces a timeout |
+| RS-04 | resilience.spec.ts | Covered — 429 with and without `Retry-After` |
+| RS-05 | resilience.spec.ts | **Added** — SSE drop, badge stops claiming live, polling fallback |
+| RS-06 | resilience.spec.ts | Covered — 12 routes × 3 breakpoints |
+| RS-07 | playwright.config.ts | Covered by configuration — chromium-desktop, chromium-mobile, webkit-desktop, firefox-desktop. Every spec is engine-agnostic; the matrix supplies the browsers. |
