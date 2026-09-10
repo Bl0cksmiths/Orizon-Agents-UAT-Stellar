@@ -500,7 +500,7 @@ test.describe("/app/reputation — score calculator", () => {
     await expect(card.getByText("✓ routable")).toBeVisible();
   });
 
-  test("zero settled evidence collapses the score to the prior, regardless of the mean slider", async ({ page }) => {
+  test("RG-08 zero settled evidence collapses the score to the prior, regardless of the mean slider", async ({ page }) => {
     await page.goto(`${BASE_URL}/app/reputation`);
     const meanSlider = page.getByLabel("raw on-chain mean");
     const weightSlider = page.getByLabel("settled evidence");
