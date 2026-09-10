@@ -79,13 +79,31 @@ exactly when build-time and runtime network diverge.
 D-004, D-005, D-006, D-007, D-008 and D-010 are owned by the frontend
 repository; D-009 by the backend.
 
-**All six frontend defects now have fixes prepared** on branches in the
-frontend repo — `fix/registration-evidence-network` (D-008),
-`fix/mobile-nav-inert` (D-010), `fix/overview-fetch-guards` (D-005),
-`fix/skills-input-length` (D-004) and `fix/icons-and-titles` (D-006, D-007),
-26 commits in total. None has been pushed: the repository token is read-only
-for that repo (403 on push, though fetch works). Each carries its own
-regression test, and none has been executed.
+**All frontend defects now have fixes prepared** on branches in the frontend
+repo — `fix/registration-evidence-network` (D-008), `fix/mobile-nav-inert`
+(D-010), `fix/overview-fetch-guards` (D-005), `fix/skills-input-length`
+(D-004), `fix/icons-and-titles` (D-006, D-007), `fix/settlement-asset-symbol`
+(D-014) and `fix/wallet-picker-a11y` (D-017), 35 commits in total. None has
+been pushed: the account has no write access to that repo (403 on push, though
+fetch works — D-012), so they are also exported as patches.
+
+**These have now been executed.** Applied to a clean clone and run: typecheck
+passes, lint passes at `--max-warnings=0`, and the full unit suite passes —
+476 tests across 25 files, coverage 95.53 / 92.77 / 94.80 / 97.59 against
+thresholds of 86 / 78 / 88 / 89. The first run **failed**, on two type errors
+introduced by the fixes themselves; both are corrected and the numbers above
+are from the corrected branches. See D-002.
+
+**Two corrections to earlier statements in this report.** An earlier version
+said each branch carries its own regression test. It does not: only
+`fix/registration-evidence-network` and `fix/skills-input-length` do. Two of
+the untested modules sit inside the coverage gate and show it —
+`lib/settlement-asset.ts` at **0%** and `lib/wallet-picker-a11y.ts` at 64%
+statements / 33% branches. The suite clears its thresholds on the strength of
+the rest of `lib/`, not because these are covered, and
+`lib/wallet-picker-a11y.ts` is the D-017 keyboard-trap fix — so the untested
+half is precisely what a keyboard-only operator depends on. Closing those two
+gaps is the next piece of work on the frontend.
 
 Three of the six defect write-ups were corrected once the code was read
 properly — D-008's mechanism, D-004's severity, D-007's scope. Anyone reading
