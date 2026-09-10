@@ -119,4 +119,34 @@ test.describe("AZ — authorization and API contract", () => {
       ).toBeGreaterThan(0);
     }
   });
+
+  test("AZ-04 malformed path params answer 422 with no stack trace", async ({ request }) => {
+    const cases = [
+      { label: "bad agent id charset", path: `/api/stellar/agent/${encodeURIComponent("bad id!")}` },
+      { label: "non-hex job id", path: "/api/stellar/attestation/nothex" },
+    ];
+
+    for (const { label, path } of cases) {
+      const started = Date.now();
+      const response = await request.get(path, { timeout: COLD_START_TIMEOUT });
+      const elapsedMs = Date.now() - started;
+      expect(response.status(), `${label}: expected 422`).toBe(422);
+
+      const bodyText = await response.text();
+      // No stack trace ever reaches the client — app/main.py's handlers only
+      // ever emit the curated envelope, and this rejection happens at the
+      // router edge (a Path(..., pattern=...) mismatch) before any handler
+      // code, let alone a traceback-producing one, ever runs.
+      expect(bodyText, `${label}: no Python stack trace leaked`).not.toMatch(/Traceback|File "|\.py", line/);
+
+      const body = JSON.parse(bodyText);
+      expect(body.error.code, `${label}: error code`).toBe("validation_error");
+
+      // Router-edge pattern validation rejects before any Soroban RPC call.
+      // A genuine RPC round-trip is far slower than this even against a warm
+      // backend; generous bound to absorb network variance without masking
+      // a regression that starts round-tripping to RPC on a malformed id.
+      expect(elapsedMs, `${label}: answered without an RPC round-trip`).toBeLessThan(8_000);
+    }
+  });
 });
