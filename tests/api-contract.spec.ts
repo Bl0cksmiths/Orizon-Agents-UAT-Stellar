@@ -500,6 +500,38 @@ test.describe("VR — agent-id availability reason codes", () => {
       owner: null,
     });
   });
+
+  test("VR-01 build/register-agent's own pattern guard is a different mechanism and answers differently", async ({
+    request,
+  }) => {
+    // Two independent layers exist: this availability endpoint returns a
+    // friendly 200 + id_malformed (asserted above), while
+    // build/register-agent's RegisterAgentReq field carries its own
+    // Pydantic `pattern=AGENT_ID_PATTERN` and refuses the same bad id with
+    // 422 validation_error instead — never id_malformed. Pinning both
+    // shapes stops a future change from "helpfully" unifying them and
+    // silently removing the pre-signature gate this whole suite exists to
+    // protect.
+    const owner = `G${"A".repeat(55)}`;
+    const response = await request.post("/api/stellar/build/register-agent", {
+      timeout: COLD_START_TIMEOUT,
+      data: {
+        owner,
+        agent_id: "has-hyphen",
+        name: "probe",
+        skills: [],
+        price_usdc: 1,
+      },
+    });
+    expect(response.status()).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("validation_error");
+    expect(body.error.message).toBeTruthy();
+    expect(body.error.request_id).toBeTruthy();
+    // Never id_malformed here — that reason string belongs exclusively to
+    // the availability endpoint's own check.
+    expect(body.error.code).not.toBe("id_malformed");
+  });
 });
 
 /**
