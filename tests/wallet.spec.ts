@@ -157,6 +157,24 @@ test.describe('/app/wallet — connected balance states (stubbed session, no rea
       page.getByRole('alert').filter({ hasText: 'balance unavailable' }),
     ).toBeVisible();
   });
+
+  test('WL-02 the balance reads a real "0.0000000", distinguishable from loading/failed, for a genuinely unfunded account', async ({
+    page,
+  }) => {
+    // lib/wallet.tsx treats Horizon's 404 (account not found) as a known,
+    // real zero — not a failure — exactly the "unfunded account" case the
+    // adjacent "fund testnet" friendbot link exists for.
+    await page.route(`**/accounts/${STUB_ADDRESS}`, (route) =>
+      route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 404, detail: 'Resource Missing' }),
+      }),
+    );
+    await stubWalletSession(page, { address: STUB_ADDRESS });
+    await page.goto(WALLET_URL);
+    await expect(balanceValue(page)).toHaveText('0.0000000');
+  });
 });
 
 test.describe('/app/send — disconnected + client-side validation', () => {
