@@ -175,3 +175,34 @@ truthful connecting/empty/unavailable state.
 
 **CN-07** — Given a failed data load on any console route, When the page
 settles, Then the shell still renders and no white screen occurs.
+
+## Acceptance criteria — RG, registry, registration and reputation
+
+**RG-01** — When `/app/agents` loads, Then the table renders with its expected
+columns and every row shows a name, skills and a price.
+
+**RG-02** — Given a reputation read that fails, When the table renders, Then
+seeded values still display and the table does not white-screen.
+
+**RG-03** — Given no wallet, When `/app/agents` renders, Then the owner-gated
+manage panel is not offered.
+
+**RG-04** — Given `/app/register`, When each field is left invalid, Then the
+exact message from `lib/register-validation.ts` is shown for a bad id charset,
+an over-length name, a non-positive price, and a price above the cap.
+
+**RG-05** — Given a reserved `agt_` prefix, When the id is submitted for
+availability, Then it is refused as reserved.
+
+**RG-06** — Given an id already registered on-chain, When availability is
+checked, Then it is reported taken before any signature is requested.
+
+**RG-07** — Given no wallet, When the form is otherwise valid, Then submit
+remains disabled and the connect prompt is offered.
+
+**RG-08** — Given `/app/reputation`, When mean and weight are entered into the
+score calculator, Then the smoothed score and lower bound match
+`lib/reputation-math.ts` for the prior-only, mid-evidence and saturated cases.
+
+**RG-09** — When the reputation leaderboard loads, Then it renders rows or a
+truthful empty/loading state.
