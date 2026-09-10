@@ -127,3 +127,26 @@ Blocked pending the testnet flip: EV-01 through EV-04 require a real
 registration, which requires signing a transaction with a funded wallet on the
 target network. See `defects.md` D-001. EV-05 is testable now against the
 evidence builder's pure logic.
+
+## Acceptance criteria — MK, marketing and discovery
+
+**MK-01** — Given a first-time visitor, When `/` loads, Then title, meta
+description and Open Graph tags are present and describe this product.
+
+**MK-02** — When the JSON-LD block is parsed, Then it is valid JSON and
+declares the expected `@type` entries.
+
+**MK-03** — When each primary nav link and the Launch App CTA is activated,
+Then it resolves to a real route that returns 200.
+
+**MK-04** — When the page is read top to bottom, Then every marketing section
+renders in the expected document order.
+
+**MK-05** — When `/robots.txt` and `/sitemap.xml` are fetched, Then both are
+served and the sitemap URL named in robots matches the real sitemap route.
+
+**MK-06** — When an unknown path is requested, Then the 404 page renders with
+a route back into the app.
+
+**MK-07** — When `/` finishes loading, Then no console error and no failed
+network request occurs, excluding a documented allowlist.
