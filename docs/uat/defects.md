@@ -452,3 +452,43 @@ requests.
 
 **Workaround** — export the branches as patches (`git format-patch`) and apply
 them from an account that does have write access.
+
+---
+
+## D-013 — The marketplace has one on-chain agent, and it is not externally operated
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** PR-01, and story 1.02's stated purpose
+
+**The requirement.** `app/schemas.py:10-12` states the contract in the code
+itself:
+
+> Provenance is contracted evidence, not cosmetics: SOW §6.3's "≥ 2 externally
+> operated agents" must be provable from the API, so every agent carries where
+> it came from (story 1.02).
+
+**Actual — verified live.** `GET /api/agents` returns 13 agents: 12 seeded
+(`agt_` ids, `source: "seeded"`, `owner: null`) and exactly **one** with
+`source: "onchain"` — `orizon_batch`.
+
+That one agent's owner is
+`GA7AI5TAJEZA27I666DSJC4MUJYBEWUYNNZWPU7R2ONA7IZQVO6R5OQV`, which is byte-for-byte
+the `admin` address reported by `GET /api/stellar/network`. It is the platform's
+own deploy key.
+
+**Impact.** Against the SOW line the code cites, the deployment currently
+evidences **one** on-chain agent, and **zero** externally operated ones — the
+single on-chain registration is self-operated. The provenance *mechanism* works
+correctly and is the right design; what is missing is the population it exists
+to evidence. Anyone reading `/api/agents` to satisfy SOW §6.3 today would not
+find two independent operators.
+
+**Not a code defect.** Nothing is broken: `source`, `owner` and the sync path
+all behave exactly as specified. This is a deployment-content gap, recorded
+because the provenance field's stated reason for existing is a claim this data
+does not yet support.
+
+**Resolution path** — register at least two agents from wallets that are not
+the admin key. `POST /api/stellar/build/register-agent` plus an owner signature
+is the supported path; `scripts/register_batch_agent.py` shows the shape.
