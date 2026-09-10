@@ -266,7 +266,7 @@ test.describe("Orchestrator decompose result", () => {
 // ─────────────────────────────────────────────────────────────────────────
 
 test.describe("Execution plan actions", () => {
-  test("offers a simulated execute path that requires no wallet", async ({
+  test("OR-06 offers a simulated execute path that requires no wallet", async ({
     page,
   }) => {
     test.setTimeout(DECOMPOSE_TIMEOUT_MS + 30_000);
