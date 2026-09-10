@@ -465,7 +465,7 @@ const VIEWPORTS = [
 
 test.describe("layout: no horizontal scrollbar at any tested breakpoint", () => {
   for (const route of ROUTES) {
-    test(`${route.label} (${route.path}): fits its viewport at mobile, tablet, and desktop widths`, async ({
+    test(`[RS-06] ${route.label} (${route.path}): fits its viewport at mobile, tablet, and desktop widths`, async ({
       page,
     }) => {
       await page.goto(route.path);
