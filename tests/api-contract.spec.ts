@@ -397,3 +397,45 @@ test.describe("AZ — authorization and API contract", () => {
     }
   });
 });
+
+/**
+ * PR-01, PR-05 and the mapping PR-02/PR-03 depend on — on-chain provenance
+ * in the marketplace and the on-demand sync path. Every shape below was
+ * confirmed against the live deployment (GET /api/agents, POST
+ * /api/stellar/agents/sync, GET /api/stellar/agent/{id}) before being
+ * written. PR-02/PR-03/PR-04's write halves need a signed transaction and
+ * stay out of scope here (testnet-only programme, target reports mainnet —
+ * D-001); this suite only ever reads and calls the read-only sync mirror.
+ */
+test.describe("PR — on-chain provenance and sync", () => {
+  test.beforeAll(async ({ request }) => {
+    // Render free tier cold-starts in 25-60s; warm it once before any
+    // assertion below spends its own budget waiting on a cold instance.
+    await request.get("/api/health", { timeout: COLD_START_TIMEOUT });
+  });
+
+  test("PR-01 seeded and on-chain agents are distinguishable in both directions", async ({ request }) => {
+    const response = await request.get("/api/agents", { timeout: COLD_START_TIMEOUT });
+    expect(response.ok()).toBe(true);
+    const agents: Array<{ id: string; source: string; owner: string | null }> = await response.json();
+
+    const seeded = agents.filter((a) => a.source === "seeded");
+    const onchain = agents.filter((a) => a.source === "onchain");
+
+    // Pinned to exactly 12 so a reseed that changes the catalog size fails
+    // loudly here rather than the direction checks below passing vacuously
+    // over an empty or shrunk seeded set.
+    expect(seeded.length, "exactly 12 seeded catalog agents").toBe(12);
+    expect(onchain.length, "at least one on-chain agent is mirrored").toBeGreaterThan(0);
+
+    for (const agent of seeded) {
+      expect(agent.id.startsWith("agt_"), `seeded agent ${agent.id} carries the agt_ namespace`).toBe(true);
+      expect(agent.owner, `seeded agent ${agent.id} has a null owner`).toBeNull();
+    }
+
+    for (const agent of onchain) {
+      expect(agent.owner, `on-chain agent ${agent.id} has a non-null owner`).toBeTruthy();
+      expect(agent.id.startsWith("agt_"), `on-chain agent ${agent.id} is outside the agt_ namespace`).toBe(false);
+    }
+  });
+});
