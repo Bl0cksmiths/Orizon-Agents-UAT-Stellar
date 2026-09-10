@@ -53,4 +53,23 @@ test.describe("AM-01/AM-02 — owner gating on /app/agents", () => {
     // owned row.
     await expect(row.getByRole("button", { name: "▸ view" })).toHaveCount(0);
   });
+
+  test("AM-02 a wallet that owns nothing sees no management action on the on-chain agent's row", async ({ page }) => {
+    await stubWalletSession(page, { address: NON_OWNER_ADDRESS });
+    await page.goto(AGENTS_URL);
+
+    const row = agentRow(page, ONCHAIN_AGENT_ID);
+    await expect(row).toBeVisible({ timeout: COLD_START_TIMEOUT });
+
+    // page.tsx's ownership check requires an exact address match, so a
+    // connected-but-unrelated wallet must fall into the disabled affordance,
+    // never the enabled "⚙ manage" one.
+    await expect(row.getByRole("button", { name: "▸ view" })).toBeVisible();
+    await expect(row.getByRole("button", { name: "▸ view" })).toBeDisabled();
+    await expect(row.getByRole("button", { name: "⚙ manage" })).toHaveCount(0);
+
+    // No management action anywhere on the page for this wallet at all —
+    // not just absent on this one row.
+    await expect(page.getByRole("button", { name: "⚙ manage" })).toHaveCount(0);
+  });
 });
