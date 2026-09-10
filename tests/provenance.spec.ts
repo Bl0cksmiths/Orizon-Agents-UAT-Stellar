@@ -148,3 +148,21 @@ test.describe("PR-03 — relisting returns the agent to online", () => {
     await expect(cells.nth(5)).toHaveText("online");
   });
 });
+
+test.describe("PR — an empty agent list renders a truthful empty state", () => {
+  test("GET /api/agents returning no agents renders the empty-state row, not a blank table", async ({ page }) => {
+    await page.route("**/api/agents", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+    );
+    await page.route("**/api/stellar/reputation", (route) => route.abort());
+
+    await page.goto(AGENTS_URL);
+
+    // The header and shell still render — a genuinely empty catalog must
+    // never white-screen or blank the table out entirely.
+    await expect(page.getByRole("heading", { level: 1, name: "Agent Registry" })).toBeVisible();
+    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByText("no agents match your filters.")).toBeVisible();
+    await expect(page.getByRole("rowheader")).toHaveCount(0);
+  });
+});
