@@ -146,3 +146,57 @@ test.describe("VR-06: a 429 while registering is recoverable, not dead", () => {
     await expect(priceField).toHaveValue(typedPrice);
   });
 });
+
+test.describe("VR-07: the availability check fires on blur, not per keystroke", () => {
+  test("[VR-07] /app/register: continuous typing in the id field makes zero availability requests; blur makes exactly one", async ({
+    page,
+  }) => {
+    let requestCount = 0;
+    // No stubWalletSession/build stub needed — this test never submits, it
+    // only exercises the id field's onChange/onBlur wiring
+    // (app/app/register/page.tsx: onChange resets idCheck locally with no
+    // network call; onBlur calls runIdCheck(), the only path that invokes
+    // idCheck.run() -> agentIdAvailable() -> this GET).
+    await page.route("**/api/stellar/agent-id-available/**", (route) => {
+      requestCount += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          available: true,
+          reason: null,
+          message: null,
+          owner: null,
+        }),
+      });
+    });
+
+    await page.goto("/app/register");
+
+    const idField = page.locator("#reg-agent-id");
+    // pressSequentially sends a real keydown/input/keyup per character —
+    // fill() sets the value in one shot and would never exercise a
+    // per-keystroke regression.
+    await idField.pressSequentially("vr07_no_per_keystroke", { delay: 20 });
+
+    expect(
+      requestCount,
+      "typing must not fire the availability check per keystroke",
+    ).toBe(0);
+
+    await idField.blur();
+
+    // Auto-retrying: the GET is async, so give it a window to land rather
+    // than asserting the instant after blur().
+    await expect
+      .poll(() => requestCount, {
+        timeout: 10_000,
+        message: "blur must fire exactly one availability check",
+      })
+      .toBe(1);
+
+    // And it stays at exactly one — no follow-up request sneaks in behind it.
+    await expect(page.getByText("✓ available")).toBeVisible();
+    expect(requestCount).toBe(1);
+  });
+});
