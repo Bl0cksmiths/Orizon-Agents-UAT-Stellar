@@ -229,7 +229,7 @@ test.describe("/app/agents — registry table", () => {
     await expect(page.getByText("no agents match your filters.")).toBeVisible();
   });
 
-  test("keeps rendering the table when the on-chain reputation batch fails to load", async ({ page }) => {
+  test("RG-02 keeps rendering the table when the on-chain reputation batch fails to load", async ({ page }) => {
     test.setTimeout(120_000);
     // The agents catalog is seeded/stable; only the live reputation batch is
     // broken here — mirrors the real-world failure mode this page is built
