@@ -98,16 +98,24 @@ thresholds of 86 / 78 / 88 / 89. The first run **failed**, on two type errors
 introduced by the fixes themselves; both are corrected and the numbers above
 are from the corrected branches. See D-002.
 
-**Two corrections to earlier statements in this report.** An earlier version
-said each branch carries its own regression test. It does not: only
-`fix/registration-evidence-network` and `fix/skills-input-length` do. Two of
-the untested modules sit inside the coverage gate and show it —
-`lib/settlement-asset.ts` at **0%** and `lib/wallet-picker-a11y.ts` at 64%
-statements / 33% branches. The suite clears its thresholds on the strength of
-the rest of `lib/`, not because these are covered, and
-`lib/wallet-picker-a11y.ts` is the D-017 keyboard-trap fix — so the untested
-half is precisely what a keyboard-only operator depends on. Closing those two
-gaps is the next piece of work on the frontend.
+**A correction to an earlier statement in this report.** An earlier version
+said each branch carries its own regression test. It did not. The coverage
+report proved it: `lib/settlement-asset.ts` sat at **0%** — never imported by
+any test — and `lib/wallet-picker-a11y.ts`, the D-017 keyboard-trap fix, at
+64% statements / 33% branches. The suite was clearing its thresholds on the
+strength of the rest of `lib/`, not because these were covered.
+
+**Both gaps are now closed.** `lib/settlement-asset.test.tsx` (11 tests) takes
+that module to 100% statements, branches and functions;
+`lib/wallet-picker-a11y.test.ts` (13 tests) takes its module to 100 / 91.66 /
+100 / 100. The suite is 500 tests across 27 files, coverage 96.71 / 93.88 /
+96.40 / 98.74.
+
+Three branches still carry no test — `fix/overview-fetch-guards`,
+`fix/icons-and-titles` and `fix/mobile-nav-inert`. Those are Next metadata, a
+route handler and a DOM effect on a client component; client components are
+outside the unit suite's coverage gate by design and belong to the Playwright
+suite, which has never been run.
 
 Three of the six defect write-ups were corrected once the code was read
 properly — D-008's mechanism, D-004's severity, D-007's scope. Anyone reading
