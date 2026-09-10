@@ -142,7 +142,7 @@ test.describe('Mobile navigation drawer', () => {
     await expect(dialog.getByRole('link', { name: 'Overview', exact: true })).toBeVisible();
   });
 
-  test('Escape closes the drawer and returns focus to the hamburger that opened it', async ({
+  test('CN-03 Escape closes the drawer and returns focus to the hamburger that opened it', async ({
     page,
   }) => {
     await page.goto('/app');
