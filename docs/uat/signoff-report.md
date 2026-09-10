@@ -49,12 +49,16 @@ against non-upgradable contracts. EV-01..EV-04 are Blocked, not Failed. The
 suite reads the expected network from `UAT_EXPECTED_NETWORK`, so a flip to a
 testnet target needs no test edit.
 
-**D-002 — no runtime verification anywhere.** `npm ci` failed three times on
-the authoring machine (3.83 GB RAM: two OOM kills, one file lock). Every commit
-was verified statically only — brace balance, import resolution, and a
-line-for-line diff against the authored source. That pass did catch a real
-defect (two spec files silently truncated mid-programme), but it cannot catch a
-wrong selector or a false assertion.
+**D-002 — this suite has still never been run.** `npm ci` failed three times on
+the authoring machine (3.83 GB RAM: two OOM kills, one file lock) and succeeded
+only on a fourth attempt in a fresh clone — of the *frontend* repository, not
+this one. So the frontend fixes are now executed and green, but the 190
+Playwright blocks that are the substance of this programme remain authored and
+statically checked, never observed passing. Static checking did catch a real
+defect (two spec files silently truncated mid-programme); when the frontend
+toolchain finally ran, it caught two more that static checking had missed
+entirely. Expect the same here: a wrong selector or a false assertion is
+exactly what this class of verification cannot see.
 
 **D-003 — CI cannot run.** The GitHub token lacks `workflow` scope, so
 `.github/workflows/` is rejected on push. The workflow is complete but parked
