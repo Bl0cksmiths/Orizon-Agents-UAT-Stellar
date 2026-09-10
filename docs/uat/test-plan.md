@@ -98,3 +98,32 @@ Two properties worth testing explicitly because they are easy to regress:
 - With `TASK_AUTH_REQUIRED` off (the deployed default) every task id is
   world-readable. That is a deliberate demo posture, not a defect — but it is
   worth pinning so a future flip is a conscious change.
+
+## Acceptance criteria — EV, registration evidence capture (parent 6.01, verifies 1.07)
+
+**EV-01** — Given a successful registration, When the success card renders,
+Then it shows the transaction hash, a `stellar.expert` transaction link, and
+the owner rendered as a `stellar.expert` **account** link.
+
+**EV-02** — Given the success card, When the reviewer clicks *Copy evidence*,
+Then the clipboard holds a complete block containing agent id, owner, tx hash,
+both `stellar.expert` links, the network name, and a timestamp.
+
+**EV-03** — Given a captured tx hash and agent id, When a reviewer runs
+`python scripts/verify_registration.py --tx <hash> --agent <id> --api-base <url>`,
+Then it prints PASS and exits 0, having confirmed the transaction exists on
+Horizon, succeeded, its source matches the owner, and the agent is listed with
+`source: onchain` and a matching owner.
+
+**EV-04** — Given only the `stellar.expert` transaction link, When a
+non-technical reviewer opens it, Then the registration is confirmable without
+running code and without a follow-up question.
+
+**EV-05** — Given the evidence block, When the network is read from it, Then it
+names the network the deployment actually reports at `/api/stellar/network`,
+never a hardcoded value.
+
+Blocked pending the testnet flip: EV-01 through EV-04 require a real
+registration, which requires signing a transaction with a funded wallet on the
+target network. See `defects.md` D-001. EV-05 is testable now against the
+evidence builder's pure logic.
