@@ -327,7 +327,7 @@ test.describe("Execution plan actions", () => {
 // ─────────────────────────────────────────────────────────────────────────
 
 test.describe("Orchestrator error handling", () => {
-  test("a failed decompose surfaces a visible role=alert and never renders a blank plan card", async ({
+  test("OR-07 a failed decompose surfaces a visible role=alert and never renders a blank plan card", async ({
     page,
   }) => {
     // Route interception forces a deterministic failure without depending
