@@ -77,7 +77,17 @@ export const ONCHAIN_AGENT_ID = "orizon_batch";
 export const ONCHAIN_AGENT_OWNER =
   "GA7AI5TAJEZA27I666DSJC4MUJYBEWUYNNZWPU7R2ONA7IZQVO6R5OQV";
 
-/** A well-formed address that owns nothing — the negative case for AM-02. */
+/**
+ * A well-formed address that owns nothing — the negative case for AM-02.
+ *
+ * UI-ONLY. This account does not exist on mainnet (Horizon answers 404), which
+ * is fine for owner-gating because the page only string-compares it against an
+ * agent's owner. It is NOT usable for an API test that expects a built XDR:
+ * `build_invoke_xdr` loads the source account first, so an unfunded address
+ * comes back 400 `owner_account_unfunded`, not the 200 such a test asserts.
+ * An API-level non-owner case needs a funded address instead — see the AZ-06
+ * test in api-contract.spec.ts.
+ */
 export const NON_OWNER_ADDRESS =
   "GBI2I3WLMP2Q6L26G7CBKRPP5WJ6G3GGYJHWALOJ7D6EBRGL5OZAADBH";
 
