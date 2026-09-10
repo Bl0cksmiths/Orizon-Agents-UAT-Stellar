@@ -142,6 +142,21 @@ test.describe('/app/wallet — connected balance states (stubbed session, no rea
     // xlmBalance is still null — never the digit "0".
     await expect(balanceValue(page)).toHaveText('…');
   });
+
+  test('WL-02 the balance reads a dash and a labelled ErrorNote, distinct from 0, when the Horizon fetch fails', async ({
+    page,
+  }) => {
+    await page.route(`**/accounts/${STUB_ADDRESS}`, (route) => route.abort('failed'));
+    await stubWalletSession(page, { address: STUB_ADDRESS });
+    await page.goto(WALLET_URL);
+    // lib/wallet.tsx clears xlmBalance to null and sets balanceError on a
+    // failed fetch — page.tsx then renders "—" (never "0") plus this labelled
+    // ErrorNote, exactly the "failed" branch the four-state doc comment names.
+    await expect(balanceValue(page)).toHaveText('—');
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'balance unavailable' }),
+    ).toBeVisible();
+  });
 });
 
 test.describe('/app/send — disconnected + client-side validation', () => {
