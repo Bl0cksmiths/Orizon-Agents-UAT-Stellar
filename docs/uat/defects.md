@@ -606,3 +606,33 @@ unilaterally):
 Option 1 is the smallest change that satisfies "never silently signed" in
 spirit. Whichever is chosen, the matrix should not record Albedo or LOBSTR as
 a clean pass on WM-02 without it.
+
+---
+
+## D-016 — The wallet allowlist and SOW §3.3 disagree
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** WM-01
+
+**Actual.** `lib/wallet.tsx`'s `SUPPORTED_WALLET_IDS` allowlists **six**
+wallets: `freighter`, `xbull`, `albedo`, `lobstr`, `hana`, **`rabet`**.
+
+SOW §3.3, as quoted in the 1.05 matrix, names **five**: Freighter, xBull,
+Albedo, LOBSTR, Hana. Rabet is supported by the build but is not in the
+contracted list, so it is shipped, offered to users, and untested by the
+matrix.
+
+The belt documentation disagrees a third way: `WHITEBELT.md:22` and
+`YELLOWBELT.md:7,22,28` list **"Hot Wallet"**, which is in neither the
+allowlist nor the SOW.
+
+**Impact.** Low — supporting an extra wallet harms nobody. But three sources
+name three different sets, so "which wallets do we support?" has no single
+answer, and a user who connects with Rabet is on a path the acceptance matrix
+never exercises.
+
+**Resolution path** — pick one source of truth. If Rabet is intended, add it to
+the SOW list and to the matrix as a sixth column; if not, drop it from the
+allowlist. Either way correct the belt docs, which name a wallet the code has
+never supported.
