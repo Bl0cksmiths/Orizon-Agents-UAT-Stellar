@@ -369,3 +369,29 @@ Then no horizontal overflow occurs.
 
 **RS-07** — Given Chromium, Firefox and WebKit, When each core journey runs,
 Then it passes on all three.
+
+## Entry criteria
+
+- The target deployment answers `GET /api/health` with 200.
+- `GET /api/stellar/network` reports the network named by `UAT_EXPECTED_NETWORK`.
+- The suite installs from a clean checkout with `npm ci`.
+- No Blocker defect is open against the target build.
+
+## Exit criteria
+
+- Every criterion above is Pass, or is Blocked with a defect id and a written
+  reason. No criterion is left untested and unexplained.
+- No open Blocker or Critical defect.
+- The traceability matrix has no empty cells.
+- Typecheck, lint and the full suite are green in CI on the `uat` branch.
+- The sign-off report records the browser and viewport matrix actually run,
+  not the matrix intended.
+
+## Defect severity
+
+| severity | definition |
+| --- | --- |
+| Blocker | UAT cannot proceed, or the defect risks funds or data. Fix before any further testing in that area. |
+| Critical | A core journey is unusable with no workaround, or a security control does not hold. |
+| Major | A journey is degraded or a non-core feature is broken; a workaround exists. |
+| Minor | Cosmetic, copy, or a low-impact inconsistency with no functional effect. |
