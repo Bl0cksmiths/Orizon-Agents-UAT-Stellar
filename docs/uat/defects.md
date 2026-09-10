@@ -306,3 +306,15 @@ applies the native `inert` attribute to background content while the drawer is
 **Resolution path** — Apply `inert` to the `<aside>` when the drawer is closed
 *and* the viewport is below `md`, mirroring the existing
 `console-content.tsx` treatment. Owned by the frontend repo.
+
+**Fix prepared** — frontend branch `fix/mobile-nav-inert`, commit `e8a7177`.
+A `matchMedia("(min-width: 768px)")` effect sets `inert` on the aside while the
+drawer is closed below `md`. It cannot be done in CSS: `inert` is an attribute,
+so the `md:` breakpoint is unavailable. The effect is declared *before* the
+existing focus effect, because both depend on `open` and React runs them in
+order — otherwise `asideRef.current?.focus()` would fire against a still-inert
+element and silently do nothing.
+
+**Reproduction test** — `tests/a11y.spec.ts`, "AX-07 — a closed mobile drawer
+keeps its nav links out of the tab order", marked `test.fail` while the defect
+is live. It flips to a plain `test` in the commit that confirms the deploy.
