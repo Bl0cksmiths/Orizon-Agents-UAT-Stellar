@@ -131,7 +131,7 @@ test.describe('Sidebar navigation', () => {
 test.describe('Mobile navigation drawer', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('the hamburger opens the nav as a modal dialog exposing the full workspace list', async ({
+  test('CN-03 the hamburger opens the nav as a modal dialog exposing the full workspace list', async ({
     page,
   }) => {
     await page.goto('/app');
