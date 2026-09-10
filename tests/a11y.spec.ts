@@ -151,9 +151,10 @@ test.describe("accessibility", () => {
       },
     );
 
-    test(`${route.label} (${route.path}): inline links within body text are distinguishable from surrounding text without relying on color alone`, async ({
-      page,
-    }) => {
+    test(
+      `AX-06 — ${route.label} (${route.path}): inline links within body text are distinguishable from surrounding text without relying on color alone`,
+      { tag: ["@AX-06", "@a11y"] },
+      async ({ page }) => {
       await page.goto(route.path);
 
       // WCAG 1.4.1: a link that differs from its surrounding paragraph text
