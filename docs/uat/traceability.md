@@ -103,3 +103,16 @@ passing".
 | RS-05 | resilience.spec.ts | **Added** — SSE drop, badge stops claiming live, polling fallback |
 | RS-06 | resilience.spec.ts | Covered — 12 routes × 3 breakpoints |
 | RS-07 | playwright.config.ts | Covered by configuration — chromium-desktop, chromium-mobile, webkit-desktop, firefox-desktop. Every spec is engine-agnostic; the matrix supplies the browsers. |
+
+## AM — operator agent management (verifies 1.08)
+
+| criterion | spec | status |
+| --- | --- | --- |
+| AM-01 | agent-management.spec.ts | Covered — owner wallet sees the manage action |
+| AM-02 | agent-management.spec.ts | Covered — 2 tests: a non-owning wallet, and seeded `owner: null` rows checked against the *owning* wallet |
+| AM-03 (copy) | agent-management.spec.ts | Covered — future-plans-only and signed-price wording asserted verbatim |
+| AM-03 (on-chain) | — | **Blocked** — D-001, needs a signed transaction |
+| AM-04 (copy) | agent-management.spec.ts | Covered — in-flight unaffected, history/reputation retained, never a delete |
+| AM-04 (on-chain) | — | **Blocked** — D-001 |
+| AM-05 | — | **Blocked** — D-001, needs a signed transaction that lands |
+| AM-06 | api-contract.spec.ts | Covered — 404 `agent_not_found` on both endpoints, plus 422 validation on both |
