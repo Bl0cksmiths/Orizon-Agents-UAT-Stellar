@@ -77,8 +77,19 @@ exactly when build-time and runtime network diverge.
 | Minor | D-006, D-007, D-009 |
 
 D-004, D-005, D-006, D-007, D-008 and D-010 are owned by the frontend
-repository; D-009 by the backend. None is fixable from this repository, so none
-was fixed here.
+repository; D-009 by the backend.
+
+**All six frontend defects now have fixes prepared** on branches in the
+frontend repo — `fix/registration-evidence-network` (D-008),
+`fix/mobile-nav-inert` (D-010), `fix/overview-fetch-guards` (D-005),
+`fix/skills-input-length` (D-004) and `fix/icons-and-titles` (D-006, D-007),
+26 commits in total. None has been pushed: the repository token is read-only
+for that repo (403 on push, though fetch works). Each carries its own
+regression test, and none has been executed.
+
+Three of the six defect write-ups were corrected once the code was read
+properly — D-008's mechanism, D-004's severity, D-007's scope. Anyone reading
+the remaining entries should weigh that hit rate.
 
 ## Notable findings
 
