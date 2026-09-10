@@ -339,7 +339,7 @@ test.describe("Marquee", () => {
 });
 
 test.describe("Marketing sections: presence and document order", () => {
-  test("renders all eight section headings in the order page.tsx composes them", async ({
+  test("MK-04 renders all eight section headings in the order page.tsx composes them", async ({
     page,
   }) => {
     await page.goto("/");
