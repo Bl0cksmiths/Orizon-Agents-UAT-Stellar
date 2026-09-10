@@ -320,7 +320,7 @@ test.describe("/app/register — registration form", () => {
     ).toBeVisible();
   });
 
-  test("flags a non-positive price with the exact message", async ({ page }) => {
+  test("RG-04 flags a non-positive price with the exact message", async ({ page }) => {
     await page.goto(`${BASE_URL}/app/register`);
     const priceField = page.getByLabel("price per step (USDC)");
     // The price input strips every non-digit/non-"." character as you type
