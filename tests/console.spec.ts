@@ -69,7 +69,7 @@ async function assertNoHorizontalOverflow(page: Page) {
 // ---------------------------------------------------------------------------
 
 test.describe('Console shell', () => {
-  test('the sidebar lists all 11 workspace nav items alongside the topbar and a single main landmark', async ({
+  test('CN-01 the sidebar lists all 11 workspace nav items alongside the topbar and a single main landmark', async ({
     page,
   }) => {
     await page.goto('/app');
