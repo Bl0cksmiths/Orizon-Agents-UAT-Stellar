@@ -105,7 +105,7 @@ test.describe("resilience: against the real backend, a cold start always resolve
 
 test.describe("resilience: total backend outage never renders as a blank or falsely-empty page", () => {
   for (const route of APP_ROUTES) {
-    test(`${route.label} (${route.path}): still renders its shell and announces the outage`, async ({
+    test(`[RS-01] ${route.label} (${route.path}): still renders its shell and announces the outage`, async ({
       page,
     }) => {
       await blockApi(page);
@@ -122,7 +122,7 @@ test.describe("resilience: total backend outage never renders as a blank or fals
     });
   }
 
-  test("/app/events: the empty state never renders underneath the error (feedLoading must not go false on error)", async ({
+  test("[RS-01] /app/events: the empty state never renders underneath the error (feedLoading must not go false on error)", async ({
     page,
   }) => {
     await blockApi(page);
@@ -134,7 +134,7 @@ test.describe("resilience: total backend outage never renders as a blank or fals
     await expect(page.getByText(/No events yet/i)).toHaveCount(0);
   });
 
-  test("marketing home (/) renders fully and silently — static content has no backend dependency", async ({
+  test("[RS-01] marketing home (/) renders fully and silently — static content has no backend dependency", async ({
     page,
   }) => {
     const errors = collectConsoleErrors(page);
