@@ -46,9 +46,10 @@ test.describe("accessibility", () => {
       await expectAllInteractivesHaveNames(page);
     });
 
-    test(`${route.label} (${route.path}): declares a document language and exposes main/navigation landmarks`, async ({
-      page,
-    }) => {
+    test(
+      `AX-05 — ${route.label} (${route.path}): declares a document language and exposes main/navigation landmarks`,
+      { tag: ["@AX-05", "@a11y"] },
+      async ({ page }) => {
       await page.goto(route.path);
 
       // A missing/empty `lang` makes every screen reader guess the
