@@ -131,3 +131,21 @@ passing".
 Supporting: `price` fidelity (`marketplace price == raw / 1e7`, zero explicitly
 allowed) is asserted in api-contract.spec.ts, and an empty agent list rendering
 a truthful empty state is asserted in provenance.spec.ts.
+
+## VR — registration validation and rate-limit recovery (verifies 1.03 / 1.09)
+
+| criterion | spec | status |
+| --- | --- | --- |
+| VR-01 | api-contract.spec.ts, registry.spec.ts | Covered — `id_malformed` for both a bad charset and a 35-char id at the availability gate; RG-04 covers the inline form message |
+| VR-02 | api-contract.spec.ts, registry.spec.ts | Covered — `id_reserved`; RG-05 covers the form |
+| VR-03 | api-contract.spec.ts, registry.spec.ts | Covered — `id_taken` returns the current owner; RG-06 covers pre-signature timing |
+| VR-04 | registry.spec.ts | Covered by RG-04 — price 0 and price above the cap |
+| VR-05 | registration-validation.spec.ts | Covered — `owner_account_unfunded`'s verbatim sentence |
+| VR-06 | registration-validation.spec.ts, resilience.spec.ts | Covered — RS-04 pins the wait copy; VR-06 pins that all typed values survive |
+| VR-07 | registration-validation.spec.ts | Covered — zero availability requests while typing, exactly one on blur |
+
+Supporting: a well-formed, never-registered id returns `available: true`
+(proving the gate is not hardcoded to refuse), and `build/register-agent`'s
+Pydantic guard is pinned as a **separate** mechanism answering 422
+`validation_error` rather than `id_malformed` — so unifying the two layers
+cannot silently remove the pre-signature gate.
