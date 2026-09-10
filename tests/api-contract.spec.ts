@@ -171,14 +171,15 @@ test.describe("AZ — authorization and API contract", () => {
     expect(body.detail).toBe("id_reserved");
   });
 
-  test("AZ-06 build/update-price still returns unsigned XDR for an agent the caller does not own", async ({
+  test("AZ-06 build/update-price and build/set-active still return unsigned XDR for an agent the caller does not own", async ({
     request,
   }) => {
     // Ownership is enforced by the contract's owner.require_auth(), not by
-    // this endpoint (see app/routers/stellar.py build_update_price) — the
-    // build must succeed regardless of who is asking. This pins that
-    // deliberate behaviour so a future change toward API-level ownership
-    // enforcement is a conscious decision, not a silent regression.
+    // either endpoint (see app/routers/stellar.py build_update_price and
+    // build_set_active) — the build must succeed regardless of who is
+    // asking. This pins that deliberate behaviour on BOTH management
+    // endpoints so a future change toward API-level ownership enforcement
+    // is a conscious decision, not a silent regression.
     const agentsResponse = await request.get("/api/agents", { timeout: COLD_START_TIMEOUT });
     expect(agentsResponse.ok()).toBe(true);
     const agents: Array<{ id: string; source: string; owner: string | null }> = await agentsResponse.json();
@@ -201,6 +202,16 @@ test.describe("AZ — authorization and API contract", () => {
     const body = await response.json();
     expect(typeof body.xdr, "unsigned XDR is returned").toBe("string");
     expect(body.xdr.length).toBeGreaterThan(0);
+
+    const setActiveResponse = await request.post("/api/stellar/build/set-active", {
+      timeout: COLD_START_TIMEOUT,
+      data: { owner: nonOwner, agent_id: onchainAgent!.id, active: true },
+    });
+
+    expect(setActiveResponse.status(), "set-active must also succeed — ownership is not checked here").toBe(200);
+    const setActiveBody = await setActiveResponse.json();
+    expect(typeof setActiveBody.xdr, "unsigned XDR is returned for set-active").toBe("string");
+    expect(setActiveBody.xdr.length).toBeGreaterThan(0);
   });
 
   test("AZ-07 an oversized body is refused with 413 carrying the hardening headers", async ({ request }) => {
