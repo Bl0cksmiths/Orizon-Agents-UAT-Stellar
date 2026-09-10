@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { COLD_START_TIMEOUT, expectNoHorizontalOverflow } from "./fixtures";
+import { test, expect, type Page } from "@playwright/test";
+import { COLD_START_TIMEOUT, expectNoHorizontalOverflow, stubWalletSession } from "./fixtures";
 
 /**
  * Wallet / money routes: /app/wallet, /app/send, /app/pdax.
@@ -110,6 +110,37 @@ test.describe('/app/wallet — disconnected state', () => {
     // network name or "unreachable" — it must never keep reading "…" once
     // the fetch has actually failed (that would look like an eternal load).
     await expect(deployHeading).not.toHaveText('Orizon deploy (…)');
+  });
+});
+
+test.describe('/app/wallet — connected balance states (stubbed session, no real signer)', () => {
+  // stubWalletSession seeds localStorage so wallet.connected/address resolve
+  // without a real wallet extension — enough to reach the balance card,
+  // since reading Horizon's GET /accounts/<g> needs only the address, never
+  // a signature (see fixtures.ts's doc comment on what the stub does and
+  // does not make reachable).
+  const STUB_ADDRESS =
+    'GDEADBEEFCAFEBABE0000000000000000000000000000000000000E2ETEST';
+
+  function balanceValue(page: Page) {
+    return page
+      .getByText('native XLM balance')
+      .locator('xpath=following-sibling::div[1]/span[1]');
+  }
+
+  test('WL-02 the balance reads a loading ellipsis, distinct from 0, while the Horizon fetch is in flight', async ({
+    page,
+  }) => {
+    await page.route(`**/accounts/${STUB_ADDRESS}`, () => {
+      // Deliberately never fulfill/continue/abort — holds balanceLoading
+      // true for the life of the test, the same technique fixtures.ts's
+      // hangApi uses for the backend proxy.
+    });
+    await stubWalletSession(page, { address: STUB_ADDRESS });
+    await page.goto(WALLET_URL);
+    // lib/wallet.tsx: balanceFmt is "…" only while balanceLoading is true and
+    // xlmBalance is still null — never the digit "0".
+    await expect(balanceValue(page)).toHaveText('…');
   });
 });
 
