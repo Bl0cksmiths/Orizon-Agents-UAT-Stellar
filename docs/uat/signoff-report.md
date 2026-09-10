@@ -136,10 +136,20 @@ delist". Clicking "Delist" is safe and is used to reveal the confirmation copy:
 its handler is `setConfirmingDelist(true)`, pure local state, verified in
 source before any click was written.
 
-One observation worth an operator's attention: the single on-chain agent,
-`orizon_batch`, reports a price of **0.0**. `AgentRegistry.register` does not
-validate price, so this is reachable — and it means the AM-03 "new price is
-reflected" journey would currently be exercising an agent that costs nothing.
+**Correction to an earlier observation.** The single on-chain agent,
+`orizon_batch`, reports a price of **0.0**, which was first flagged here as a
+symptom of missing price validation. It is not. `scripts/register_batch_agent.py`
+passes `sc.i128(0)` deliberately, commented "free — the authorize max is set by
+the payer per-workflow": it is a free meta-agent by design, and the payer sets
+the spend cap through `PaymentEscrow.authorize` instead. Zero is a legitimate
+price in this system.
+
+The genuine gap sits next to it: `AgentRegistry.register` and `update_price`
+validate the price *not at all*, so a **negative** price is storable by calling
+the contract directly, bypassing the backend's `gt=0` check. Fixed on contracts
+branch `fix/price-validation` — negative rejected with `BadAmount` (101,
+matching `orizon_shared::codes`), zero still allowed, with a regression test
+that fails if anyone tightens the guard to `<= 0` and breaks `orizon_batch`.
 
 ## To reach GO
 
