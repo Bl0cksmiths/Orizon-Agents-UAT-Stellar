@@ -888,3 +888,52 @@ against, and D-013 (zero externally operated agents) becomes strictly worse.
 the step-4 verification from a bare length check to one that asserts at least
 one agent with `source: "onchain"`. The script already handles the
 already-registered case, so it is safe to re-run.
+
+---
+
+## D-023 — SOW §3.3 claims five wallets; zero have been verified end to end
+
+- **Severity:** Blocker (to story 6.01 sign-off)
+- **Status:** Open — decision required, not a code fix
+- **Affects:** every 6.01 acceptance criterion that names a wallet
+
+**Story 6.01 sets the rule itself:**
+
+> Every wallet named in the SOW is tested, or the SOW's claim is trimmed to what
+> was actually verified. Those are the only two honest options.
+
+**Where this programme actually stands.** Of Freighter, xBull, Albedo, LOBSTR
+and Hana, **none** has completed a registration. Not one. What exists is:
+
+| verified | not verified |
+| --- | --- |
+| The picker offers all six allowlisted wallets (WM-01) | That any of them can sign |
+| The wrong-network copy is correct (`wallet-errors.test.ts`) | That the guard fires for a real wallet |
+| Registration is client-signed, so no server key is needed | That a signature is accepted end to end |
+| The form survives a 429 (VR-06) | That it survives a real signature rejection |
+
+Three independent things block the testing, and none is a code defect:
+
+1. The target reports **mainnet** while the story is testnet-only (D-001). The
+   flip is a dashboard operation only the account owner can perform.
+2. Each cell needs a real extension and a **human** approving a prompt. Albedo
+   and LOBSTR are not extensions at all — a web redirect and a mobile/
+   WalletConnect flow.
+3. Two of the five, **Albedo and LOBSTR, cannot satisfy the wrong-network
+   criterion at all** (D-015) — they do not implement `getNetwork()`, so the
+   guard is structurally unable to fire for them.
+
+**The decision this forces.** Point 3 means even a perfectly executed manual
+matrix cannot return a clean pass for all five on every criterion. So the
+choice is not "test them later" — it is:
+
+- **(a)** run the matrix once a testnet target exists, and record Albedo and
+  LOBSTR as passing registration but *not* satisfying the wrong-network
+  criterion, with that limitation carried into the 5.03 integration guide; or
+- **(b)** trim the SOW claim to the wallets that can satisfy every criterion.
+
+Option (a) is the honest and likely intended outcome, but it requires the SOW's
+wallet claim to carry a documented caveat rather than an unqualified five.
+
+**What must not happen** is the third path: leaving the claim unqualified while
+no wallet has been verified. That is the state today.
