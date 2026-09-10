@@ -61,6 +61,27 @@ export const APP_ROUTES: RouteEntry[] = ROUTES.filter((r) =>
 export const EXPECTED_NETWORK = process.env.UAT_EXPECTED_NETWORK ?? "testnet";
 
 /**
+ * The one agent registered on-chain on the current target, and its owner.
+ *
+ * Owner-gating on /app/agents compares the connected wallet address against
+ * the agent's ON-CHAIN owner, so exercising it needs a wallet session whose
+ * address is this value — `stubWalletSession` supplies that without a real
+ * extension and without the ability to sign. Seeded catalog agents carry no
+ * owner at all, which is why they can never offer a management action.
+ *
+ * Read from the live registry rather than hardcoded blind: if the deployment
+ * is reseeded, the AM specs should fail loudly on a stale id rather than
+ * silently assert nothing.
+ */
+export const ONCHAIN_AGENT_ID = "orizon_batch";
+export const ONCHAIN_AGENT_OWNER =
+  "GA7AI5TAJEZA27I666DSJC4MUJYBEWUYNNZWPU7R2ONA7IZQVO6R5OQV";
+
+/** A well-formed address that owns nothing — the negative case for AM-02. */
+export const NON_OWNER_ADDRESS =
+  "GBI2I3WLMP2Q6L26G7CBKRPP5WJ6G3GGYJHWALOJ7D6EBRGL5OZAADBH";
+
+/**
  * The backend runs on Render's free tier, which spins the service down after
  * a period of inactivity and takes 25-60s to answer the first request after
  * that. Any assertion that waits on a *real* backend response (as opposed to
