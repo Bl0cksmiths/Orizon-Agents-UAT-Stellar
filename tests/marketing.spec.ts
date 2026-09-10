@@ -211,7 +211,7 @@ test.describe("Document head & metadata", () => {
 });
 
 test.describe("Structured data (JSON-LD)", () => {
-  test("ships exactly one JSON-LD script tag containing valid JSON", async ({
+  test("MK-02 ships exactly one JSON-LD script tag containing valid JSON", async ({
     page,
   }) => {
     await page.goto("/");
