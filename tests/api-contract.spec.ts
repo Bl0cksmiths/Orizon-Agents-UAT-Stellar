@@ -475,4 +475,32 @@ test.describe("PR — on-chain provenance and sync", () => {
     const expectedStatus = raw.agent.active ? "online" : "offline";
     expect(onchainAgent!.status, "active <-> status mapping holds").toBe(expectedStatus);
   });
+
+  test("PR-05 the sync endpoint returns a numeric count and is idempotent for an unchanged chain", async ({
+    request,
+  }) => {
+    const before = await request.get("/api/agents", { timeout: COLD_START_TIMEOUT });
+    expect(before.ok()).toBe(true);
+    const beforeAgents: Array<{ id: string }> = await before.json();
+
+    // Read-only mirror pass — safe to call, never a broadcast. This is the
+    // mechanism that makes PR-04 immediate rather than eventual.
+    const syncResponse = await request.post("/api/stellar/agents/sync", { timeout: COLD_START_TIMEOUT });
+    expect(syncResponse.status(), "sync is read-only and always answers 200").toBe(200);
+    const syncBody: { synced: number } = await syncResponse.json();
+    expect(Number.isInteger(syncBody.synced), "synced is a numeric count").toBe(true);
+    expect(syncBody.synced, "at least the one on-chain agent is mirrored").toBeGreaterThan(0);
+
+    const after = await request.get("/api/agents", { timeout: COLD_START_TIMEOUT });
+    expect(after.ok()).toBe(true);
+    const afterAgents: Array<{ id: string }> = await after.json();
+
+    // Idempotent for an unchanged chain: same agents, same count — a sync
+    // pass mirrors, it never duplicates or drops entries.
+    expect(afterAgents.length, "agent count is unchanged by a sync pass").toBe(beforeAgents.length);
+    expect(
+      afterAgents.map((a) => a.id).sort(),
+      "the same set of agent ids is present after a sync pass",
+    ).toEqual(beforeAgents.map((a) => a.id).sort());
+  });
 });
