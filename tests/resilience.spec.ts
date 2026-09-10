@@ -212,6 +212,27 @@ test.describe("resilience: the failure MODE is told apart, not just the failure"
     ).toHaveCount(0);
   });
 
+  // Reproduces defect D-005. Marked `fail` because the fix is not deployed:
+  // /app drives its own polling and, before the fix, classified nothing — a
+  // 500 and a 404 rendered identical copy, so a tester could not tell whether
+  // waiting would help. The fix classifies with the same shared
+  // `isTransientFetchError` predicate the useFetch routes above use. Once it
+  // ships this passes and MUST become a plain `test` in the same commit.
+  test.fail(
+    "[RS-02] /app: a transient 500 is presented as recoverable, distinctly from a terminal 404",
+    async ({ page }) => {
+      await failApi(page, 500);
+      await page.goto("/app");
+
+      const alert = page.locator('[role="alert"]').first();
+      await expect(alert).toBeVisible({ timeout: 15_000 });
+      await expect(alert).toContainText(/retrying automatically/i);
+      // The status chip must agree with the alert: a 5xx is an outage, not a
+      // missing resource.
+      await expect(page.getByText("backend offline")).toBeVisible();
+    },
+  );
+
   test("[RS-03] /app: a connection that never answers is held on its loading state until the client's own deadline, then fails — never earlier, never never", async ({
     page,
   }) => {
