@@ -157,7 +157,7 @@ test.describe("Orchestrator intent form", () => {
     ).toBeEnabled();
   });
 
-  test("submit is disabled while the intent is empty or whitespace-only", async ({
+  test("OR-03 submit is disabled while the intent is empty or whitespace-only", async ({
     page,
   }) => {
     await gotoOrchestrator(page);
