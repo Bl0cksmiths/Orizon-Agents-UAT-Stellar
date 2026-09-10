@@ -538,7 +538,7 @@ test.describe("/app/reputation — score calculator", () => {
     await expect(card.getByText("✓ routable")).toBeVisible();
   });
 
-  test("min mean + max evidence drops below the routing floor and flags it", async ({ page }) => {
+  test("RG-08 min mean + max evidence drops below the routing floor and flags it", async ({ page }) => {
     await page.goto(`${BASE_URL}/app/reputation`);
     await page.getByLabel("raw on-chain mean").press("Home");
     await page.getByLabel("settled evidence").press("End");
