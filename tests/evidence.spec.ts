@@ -95,4 +95,41 @@ test.describe("EV-05 — evidence network is read, never hardcoded", () => {
     expect(typeof body.network).toBe("string");
     expect(body.network).toBe(expectedNetwork);
   });
+
+  test("the evidence block built from the live-reported network names that network, never a value the deployment does not report", async ({
+    page,
+  }) => {
+    test.setTimeout(COLD_START_TIMEOUT + 30_000);
+
+    const res = await page.request.get("/api/stellar/network", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(res.ok()).toBe(true);
+    const body = (await res.json()) as { network?: unknown };
+    const liveNetwork = String(body.network);
+
+    // Map the live API's network name onto the evidence builder's own
+    // "testnet" | "public" input the same way the app does (mainnet ->
+    // public, anything else -> testnet) — the expected label/segment below
+    // are derived from that live value, never asserted as a literal.
+    const builderNetwork = liveNetwork === "mainnet" ? "public" : "testnet";
+    const expectedLabel = builderNetwork === "public" ? "mainnet" : "testnet";
+    const expectedSegment = explorerSegment(builderNetwork);
+
+    const block = buildRegistrationEvidence({
+      agentId: "weather_bot",
+      owner: "GDEADBEEFCAFEBABE0000000000000000000000000000000000000E2ETEST",
+      txHash: "c".repeat(64),
+      network: builderNetwork,
+      capturedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(block).toContain(`network:   ${expectedLabel}`);
+    expect(block).toContain(
+      `https://stellar.expert/explorer/${expectedSegment}/tx/`,
+    );
+    expect(block).toContain(
+      `https://stellar.expert/explorer/${expectedSegment}/account/`,
+    );
+  });
 });
