@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { ONCHAIN_AGENT_ID, COLD_START_TIMEOUT } from "./fixtures";
+import { ONCHAIN_AGENT_ID, ONCHAIN_AGENT_OWNER, COLD_START_TIMEOUT } from "./fixtures";
 
 /**
  * On-chain provenance and listing state on /app/agents (PR-01..PR-03).
@@ -34,6 +34,27 @@ function agentRow(page: Page, id: string) {
   return page
     .getByRole("rowheader", { name: id, exact: true })
     .locator("xpath=ancestor::tr[1]");
+}
+
+/**
+ * A stub `GET /api/agents` payload for the on-chain agent at a given
+ * `status`, shaped exactly like the real mirror (registry_sync.py's
+ * active -> status mapping). Used to pin the render path a real
+ * delist/relist depends on, without signing anything.
+ */
+function stubOnchainAgent(status: "online" | "offline") {
+  return {
+    id: ONCHAIN_AGENT_ID,
+    name: "Orizon Batch",
+    skills: ["workflow"],
+    price: 0.05,
+    rep: 3.5,
+    status,
+    runs: 12,
+    real: false,
+    owner: ONCHAIN_AGENT_OWNER,
+    source: "onchain",
+  };
 }
 
 test.describe("PR-01 — on-chain agent distinguishable from the seeded catalog", () => {
@@ -78,5 +99,30 @@ test.describe("PR-01 — on-chain agent distinguishable from the seeded catalog"
     const cells = row.locator("td");
     await expect(cells.nth(2)).toHaveText(apiAgent.price.toFixed(3));
     await expect(cells.nth(5)).toHaveText(apiAgent.status);
+  });
+});
+
+test.describe("PR-02 — a delisted agent stays visible, never removed or presented as deleted", () => {
+  test("status: offline still renders the row with its skills and price intact", async ({ page }) => {
+    await page.route("**/api/agents", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([stubOnchainAgent("offline")]),
+      }),
+    );
+    // Reputation is a second, independent read; RG-02 already proves a
+    // failure there degrades gracefully, so aborting it here keeps this
+    // test hermetic instead of waiting on a live cold start it doesn't need.
+    await page.route("**/api/stellar/reputation", (route) => route.abort());
+
+    await page.goto(AGENTS_URL);
+    const row = agentRow(page, ONCHAIN_AGENT_ID);
+    await expect(row).toBeVisible();
+
+    const cells = row.locator("td");
+    await expect(cells.nth(1)).toContainText("workflow");
+    await expect(cells.nth(2)).toHaveText("0.050");
+    await expect(cells.nth(5)).toHaveText("offline");
   });
 });
