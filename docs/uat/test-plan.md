@@ -621,3 +621,25 @@ would take repeated settled workflows delivering no output (synthetic rating
 (`.env.uat.example`). Method A is therefore used only to prove reputation moves
 in the right direction after genuinely settled work (RF-16), which needs no key.
 
+### Cold start and sub-floor, on both planning paths
+
+**RF-01** — Given an agent with zero ratings (a readable ledger returning
+`count: 0, weight: 0`), When a free-form intent is decomposed, Then the agent
+is offered to the planner as routable.
+
+**RF-02** — Given the same cold-start agent, When a demo-kit intent is
+decomposed, Then it keeps its pipeline step and is not substituted.
+
+**RF-03** — Given the same cold-start agent, When either path produces a plan,
+Then it appears in no exclusion, substitution or degradation notice — a
+newcomer is routable *silently*, not routable-with-a-warning.
+
+**RF-04** — Given an agent whose on-chain evidence puts its lower bound below
+the floor, When a demo-kit intent is decomposed, Then it is excluded from the
+plan and the response carries a notice naming it, with a reason stating it fell
+below the routing floor and the two deciding numbers.
+
+**RF-05** — Given the same sub-floor agent, When a free-form intent is
+decomposed, Then it is absent from the planner's `AVAILABLE_AGENTS` block, and
+is absent from the returned plan even if the model names it anyway.
+
