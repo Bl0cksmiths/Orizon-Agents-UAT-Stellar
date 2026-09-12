@@ -657,3 +657,19 @@ evaluated, Then it fails — and the same agent, tested through a full decompose
 on both paths, is kept out of the plan. A boundary that holds in the arithmetic
 but not in the planner is not a boundary.
 
+### An outage fails open, visibly
+
+**RF-09** — Given Soroban RPC is unreachable for every agent in the batch, When
+a plan is built, Then every agent falls back to the Bayesian prior, each marked
+`degraded: true`, and the decompose still returns a plan rather than an error.
+
+**RF-10** — Given that outage, When the batch degrades, Then **exactly one**
+WARNING is logged for the whole batch — not one per agent — and the line names
+the affected agents, the failure reason, and which way the floor is failing
+with both deciding numbers.
+
+**RF-11** — Given that outage, When the resulting plan reaches the client, Then
+the client can tell the outage apart from a genuine cold start. `source:
+"prior"` reports both states identically, so the degraded signal must survive
+onto the response the plan card reads.
+
