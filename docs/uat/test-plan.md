@@ -711,3 +711,20 @@ satisfies SOW §6.1 Deliverable 2, and the evidence index records the image, the
 exact intent, the reputation state behind it, and how that state was produced.
 Evidence that does not say how it was made is not evidence.
 
+**RF-16 execution note — verified live as far as it can be, then at the service
+level.** A full workflow was run against the live testnet target on 2026-09-12
+(`calculator web app` → `tsk_9c1d3dbc25edcce8`, 6 agents, 0.168 USDC, status
+`complete`). Reputation did **not** move, and that is correct: `_submit_ratings`
+in `execution_svc.py` runs only when `_settle_onchain` returned a `charge_tx`
+and a `job_id`, which requires a wallet-signed x402 authorization. A simulated
+run settles no money, so it mints no reputation — reputation is a record of
+settled economic history, exactly as `reputation_svc.py` claims.
+
+The consequence for this programme is that the *direction of travel* cannot be
+observed end to end from UAT, for the same structural reason RE-03/RE-04 are
+blocked: it needs a funded wallet and a human at a signing prompt, and the
+suite deliberately holds no key. RF-16 is therefore verified where the decision
+is actually made — `synthetic_rating` and the smoothing/lower-bound chain it
+feeds — and recorded as partially blocked rather than claimed as an end-to-end
+pass.
+
