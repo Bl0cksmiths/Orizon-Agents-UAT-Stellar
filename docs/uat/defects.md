@@ -1152,3 +1152,51 @@ in this programme has pushed normally.
 branches from the worktrees under `be-worktrees/` and open the PR. A CI trigger
 for `uat`/`uat-*` branches is already committed locally on the backend `uat`
 branch and ships with that push.
+
+---
+
+## D-028 — The free-form planner never re-checks the reputation floor, so a sub-floor agent the model names is hired
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** RF-05
+
+**Steps to reproduce** — `tests/test_floor_disclosure.py::test_rf05_sub_floor_agent_is_absent_from_the_free_form_plan`
+in the backend repo (currently `xfail(strict=True)`). Give one agent a
+reputation whose lower bound is 4200 against the 5500 floor, then return a plan
+naming it from the orchestrator LLM.
+
+**Expected** — the sub-floor agent is dropped from the returned plan. The kit
+path enforces exactly this: `_build_kit_plan` calls `passes_floor` on every
+pipeline agent and substitutes or drops the ones that fail.
+
+**Actual**
+
+```
+AssertionError: assert ['agt_11c0', 'agt_09l5'] == ['agt_09l5']
+```
+
+`agt_11c0` is correctly absent from the prompt's `AVAILABLE_AGENTS` block and
+is still hired, and still stored in `state.plans[...]`.
+
+**Cause** — `app/services/orchestrator_svc.py:341`. The clamp over model-returned
+steps is `if not agent or get_worker(agent.id) is None: continue`. It checks
+registry membership and worker presence and never calls
+`reputation_svc.passes_floor`. The floor is applied when building the prompt and
+never again, so it is advisory on the way in and absent on the way out.
+
+**Impact** — The routing guarantee holds only as long as the planner confines
+itself to the agents it was offered, and there are two ordinary ways it does
+not. First, when the `_MIN_ROUTABLE_AGENTS` backstop fires, sub-floor agents are
+deliberately placed *into* the prompt; the model then names them legitimately
+and they are hired with no `degraded` flag on the step, while the kit path in
+the same situation marks every re-admitted step `degraded=True`. The two paths
+disagree about the same event. Second, the intent is attacker-controllable and
+is spliced into the prompt (fenced, but fencing is a mitigation, not a
+guarantee) — an intent naming a specific agent id is a plausible route to
+hiring an agent the floor excluded. A structural check after the model returns
+costs one call and does not depend on the model's cooperation.
+
+**Resolution path** — Add `reputation_svc.passes_floor(reps.get(agent.id))` to
+the clamp, and record what it dropped (see D-029, which supplies the disclosure
+channel the free-form path currently lacks).
