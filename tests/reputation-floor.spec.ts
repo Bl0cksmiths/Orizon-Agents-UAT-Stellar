@@ -62,7 +62,14 @@ const REP_LABEL_SHAPE = /^(prior estimate|on-chain reputation) \d+\.\d{2}\b/;
 async function decomposeIntent(page: Page, intent: string): Promise<void> {
   test.slow();
   await page.goto("/app/orchestrator");
-  await page.getByRole("button", { name: intent }).click();
+  // The preset buttons are client-rendered, so they appear only once the
+  // console shell has hydrated. Waiting for them explicitly (rather than
+  // letting the click inherit the suite's 15s actionTimeout) is the
+  // difference between "the deployment is slow today" and an unreadable
+  // click timeout — hydration on a cold edge can outlast 15s.
+  const preset = page.getByRole("button", { name: intent });
+  await expect(preset).toBeVisible({ timeout: COLD_START_TIMEOUT });
+  await preset.click();
   await page.getByRole("button", { name: "Decompose ▸" }).click();
   await expect(
     page.getByRole("heading", { name: "Execution plan" }),
