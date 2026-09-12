@@ -69,8 +69,15 @@ async function decomposeIntent(page: Page, intent: string): Promise<void> {
   // click timeout — hydration on a cold edge can outlast 15s.
   const preset = page.getByRole("button", { name: intent });
   await expect(preset).toBeVisible({ timeout: COLD_START_TIMEOUT });
-  await preset.click();
-  await page.getByRole("button", { name: "Decompose ▸" }).click();
+  // Both clicks carry an explicit budget rather than the suite's 15s
+  // actionTimeout. Playwright holds a click until the target is stable, and
+  // the card/step rows animate in (framer-motion); on a loaded machine
+  // running several browsers the renderer can take longer than 15s to settle,
+  // which reports as a click timeout that says nothing about the app.
+  await preset.click({ timeout: COLD_START_TIMEOUT });
+  await page
+    .getByRole("button", { name: "Decompose ▸" })
+    .click({ timeout: COLD_START_TIMEOUT });
   await expect(
     page.getByRole("heading", { name: "Execution plan" }),
   ).toBeVisible({ timeout: COLD_START_TIMEOUT });
