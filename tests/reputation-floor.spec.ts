@@ -50,8 +50,17 @@ const REP_BADGE = '[aria-label^="prior estimate "], [aria-label^="on-chain reput
  * score to two decimals (`bps / 2000` in reputation-badge.tsx). */
 const REP_LABEL_SHAPE = /^(prior estimate|on-chain reputation) \d+\.\d{2}\b/;
 
-/** Drives the orchestrator form with a preset intent and waits for the card. */
+/**
+ * Drives the orchestrator form with a preset intent and waits for the card.
+ *
+ * Marks the calling test slow first: the wait below is budgeted at
+ * COLD_START_TIMEOUT (75s, the documented Render free-tier wake), which is
+ * longer than the suite's 60s per-test timeout — without the extension the
+ * test is killed before its own assertion can ever time out, turning a slow
+ * backend into an unreadable failure instead of a clear one.
+ */
 async function decomposeIntent(page: Page, intent: string): Promise<void> {
+  test.slow();
   await page.goto("/app/orchestrator");
   await page.getByRole("button", { name: intent }).click();
   await page.getByRole("button", { name: "Decompose ▸" }).click();
