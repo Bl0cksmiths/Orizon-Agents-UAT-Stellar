@@ -1068,3 +1068,44 @@ cross-browser sign-off.
 `cdn.playwright.dev`, or let CI install them (CI runners download all three as
 part of `npx playwright install --with-deps`). The suite needs no change: the
 four projects are already declared in `playwright.config.ts`.
+
+---
+
+## D-026 — `/api/health` reports a build-independent version, so a tester cannot say which build they tested
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** UAT entry criteria (identifying the build under test)
+
+**Steps to reproduce**
+
+```
+curl -s https://orizons.xyz/api/health
+```
+
+**Expected** — enough to identify the deployed build: a commit sha, a build id,
+or a version that changes when the deployment does.
+
+**Actual**
+
+```json
+{"status":"ok","version":"0.1.0","uptime_seconds":2690.3}
+```
+
+`SERVICE_VERSION` is the literal `"0.1.0"` in `app/config.py:22` and has never
+changed. `uptime_seconds` tells you the process restarted, not what it restarted
+into.
+
+**Impact** — Every defect in this log names a target URL and a date, because
+that is the most precise thing available. Two runs a week apart against
+different builds are indistinguishable from the API, so a fixed defect and a
+flaky one look the same on re-test, and a regression cannot be bisected to a
+deploy. The frontend has the same gap: nothing served identifies its build
+either.
+
+**Resolution path** — Both hosts already inject the commit: Render sets
+`RENDER_GIT_COMMIT`, Vercel sets `VERCEL_GIT_COMMIT_SHA`. Read it into the
+health payload (falling back to the static version when unset, so local and
+test runs are unaffected), and surface the frontend's on a `/api/version` route
+or in the UAT banner. `tests/test_health_api.py` asserts against
+`SERVICE_VERSION` and would need the same fallback.
