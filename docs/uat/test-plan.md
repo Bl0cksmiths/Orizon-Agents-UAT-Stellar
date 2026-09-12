@@ -673,3 +673,15 @@ the client can tell the outage apart from a genuine cold start. `source:
 "prior"` reports both states identically, so the degraded signal must survive
 onto the response the plan card reads.
 
+### The backstop is disclosed when it fires
+
+**RF-12** — Given most agents fall below the floor, When a demo-kit plan is
+built, Then the `_MIN_ROUTABLE_AGENTS` backstop re-admits the strongest dropped
+agents, each re-admitted step is flagged, and the response states the floor was
+relaxed and why.
+
+**RF-13** — Given the same registry state, When a free-form plan is built, Then
+the backstop keeps the planner supplied with agents **and** the response
+discloses that the floor was relaxed. A relaxation the buyer cannot see is the
+silent reshuffle story 3.02 exists to prevent.
+
