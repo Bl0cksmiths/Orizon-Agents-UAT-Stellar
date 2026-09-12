@@ -1200,3 +1200,52 @@ costs one call and does not depend on the model's cooperation.
 **Resolution path** — Add `reputation_svc.passes_floor(reps.get(agent.id))` to
 the clamp, and record what it dropped (see D-029, which supplies the disclosure
 channel the free-form path currently lacks).
+
+---
+
+## D-029 — The free-form path relaxes the reputation floor and tells the buyer nothing
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** RF-13
+
+**Steps to reproduce** — `tests/test_floor_disclosure.py::test_rf13_free_form_response_discloses_that_the_floor_was_relaxed`
+in the backend repo (currently `xfail(strict=True)`). Put most agents below the
+floor so fewer than `_MIN_ROUTABLE_AGENTS` clear it, then decompose a free-form
+intent.
+
+**Expected** — the `DecomposeResponse` carries a notice stating the floor was
+relaxed, as the kit path does: `_build_kit_plan` appends a `degraded`
+`PlanFloorNotice` for every agent the backstop re-admits.
+
+**Actual**
+
+```
+AssertionError: free-form plan was built with the floor relaxed but disclosed nothing
+assert False
+```
+
+`resp.notices` is empty. The plan itself builds correctly.
+
+**Cause** — Two places. `app/services/orchestrator_svc.py:385`, the free-form
+branch's `return DecomposeResponse(...)`, omits `notices=` entirely, where the
+kit branch passes it. And the relaxation itself is decided inside
+`_registry_prompt_fragment` (line ~155, `routable = sorted(...)[:_MIN_ROUTABLE_AGENTS]`),
+which returns a prompt string and has no channel to report what it did — its
+only trace is a `logger.warning`.
+
+**Impact** — A log line is an operator signal, not buyer disclosure. On the kit
+path a buyer sees "the floor was relaxed to keep this plan workable" and can
+decide whether to proceed; on the free-form path the identical event produces an
+identical-looking plan with nothing to distinguish it. That is precisely the
+silently reshuffled pipeline story 3.02 exists to prevent, surviving on the path
+3.02 did not cover. It compounds with D-028: the backstop is what puts sub-floor
+agents in front of the planner, and nothing afterwards either re-checks them or
+mentions them.
+
+**Resolution path** — Give `_registry_prompt_fragment` a way to report the
+relaxation (return the notices alongside the prompt, or split the routable-set
+computation out of it), then pass `notices=` on the free-form
+`DecomposeResponse` the way the kit branch already does. The schema needs no
+change — `DecomposeResponse.notices` already exists and already defaults to an
+empty list, and the frontend already renders it.
