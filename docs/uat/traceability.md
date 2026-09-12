@@ -176,3 +176,29 @@ RE-03 and RE-04 cannot be automated even after the flip: they need a funded
 external wallet and an unaided human. See also D-022 — following the flip
 runbook exactly would leave `orizon_batch` unregistered on testnet, so the
 settlement half of this journey would fail at charge time.
+
+## RF — reputation floor and routing boundaries (story 6.02)
+
+Backend criteria are verified in the **backend** repo's pytest suite, against
+the real service and both real planners with only the Soroban `rep_state` read
+stubbed (test-plan.md, method B). Browser criteria are verified here.
+
+| criterion | spec | status |
+| --- | --- | --- |
+| RF-01 | BE `tests/test_floor_boundaries.py` | Pending |
+| RF-02 | BE `tests/test_floor_boundaries.py` | Pending |
+| RF-03 | BE `tests/test_floor_boundaries.py` | Pending |
+| RF-04 | BE `tests/test_floor_disclosure.py` | Pending |
+| RF-05 | BE `tests/test_floor_disclosure.py` | Pending |
+| RF-06 | BE `tests/test_floor_boundaries.py` | Pending |
+| RF-07 | BE `tests/test_floor_boundaries.py` | Pending |
+| RF-08 | BE `tests/test_floor_boundaries.py` | Pending |
+| RF-09 | BE `tests/test_floor_visibility.py` | Pending |
+| RF-10 | BE `tests/test_floor_visibility.py` | Pending |
+| RF-11 | BE `tests/test_floor_visibility.py` | Pending |
+| RF-12 | BE `tests/test_floor_disclosure.py` | Pending |
+| RF-13 | BE `tests/test_floor_disclosure.py` | Pending |
+| RF-14 | `tests/reputation-floor.spec.ts` | Pending |
+| RF-15 | BE `tests/test_floor_visibility.py` | Pending |
+| RF-16 | BE `tests/test_floor_boundaries.py` | Pending |
+| RF-17 | `tests/reputation-floor.spec.ts` | Pending |
