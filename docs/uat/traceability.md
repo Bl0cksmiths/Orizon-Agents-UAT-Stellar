@@ -185,14 +185,14 @@ stubbed (test-plan.md, method B). Browser criteria are verified here.
 
 | criterion | spec | status |
 | --- | --- | --- |
-| RF-01 | BE `tests/test_floor_boundaries.py` | Pending |
-| RF-02 | BE `tests/test_floor_boundaries.py` | Pending |
-| RF-03 | BE `tests/test_floor_boundaries.py` | Pending |
+| RF-01 | BE `tests/test_floor_boundaries.py` | **Pass** — cold-start agent offered to the free-form planner |
+| RF-02 | BE `tests/test_floor_boundaries.py` | **Pass** — cold-start agent keeps its kit step, not substituted |
+| RF-03 | BE `tests/test_floor_boundaries.py` | **Pass** — named in no notice on either path; routable silently |
 | RF-04 | BE `tests/test_floor_disclosure.py` | **Pass** — kit exclusion notice names the agent and both deciding numbers |
 | RF-05 | BE `tests/test_floor_disclosure.py` | **Partial** — absent from the prompt (pass); hired anyway if the model names it (xfail, D-028) |
-| RF-06 | BE `tests/test_floor_boundaries.py` | Pending |
-| RF-07 | BE `tests/test_floor_boundaries.py` | Pending |
-| RF-08 | BE `tests/test_floor_boundaries.py` | Pending |
+| RF-06 | BE `tests/test_floor_boundaries.py` | **Pass** — lower bound exactly on the floor is admitted (`>=`) |
+| RF-07 | BE `tests/test_floor_boundaries.py` | **Pass** — one basis point above the floor is admitted |
+| RF-08 | BE `tests/test_floor_boundaries.py` | **Pass** — one bp below fails `passes_floor` and is kept out of both paths |
 | RF-09 | BE `tests/test_floor_visibility.py` | Pending |
 | RF-10 | BE `tests/test_floor_visibility.py` | Pending |
 | RF-11 | BE `tests/test_floor_visibility.py` | Pending |
@@ -200,5 +200,5 @@ stubbed (test-plan.md, method B). Browser criteria are verified here.
 | RF-13 | BE `tests/test_floor_disclosure.py` | **Partial** — planner stays supplied (pass); relaxation undisclosed (xfail, D-029) |
 | RF-14 | `tests/reputation-floor.spec.ts` | Pending |
 | RF-15 | BE `tests/test_floor_visibility.py` | Pending |
-| RF-16 | BE `tests/test_floor_boundaries.py` | Pending |
+| RF-16 | BE `tests/test_floor_boundaries.py` | **Partial** — arithmetic and rating direction pass; end-to-end blocked, see test-plan note |
 | RF-17 | `tests/reputation-floor.spec.ts` | Pending |
