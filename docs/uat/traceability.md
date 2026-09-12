@@ -188,16 +188,16 @@ stubbed (test-plan.md, method B). Browser criteria are verified here.
 | RF-01 | BE `tests/test_floor_boundaries.py` | Pending |
 | RF-02 | BE `tests/test_floor_boundaries.py` | Pending |
 | RF-03 | BE `tests/test_floor_boundaries.py` | Pending |
-| RF-04 | BE `tests/test_floor_disclosure.py` | Pending |
-| RF-05 | BE `tests/test_floor_disclosure.py` | Pending |
+| RF-04 | BE `tests/test_floor_disclosure.py` | **Pass** — kit exclusion notice names the agent and both deciding numbers |
+| RF-05 | BE `tests/test_floor_disclosure.py` | **Partial** — absent from the prompt (pass); hired anyway if the model names it (xfail, D-028) |
 | RF-06 | BE `tests/test_floor_boundaries.py` | Pending |
 | RF-07 | BE `tests/test_floor_boundaries.py` | Pending |
 | RF-08 | BE `tests/test_floor_boundaries.py` | Pending |
 | RF-09 | BE `tests/test_floor_visibility.py` | Pending |
 | RF-10 | BE `tests/test_floor_visibility.py` | Pending |
 | RF-11 | BE `tests/test_floor_visibility.py` | Pending |
-| RF-12 | BE `tests/test_floor_disclosure.py` | Pending |
-| RF-13 | BE `tests/test_floor_disclosure.py` | Pending |
+| RF-12 | BE `tests/test_floor_disclosure.py` | **Pass** — kit backstop flags each step and states why the floor was relaxed |
+| RF-13 | BE `tests/test_floor_disclosure.py` | **Partial** — planner stays supplied (pass); relaxation undisclosed (xfail, D-029) |
 | RF-14 | `tests/reputation-floor.spec.ts` | Pending |
 | RF-15 | BE `tests/test_floor_visibility.py` | Pending |
 | RF-16 | BE `tests/test_floor_boundaries.py` | Pending |
