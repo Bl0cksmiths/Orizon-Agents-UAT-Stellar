@@ -643,3 +643,17 @@ below the routing floor and the two deciding numbers.
 decomposed, Then it is absent from the planner's `AVAILABLE_AGENTS` block, and
 is absent from the returned plan even if the model names it anyway.
 
+### The boundary is tested exactly
+
+**RF-06** — Given an agent whose Wilson lower bound is exactly
+`REPUTATION_FLOOR_BPS`, When the floor is evaluated, Then it passes. The
+comparison is `>=`; an agent sitting precisely on the line is in, not out.
+
+**RF-07** — Given an agent one basis point above the floor, When the floor is
+evaluated, Then it passes.
+
+**RF-08** — Given an agent one basis point below the floor, When the floor is
+evaluated, Then it fails — and the same agent, tested through a full decompose
+on both paths, is kept out of the plan. A boundary that holds in the arithmetic
+but not in the planner is not a boundary.
+
