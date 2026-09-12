@@ -571,3 +571,22 @@ elsewhere in this suite seeds `localStorage` only — it cannot control the
 wallet layer. The frontend's own unit suite deliberately gates coverage to
 `lib/**`, excluding page components, so there is no second place to test it
 either. Recorded as a known gap rather than papered over.
+
+## Acceptance criteria — RF, reputation floor and routing boundaries (story 6.02)
+
+The floor is interesting only at its edges. This section tests four states —
+cold start, exactly at the floor, one basis point either side of it, and a
+total RPC outage — on **both** planning paths (free-form and demo-kit), plus
+the two backstops that keep a battered registry workable.
+
+**Two behaviours here are correct and must not be "fixed".** Both are argued in
+`reputation_svc.py`'s module docstring and are verified, not filed:
+
+1. **The floor fails open during an RPC outage.** Unreadable evidence means
+   "reputation unknown", and the product's answer to unknown reputation is
+   "routable". Failing closed would drop every agent below the floor at once
+   and hand routing to the starvation backstop, which picks a top-N by
+   identical prior scores — the same agents hired, with weaker semantics.
+2. **A brand-new agent with zero ratings is routable.** That is the cold-start
+   invariant permissionless registration (Deliverable 1) depends on.
+
