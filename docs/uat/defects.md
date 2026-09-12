@@ -1109,3 +1109,46 @@ health payload (falling back to the static version when unset, so local and
 test runs are unaffected), and surface the frontend's on a `/api/version` route
 or in the UAT banner. `tests/test_health_api.py` asserts against
 `SERVICE_VERSION` and would need the same fallback.
+
+---
+
+## D-027 — The repository account cannot push to the backend repo either
+
+- **Severity:** Blocker (process, not product)
+- **Status:** Open
+- **Affects:** delivery of every RF criterion verified in the backend repo
+
+**Steps to reproduce**
+
+```
+cd Orizon-Agents-BE-Stellar && git push -u origin uat
+```
+
+**Expected** — the branch reaches the remote, and CI runs the fast checks on it.
+
+**Actual**
+
+```
+remote: Permission to Bl0cksmiths/Orizon-Agents-BE-Stellar.git denied to rie-hash14.
+fatal: ... The requested URL returned error: 403
+```
+
+`git ls-remote --heads origin` confirms no `uat*` branch exists on the remote.
+
+**Impact** — This extends D-012, which recorded the same 403 for the frontend
+and contract repos; the backend was the one write path that still worked when
+D-012 was written, and it no longer does. Concretely: story 6.02's backend
+verification — the floor boundary tests, the disclosure tests and the
+degradation/startup tests, which are where most of these criteria are actually
+decided — exists as local commits on three branches that cannot be published,
+and backend CI cannot run them. The work is real and runnable from the
+worktrees; it is simply undeliverable through git by this account.
+
+The UAT repository itself is unaffected: `rie-hash14` owns it and every commit
+in this programme has pushed normally.
+
+**Resolution path** — Grant `rie-hash14` write access to
+`Bl0cksmiths/Orizon-Agents-BE-Stellar`, or have a maintainer pull the three
+branches from the worktrees under `be-worktrees/` and open the PR. A CI trigger
+for `uat`/`uat-*` branches is already committed locally on the backend `uat`
+branch and ships with that push.
