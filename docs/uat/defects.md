@@ -973,3 +973,58 @@ wallet claim to carry a documented caveat rather than an unqualified five.
 
 **What must not happen** is the third path: leaving the claim unqualified while
 no wallet has been verified. That is the state today.
+
+---
+
+## D-024 — The reputation `degraded` flag is computed, logged, and then discarded at the API boundary
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** RF-11
+
+**Steps to reproduce**
+
+```
+curl -s https://orizons.xyz/api/stellar/reputation/agt_11c0
+```
+
+**Expected** — a `degraded` field distinguishing "the chain was unreadable and
+this is a fallback" from "this agent genuinely has no ratings yet". The
+frontend already declares it (`lib/types.ts`, `ReputationInfo.degraded`) and its
+own comment calls it *"the only thing separating 'we could not read the chain'
+from a genuine cold-start newcomer, which `source: 'prior'` alone reports
+identically."*
+
+**Actual**
+
+```json
+{"agent_id":"agt_11c0","smoothed_bps":7000,"lower_bound_bps":5677,"avg_bps":0,
+ "count":0,"weight":0,"disputed":0,"dispute_rate_bps":0,"source":"prior"}
+```
+
+No `degraded` key, in any state.
+
+**Cause** — `app/routers/stellar.py` declares its own `ReputationInfo` mirror
+model (line 49) that has no `degraded` field, and builds it with
+`ReputationInfo(**info.model_dump())`. Pydantic drops the unknown key silently,
+and `response_model` then serializes only the declared fields. The same applies
+to the batch route. On the plan path the flag is lost one step earlier:
+`orchestrator_svc._rep_fields` stamps only `rep_bps` and `rep_source` onto a
+`PlanStep`, so a `DecomposeResponse` cannot carry it either.
+
+`reputation_svc.RepInfo.degraded`'s own comment anticipated this — *"the
+routers' mirror models drop unknown keys, so no client contract changes"* — but
+what reads as a compatibility note is in fact the defect: there is no client
+contract, because the field can never leave the process.
+
+**Impact** — Story 3.05 made the fail-open visible **in the logs** and that half
+works. The client half does not exist. During a Soroban outage every agent is
+served at the prior with `source: "prior"`, which is byte-identical to twelve
+genuine newcomers, while the routing floor is failing open underneath. A buyer
+reading the plan card, and the reputation page's own "prior estimate" badge,
+are told a confident cold-start story about a system that has simply lost sight
+of the chain. This is the exact condition the flag was added to surface.
+
+**Resolution path** — Add `degraded: bool = False` to the router's
+`ReputationInfo` mirror, and carry it onto `PlanStep` from `_rep_fields` so the
+plan card can distinguish the two states. Both are additive with a safe default.
