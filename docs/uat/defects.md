@@ -1028,3 +1028,43 @@ of the chain. This is the exact condition the flag was added to surface.
 **Resolution path** — Add `degraded: bool = False` to the router's
 `ReputationInfo` mirror, and carry it onto `PlanStep` from `_rep_fields` so the
 plan card can distinguish the two states. Both are additive with a safe default.
+
+---
+
+## D-025 — Firefox and WebKit browser binaries cannot be downloaded on the authoring machine
+
+- **Severity:** Minor (process, not product)
+- **Status:** Open
+- **Affects:** the browser matrix of every browser-run criterion, RF-14 and RF-17 included
+
+**Steps to reproduce**
+
+```
+npx playwright install firefox webkit
+```
+
+**Expected** — all three engines install, so `playwright.config.ts`'s four
+projects (chromium-desktop, chromium-mobile, webkit-desktop, firefox-desktop)
+can all run.
+
+**Actual** — Chromium and its headless shell install. Firefox fails twice, on
+separate attempts:
+
+```
+Failed to install browsers
+Error: Failed to download Firefox 155.0 (playwright firefox v1543), caused by
+Error: Download failure, code=1
+```
+
+WebKit is never reached, because the command aborts on the first failure.
+
+**Impact** — Browser-run criteria are verified on Chromium desktop and mobile
+only. This is an environment limit, not an application defect: nothing about
+the product is known to be broken on Firefox or WebKit, and nothing about it is
+known to work there either. Recorded so that a green run is not mistaken for
+cross-browser sign-off.
+
+**Resolution path** — Re-run the install on a machine with a working route to
+`cdn.playwright.dev`, or let CI install them (CI runners download all three as
+part of `npx playwright install --with-deps`). The suite needs no change: the
+four projects are already declared in `playwright.config.ts`.
