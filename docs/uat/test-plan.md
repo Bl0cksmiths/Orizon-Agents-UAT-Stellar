@@ -590,3 +590,34 @@ the two backstops that keep a battered registry workable.
 2. **A brand-new agent with zero ratings is routable.** That is the cold-start
    invariant permissionless registration (Deliverable 1) depends on.
 
+### How the four reputation states are produced
+
+Producing a genuinely sub-floor agent is the hard part of this story, and it is
+planned here rather than improvised. Reputation is derived, not settable: the
+only inputs are `sum_w` / `weight` / `count` / `disputed` in the
+`ReputationLedger` contract, written by the backend settler after a settled
+workflow. There are exactly three ways to reach a chosen state, and each buys a
+different grade of evidence:
+
+| method | what is real | what is substituted | used for |
+| --- | --- | --- | --- |
+| **A — real settled workflows** | everything | nothing | RF-16 (direction of travel) |
+| **B — stubbed ledger read, real service + routing** | all scoring arithmetic, the floor, both planners, every log line and response field | only `simulate_read("rep_state")`, the one call that leaves the process | RF-01…RF-13, RF-15 |
+| **C — intercepted HTTP response in the browser** | the plan card's rendering | the entire backend | RF-14 only (a UI-rendering criterion) |
+
+**Method B is the workhorse and it is honest.** The sub-floor state is not
+asserted into existence — the test supplies the same `rep_state` map the
+contract would return for an agent with heavy negative evidence, and the real
+`smoothed_bps` → `lower_bound_bps` → `passes_floor` chain decides the outcome.
+To sit one basis point below the floor an agent needs a decayed weighted mean
+that drags its Wilson lower bound to 5499; those inputs are computed from the
+shipped arithmetic in the fixture, never hardcoded, so a change to the prior or
+to `WILSON_Z` moves the fixture with it instead of silently un-testing the edge.
+
+**Method A cannot manufacture a sub-floor agent within this programme.** It
+would take repeated settled workflows delivering no output (synthetic rating
+20/100) against an agent, each one a real testnet settlement signed by
+`STELLAR_SIGNING_KEY` — a key UAT deliberately does not hold
+(`.env.uat.example`). Method A is therefore used only to prove reputation moves
+in the right direction after genuinely settled work (RF-16), which needs no key.
+
