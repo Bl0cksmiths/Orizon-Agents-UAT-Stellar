@@ -685,3 +685,29 @@ the backstop keeps the planner supplied with agents **and** the response
 discloses that the floor was relaxed. A relaxation the buyer cannot see is the
 silent reshuffle story 3.02 exists to prevent.
 
+### What the buyer sees, and what the operator is warned about
+
+**RF-14** — Given a plan whose shape the floor changed, When the plan card
+renders, Then a single frame shows, for every step, the agent's reputation and
+whether it came from the chain or the prior; and, for every floor action, the
+agent named, the action taken, and the reason including the applied floor in
+basis points.
+
+**RF-15** — Given `REPUTATION_FLOOR_BPS` configured above the prior's own lower
+bound, When the backend starts, Then it logs a warning naming both numbers and
+stating the consequence — that no new agent can ever be routed, because a
+cold-start agent scores exactly the prior. Config that silently bricks
+permissionless onboarding must not start quietly.
+
+**RF-16** — Given an agent that completes settled workflows, When ratings are
+submitted for those steps, Then its reputation moves in the direction the
+delivered work justifies: an agent that ships artifacts gains, an agent whose
+steps produce no output loses, and the movement is bounded by the evidence
+weight of the settled value rather than by the number of runs.
+
+**RF-17** — Given a plan showing per-agent reputation alongside an excluded
+sub-floor agent, When the evidence screenshot is captured, Then one frame
+satisfies SOW §6.1 Deliverable 2, and the evidence index records the image, the
+exact intent, the reputation state behind it, and how that state was produced.
+Evidence that does not say how it was made is not evidence.
+
