@@ -420,7 +420,11 @@ test.describe("Trace page without a live task", () => {
     // The page must never go blank/white even while the stream is still
     // trying — the header and h1 render synchronously from taskId alone.
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trace");
-    await expect(page.getByText("nonexistent-task-id-e2e")).toBeVisible();
+    // trace/page.tsx renders the task id twice by design — once in the
+    // stream card's status Badge and once in the "Task" summary row — so
+    // `.first()` here, not a tighter selector: both are legitimate and
+    // either one being visible proves the id reached the page.
+    await expect(page.getByText("nonexistent-task-id-e2e").first()).toBeVisible();
 
     // Regression: openTraceStream must eventually give up (settle(false))
     // rather than leaving the UI claiming "streaming…" forever against a
