@@ -240,7 +240,10 @@ test.describe('/app/send — disconnected + client-side validation', () => {
     // TxStatus returns null for state "idle" (tx-status.tsx) — asserting its
     // role="status" region is absent catches a regression that renders the
     // step trail (Build/Sign/Broadcast/Pending/Confirmed) before any send.
-    await expect(page.getByRole('status')).toHaveCount(0);
+    // Scoped to <main>: the console topbar carries a permanent
+    // role="status" live region for its backend-reachability pill
+    // ("live" / "offline ↻" / "checking…"), which is not this page's to own.
+    await expect(page.getByRole('main').getByRole('status')).toHaveCount(0);
   });
 });
 
