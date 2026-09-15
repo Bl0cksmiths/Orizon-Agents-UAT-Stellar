@@ -361,7 +361,10 @@ test.describe("/app/register — registration form", () => {
     const skillsField = page.getByLabel("skills");
     await skillsField.click();
     await skillsField.blur();
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    // Scoped to <main>: Next's route announcer is a permanently mounted,
+    // usually-empty `role="alert"` portalled into document.body, so an
+    // unscoped count can never be 0 however clean the form is.
+    await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
   });
 
   test("skills: a 17th chip is silently rejected rather than surfacing a message", async ({ page }) => {
@@ -379,7 +382,9 @@ test.describe("/app/register — registration form", () => {
     // message can never actually render. If a future edit makes 17 skills
     // reachable, this assertion is what would catch skills silently
     // exceeding the backend's cap with no operator-visible feedback.
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    // Scoped to <main> for the same reason as the test above: Next's route
+    // announcer is an always-present empty `role="alert"` outside the page.
+    await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
     // The cap is only ever surfaced via aria-invalid on the field itself —
     // SkillsInput's own `rejected` state, set independently of the page's
     // (broken) touched-skills wiring above.

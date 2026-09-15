@@ -354,7 +354,12 @@ test.describe("Orchestrator error handling", () => {
     // plain <div> here would leave screen-reader users with zero signal
     // that anything failed (ErrorNote / this inline block exist precisely
     // to fix that class of silent failure).
-    const alert = page.getByRole("alert");
+    //
+    // Scoped to <main>: Next's own route announcer is a permanently mounted,
+    // usually-empty `role="alert"` (#__next-route-announcer__, portalled into
+    // document.body inside a shadow root that Playwright pierces), so an
+    // unscoped alert locator always matches it too.
+    const alert = page.getByRole("main").getByRole("alert");
     await expect(alert).toBeVisible();
     await expect(alert).toContainText(/500|forced_failure|forced test failure/);
 

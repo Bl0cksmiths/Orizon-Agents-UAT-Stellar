@@ -307,7 +307,13 @@ test.describe('/app/pdax — degrades honestly when data reads are unauthenticat
     // gated reads. We only assert the *shape* holds (a labelled alert, if
     // any fetch failed) since whether the backend key is configured varies
     // by deploy and must not be hardcoded as an expectation either way.
-    const alerts = page.getByRole('alert');
+    //
+    // Scoped to <main>: Next's route announcer is a permanently mounted,
+    // usually-empty `role="alert"` (#__next-route-announcer__, portalled into
+    // document.body inside a shadow root Playwright pierces). Unscoped, it
+    // makes the count non-zero on a page with no failures at all, and
+    // `.first()` can resolve onto it instead of a real banner.
+    const alerts = page.getByRole('main').getByRole('alert');
     const alertCount = await alerts.count();
     if (alertCount > 0) {
       const text = await alerts.first().innerText();
@@ -427,7 +433,9 @@ test.describe('cross-route — accessibility of the disconnected UI', () => {
     // suite cannot make without a wallet). If the now-settled page produced
     // any failure banner, it must be an alert — never a same-looking
     // magenta box that silently fails to announce itself to assistive tech.
-    const alerts = page.getByRole('alert');
+    // Scoped to <main> so Next's always-mounted, empty route-announcer
+    // `role="alert"` isn't mistaken for one of the page's own banners.
+    const alerts = page.getByRole('main').getByRole('alert');
     const count = await alerts.count();
     for (let i = 0; i < count; i++) {
       const alert = alerts.nth(i);
