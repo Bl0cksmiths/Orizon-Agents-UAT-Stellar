@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { stubWalletSession } from "./fixtures";
 
 /**
  * E2E coverage for the agent-registry feature area on the LIVE production
@@ -464,9 +465,36 @@ test.describe("/app/register — registration form", () => {
   });
 
   test("keyboard-only navigation reaches the submit button", async ({ page }) => {
+    // "Register agent" is disabled until every sync field validates, the id
+    // check has returned available AND a wallet is connected
+    // (register/page.tsx `canSubmit`) — and a disabled button is correctly
+    // skipped by Tab, so tabbing at a disconnected form asserts nothing about
+    // tab ORDER. Give the control the precondition that makes it focusable:
+    // the localStorage wallet-session stub (no signer needed to enable the
+    // button), and a stubbed availability read so this stays a pure
+    // keyboard-order test rather than a second cold-start round trip.
+    await stubWalletSession(page);
+    await page.route("**/stellar/agent-id-available/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ available: true }),
+      }),
+    );
     await page.goto(`${BASE_URL}/app/register`);
-    await page.getByLabel("agent id").focus();
+
+    const idField = page.getByLabel("agent id");
+    await idField.fill(freshAgentId());
+    await idField.blur();
+    await page.getByLabel("display name").fill("QA Test Agent");
+    const priceField = page.getByLabel("price per step (USDC)");
+    await priceField.fill("1.5");
+    await priceField.blur();
+
     const submit = page.getByRole("button", { name: /Register agent/i });
+    await expect(submit).toBeEnabled();
+
+    await idField.focus();
     const reached = await tabUntilFocused(page, submit);
     expect(reached).toBe(true);
   });
