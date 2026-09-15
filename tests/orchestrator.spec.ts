@@ -481,7 +481,12 @@ test.describe("Full run: trace tablist and sandboxed artifact preview", () => {
 
     const artifactTabId = await artifactTab.getAttribute("id");
     expect(artifactTabId, "artifact tab should have an id").toBeTruthy();
-    const artifactPanel = page.getByRole("tabpanel");
+    // Two tabpanels are on screen once the artifact arrives: trace/page.tsx's
+    // own artifact panel, and the preview panel of the nested tablist inside
+    // artifact-viewer.tsx. The outer one comes first in the DOM and is the
+    // panel this tab controls, so take it explicitly rather than matching
+    // both and tripping strict mode.
+    const artifactPanel = page.getByRole("tabpanel").first();
     await expect(artifactPanel).toBeVisible();
     await expect(artifactPanel).toHaveAttribute(
       "aria-labelledby",
