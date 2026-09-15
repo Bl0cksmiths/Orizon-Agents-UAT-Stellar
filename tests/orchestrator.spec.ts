@@ -615,6 +615,16 @@ test.describe("Accessibility", () => {
   }) => {
     await gotoOrchestrator(page);
     const textarea = page.getByLabel(/intent/i);
+    // Decompose is disabled while the intent is empty (page.tsx:
+    // `disabled={!intent.trim() || plan.pending}`), and a disabled button is
+    // correctly skipped by Tab — so type an intent first. Without it this
+    // test asserts nothing about tab ORDER, only that an empty form gates
+    // submit (which OR-03 already covers).
+    await textarea.fill("calculator web app");
+    await expect(
+      page.getByRole("button", { name: "Decompose ▸" }),
+    ).toBeEnabled();
+
     await textarea.focus();
     await expect(textarea).toBeFocused();
 
