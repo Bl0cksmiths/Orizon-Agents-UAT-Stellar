@@ -286,7 +286,11 @@ test.describe('/app/pdax — degrades honestly when data reads are unauthenticat
     // of them, so this or() must resolve to exactly one of the three.
     const noAssets = page.getByText('No assets.');
     const unavailable = page.getByText('Balances unavailable', { exact: false });
-    const currencyRow = page.getByText('avail', { exact: false });
+    // A balance row labels its figure with a standalone "avail" span
+    // (pdax/page.tsx). Matched exactly: as a substring, "avail" also matches
+    // the "Balances unavailable" copy above, so the or() below would resolve
+    // to two elements on the failure path and trip strict mode.
+    const currencyRow = page.getByText('avail', { exact: true });
 
     await expect(noAssets.or(unavailable).or(currencyRow.first())).toBeVisible({
       timeout: COLD_START_TIMEOUT, // cold backend — see file header
