@@ -1,5 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
-import { COLD_START_TIMEOUT, expectNoHorizontalOverflow, stubWalletSession } from "./fixtures";
+import {
+  COLD_START_TIMEOUT,
+  EXPECTED_NETWORK,
+  expectNoHorizontalOverflow,
+  stubWalletSession,
+} from "./fixtures";
 
 /**
  * Wallet / money routes: /app/wallet, /app/send, /app/pdax.
@@ -24,6 +29,22 @@ const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
 ] as const;
 
+/**
+ * stellar.expert publishes exactly two explorer segments, and
+ * components/ui/stellar-link.tsx maps the build's network onto them
+ * (mainnet → "public", everything else → "testnet"). Derived from the
+ * suite's single source of truth for the expected network rather than
+ * hardcoded, so pointing the suite at a testnet target doesn't fail a
+ * correct app for emitting `/explorer/testnet/…`.
+ */
+const EXPLORER_SEGMENT = /^(mainnet|public)$/i.test(EXPECTED_NETWORK)
+  ? "public"
+  : "testnet";
+
+const CONTRACT_LINK_RE = new RegExp(
+  `^https://stellar\\.expert/explorer/${EXPLORER_SEGMENT}/contract/[A-Z0-9]+$`,
+);
+
 test.describe('/app/wallet — disconnected state', () => {
   test('WL-01 renders exactly one h1 and the connect prompt, no wallet extension needed', async ({ page }) => {
     await page.goto(WALLET_URL);
@@ -31,7 +52,13 @@ test.describe('/app/wallet — disconnected state', () => {
     // page's document outline for screen-reader users.
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Wallet');
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
+    // Scoped to <main>: the console topbar renders a Connect Wallet control
+    // of its own on every /app route, so an unscoped locator matches two
+    // buttons and trips strict mode. The page's own prompt is the one under
+    // test here.
+    await expect(
+      page.getByRole('main').getByRole('button', { name: 'Connect Wallet' }),
+    ).toBeVisible();
   });
 
   test('shows the disconnected session copy instead of an empty/blank session card', async ({ page }) => {
@@ -65,7 +92,7 @@ test.describe('/app/wallet — disconnected state', () => {
     await expect(page.getByText('Switch networks in your wallet extension.')).toHaveCount(0);
   });
 
-  test('WL-03 the contracts grid resolves to either the four live contracts (linked to stellar.expert/public) or a truthful error — never stuck placeholders', async ({ page }) => {
+  test('WL-03 the contracts grid resolves to either the four live contracts (linked to stellar.expert on the expected network) or a truthful error — never stuck placeholders', async ({ page }) => {
     await page.goto(WALLET_URL);
     await expect(page.getByText('Deployed contracts')).toBeVisible();
 
@@ -86,16 +113,17 @@ test.describe('/app/wallet — disconnected state', () => {
     }
 
     // Success path: exactly four contracts, each linking to stellar.expert
-    // on this build's configured network (env.ts + stellar-link.tsx resolve
-    // IS_MAINNET → "public"; the live site is mainnet per its rendered
-    // "mainnet" badges, so the explorer segment must be "public", not
-    // "testnet" — a wrong segment here 404s every single contract link).
+    // on the network this target is expected to run (env.ts +
+    // stellar-link.tsx resolve IS_MAINNET → "public", otherwise "testnet").
+    // The segment is checked against UAT_EXPECTED_NETWORK, not pinned to
+    // one chain — a wrong segment 404s every single contract link, but
+    // "testnet" is the *correct* segment on a testnet deployment.
     await expect(contractLinks).toHaveCount(4);
     const hrefs = await contractLinks.evaluateAll((els) =>
       els.map((el) => (el as HTMLAnchorElement).href),
     );
     for (const href of hrefs) {
-      expect(href).toMatch(/^https:\/\/stellar\.expert\/explorer\/public\/contract\/[A-Z0-9]+$/);
+      expect(href).toMatch(CONTRACT_LINK_RE);
     }
     // Every tile also carries the human-readable "view on stellar.expert ▸"
     // affordance text, not just a bare address as the only clue it's a link.
@@ -198,9 +226,13 @@ test.describe('/app/send — disconnected + client-side validation', () => {
     await expect(
       page.getByText('Connect a Stellar wallet on', { exact: false }),
     ).toBeVisible();
-    // Two "Connect Wallet" buttons render disconnected: the header one and
-    // the one inside the "wallet required" card.
-    await expect(page.getByRole('button', { name: 'Connect Wallet' })).toHaveCount(2);
+    // Two "Connect Wallet" buttons render disconnected inside the page
+    // itself: the one beside the page heading and the one inside the
+    // "wallet required" card. Scoped to <main> so the console topbar's own
+    // Connect Wallet (present on every /app route) isn't counted as a third.
+    await expect(
+      page.getByRole('main').getByRole('button', { name: 'Connect Wallet' }),
+    ).toHaveCount(2);
   });
 
   test('WL-05 the TxStatus lifecycle tracker is absent when idle — no phantom "building/signing" steps before a send is attempted', async ({ page }) => {
@@ -208,7 +240,10 @@ test.describe('/app/send — disconnected + client-side validation', () => {
     // TxStatus returns null for state "idle" (tx-status.tsx) — asserting its
     // role="status" region is absent catches a regression that renders the
     // step trail (Build/Sign/Broadcast/Pending/Confirmed) before any send.
-    await expect(page.getByRole('status')).toHaveCount(0);
+    // Scoped to <main>: the console topbar carries a permanent
+    // role="status" live region for its backend-reachability pill
+    // ("live" / "offline ↻" / "checking…"), which is not this page's to own.
+    await expect(page.getByRole('main').getByRole('status')).toHaveCount(0);
   });
 });
 
@@ -251,7 +286,11 @@ test.describe('/app/pdax — degrades honestly when data reads are unauthenticat
     // of them, so this or() must resolve to exactly one of the three.
     const noAssets = page.getByText('No assets.');
     const unavailable = page.getByText('Balances unavailable', { exact: false });
-    const currencyRow = page.getByText('avail', { exact: false });
+    // A balance row labels its figure with a standalone "avail" span
+    // (pdax/page.tsx). Matched exactly: as a substring, "avail" also matches
+    // the "Balances unavailable" copy above, so the or() below would resolve
+    // to two elements on the failure path and trip strict mode.
+    const currencyRow = page.getByText('avail', { exact: true });
 
     await expect(noAssets.or(unavailable).or(currencyRow.first())).toBeVisible({
       timeout: COLD_START_TIMEOUT, // cold backend — see file header
@@ -275,7 +314,13 @@ test.describe('/app/pdax — degrades honestly when data reads are unauthenticat
     // gated reads. We only assert the *shape* holds (a labelled alert, if
     // any fetch failed) since whether the backend key is configured varies
     // by deploy and must not be hardcoded as an expectation either way.
-    const alerts = page.getByRole('alert');
+    //
+    // Scoped to <main>: Next's route announcer is a permanently mounted,
+    // usually-empty `role="alert"` (#__next-route-announcer__, portalled into
+    // document.body inside a shadow root Playwright pierces). Unscoped, it
+    // makes the count non-zero on a page with no failures at all, and
+    // `.first()` can resolve onto it instead of a real banner.
+    const alerts = page.getByRole('main').getByRole('alert');
     const alertCount = await alerts.count();
     if (alertCount > 0) {
       const text = await alerts.first().innerText();
@@ -293,7 +338,13 @@ test.describe('/app/pdax — degrades honestly when data reads are unauthenticat
     // regression that silently auto-fires the fetch on mount, which would
     // hit the API-key-gated endpoint unauthenticated on every page view.
     await expect(page.getByText('No transactions loaded yet.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'load' })).toBeVisible();
+    // Exact name: accessible-name matching is substring-based by default, and
+    // the balances panel's refresh control reads "◉ loading…" while its fetch
+    // is in flight — which also contains "load" and would make this ambiguous
+    // on a cold backend.
+    await expect(
+      page.getByRole('button', { name: 'load', exact: true }),
+    ).toBeVisible();
   });
 
   test('WL-06 the deposit-address and price panels start with no fabricated address/price — only after an explicit action', async ({ page }) => {
@@ -395,7 +446,9 @@ test.describe('cross-route — accessibility of the disconnected UI', () => {
     // suite cannot make without a wallet). If the now-settled page produced
     // any failure banner, it must be an alert — never a same-looking
     // magenta box that silently fails to announce itself to assistive tech.
-    const alerts = page.getByRole('alert');
+    // Scoped to <main> so Next's always-mounted, empty route-announcer
+    // `role="alert"` isn't mistaken for one of the page's own banners.
+    const alerts = page.getByRole('main').getByRole('alert');
     const count = await alerts.count();
     for (let i = 0; i < count; i++) {
       const alert = alerts.nth(i);

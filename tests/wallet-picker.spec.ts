@@ -101,18 +101,28 @@ test.describe("WM-01: connect picker offers every allowlisted wallet", () => {
     await expect(heading).toBeVisible({ timeout: PICKER_OPEN_TIMEOUT });
 
     // The kit's close (X) button (components/shared/header.js in the kit
-    // source) is a real <button> but carries no accessible name at all — no
-    // aria-label, no text, just an SVG glyph — so role-with-name and text
-    // locators can't reach it. Escape does not close this modal either: the
-    // installed kit has no keydown/Escape handling anywhere in its bundle
-    // (verified by grepping the extracted package — reported as a finding,
-    // not fixed here). This SVG path is the close icon's own glyph, unique
-    // within the picker and more specific than a positional CSS path would
-    // be; it's used only because no accessible-name or text locator exists
-    // for this control.
-    await page
-      .locator('.stellar-wallets-kit button:has(svg path[d^="M11.9997 10.5865"])')
-      .click();
+    // source) is a real <button> that carries no accessible name at all — no
+    // aria-label, no text, just an SVG glyph — so a role-with-name or text
+    // locator usually can't reach it. Escape does not close this modal
+    // either: the installed kit has no keydown/Escape handling anywhere in
+    // its bundle (verified by grepping the extracted package — reported as a
+    // finding, not fixed here).
+    //
+    // Resolved structurally rather than by the glyph's path data: the
+    // previous `svg path[d^="M11.9997 10.5865"]` selector pinned this test to
+    // one release's icon artwork and broke the moment the bundled icon
+    // changed, even though the control itself never moved. The kit renders
+    // the picker title inside its own <header>, with an optional back/help
+    // button on the left and close last on the right — so take a named close
+    // control if a future kit version grows one, otherwise the header's last
+    // button.
+    const pickerHeader = heading.locator("xpath=ancestor::header[1]");
+    const namedClose = pickerHeader.getByRole("button", { name: /close/i });
+    const closeButton =
+      (await namedClose.count()) > 0
+        ? namedClose.first()
+        : pickerHeader.getByRole("button").last();
+    await closeButton.click();
 
     // The kit's authModal() close() unmounts the Preact tree and removes its
     // wrapper node entirely (not just hides it), so the heading must be gone

@@ -527,17 +527,17 @@ test.describe("accessibility — AX-07 keyboard journeys", () => {
 test.describe("accessibility — AX-07 closed mobile drawer", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  // Reproduces defect D-010. Marked `fail` because the defect is OPEN in the
-  // deployed build: the drawer is hidden with `-translate-x-full`, and a
+  // Regression guard for defect D-010, now FIXED in the deployed build: the
+  // drawer used to be hidden with `-translate-x-full` alone, and a
   // transformed element stays rendered, in the accessibility tree, and
-  // focusable — so all eleven nav links sit in the tab order ahead of the
+  // focusable — so all eleven nav links sat in the tab order ahead of the
   // hamburger that reveals them (WCAG 2.4.3).
   //
-  // The fix applies `inert` to the aside while closed below `md`. Once that
-  // ships, this test starts passing and MUST be changed from `test.fail` to
-  // `test` in the same commit that confirms the deploy — a `fail` test that
-  // passes is reported as an unexpected pass, not silently ignored.
-  test.fail(
+  // The fix applies `inert` to the aside while closed below `md`. That has
+  // shipped, so this is a plain `test` as the note below always said it must
+  // become — a `test.fail` that passes is reported as an unexpected pass,
+  // not silently ignored.
+  test(
     "AX-07 — a closed mobile drawer keeps its nav links out of the tab order",
     async ({ page }) => {
       await page.goto("/app");
