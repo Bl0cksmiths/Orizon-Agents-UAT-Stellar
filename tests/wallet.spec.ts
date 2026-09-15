@@ -1,5 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
-import { COLD_START_TIMEOUT, expectNoHorizontalOverflow, stubWalletSession } from "./fixtures";
+import {
+  COLD_START_TIMEOUT,
+  EXPECTED_NETWORK,
+  expectNoHorizontalOverflow,
+  stubWalletSession,
+} from "./fixtures";
 
 /**
  * Wallet / money routes: /app/wallet, /app/send, /app/pdax.
@@ -23,6 +28,22 @@ const VIEWPORTS = [
   { name: "mobile", width: 390, height: 844 },
   { name: "desktop", width: 1440, height: 900 },
 ] as const;
+
+/**
+ * stellar.expert publishes exactly two explorer segments, and
+ * components/ui/stellar-link.tsx maps the build's network onto them
+ * (mainnet → "public", everything else → "testnet"). Derived from the
+ * suite's single source of truth for the expected network rather than
+ * hardcoded, so pointing the suite at a testnet target doesn't fail a
+ * correct app for emitting `/explorer/testnet/…`.
+ */
+const EXPLORER_SEGMENT = /^(mainnet|public)$/i.test(EXPECTED_NETWORK)
+  ? "public"
+  : "testnet";
+
+const CONTRACT_LINK_RE = new RegExp(
+  `^https://stellar\\.expert/explorer/${EXPLORER_SEGMENT}/contract/[A-Z0-9]+$`,
+);
 
 test.describe('/app/wallet — disconnected state', () => {
   test('WL-01 renders exactly one h1 and the connect prompt, no wallet extension needed', async ({ page }) => {
@@ -65,7 +86,7 @@ test.describe('/app/wallet — disconnected state', () => {
     await expect(page.getByText('Switch networks in your wallet extension.')).toHaveCount(0);
   });
 
-  test('WL-03 the contracts grid resolves to either the four live contracts (linked to stellar.expert/public) or a truthful error — never stuck placeholders', async ({ page }) => {
+  test('WL-03 the contracts grid resolves to either the four live contracts (linked to stellar.expert on the expected network) or a truthful error — never stuck placeholders', async ({ page }) => {
     await page.goto(WALLET_URL);
     await expect(page.getByText('Deployed contracts')).toBeVisible();
 
@@ -86,16 +107,17 @@ test.describe('/app/wallet — disconnected state', () => {
     }
 
     // Success path: exactly four contracts, each linking to stellar.expert
-    // on this build's configured network (env.ts + stellar-link.tsx resolve
-    // IS_MAINNET → "public"; the live site is mainnet per its rendered
-    // "mainnet" badges, so the explorer segment must be "public", not
-    // "testnet" — a wrong segment here 404s every single contract link).
+    // on the network this target is expected to run (env.ts +
+    // stellar-link.tsx resolve IS_MAINNET → "public", otherwise "testnet").
+    // The segment is checked against UAT_EXPECTED_NETWORK, not pinned to
+    // one chain — a wrong segment 404s every single contract link, but
+    // "testnet" is the *correct* segment on a testnet deployment.
     await expect(contractLinks).toHaveCount(4);
     const hrefs = await contractLinks.evaluateAll((els) =>
       els.map((el) => (el as HTMLAnchorElement).href),
     );
     for (const href of hrefs) {
-      expect(href).toMatch(/^https:\/\/stellar\.expert\/explorer\/public\/contract\/[A-Z0-9]+$/);
+      expect(href).toMatch(CONTRACT_LINK_RE);
     }
     // Every tile also carries the human-readable "view on stellar.expert ▸"
     // affordance text, not just a bare address as the only clue it's a link.
