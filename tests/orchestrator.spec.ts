@@ -236,16 +236,26 @@ test.describe("Orchestrator decompose result", () => {
     }
 
     // "total est." / "eta" only ever appear inside the plan card (confirmed
-    // against sidebar.tsx / topbar.tsx, which render neither), so reading
-    // the whole page's text is unambiguous and avoids a brittle DOM-parent
+    // against sidebar.tsx / topbar.tsx, which render neither), so these
+    // unscoped text locators are unambiguous and avoid a brittle DOM-parent
     // traversal to scope a container that has no test id.
-    const pageText = (await page.locator("body").innerText()).replace(
-      /\s+/g,
-      " ",
-    );
-    const totalMatch = pageText.match(/total est\.\s*(\d+\.\d{3}) USDC/);
-    expect(totalMatch, "totals row should render total est. in USDC").toBeTruthy();
-    const displayedTotal = parseFloat(totalMatch![1]);
+    //
+    // Read as label + value nodes rather than with one regex over the page
+    // text: execution-plan.tsx renders the caption and the figure as two
+    // separate <div>s, and the caption carries `uppercase`, so a page-wide
+    // `innerText` (which returns the RENDERED text) reads "TOTAL EST." and
+    // no single-line /total est\. … USDC/ pattern can ever match it.
+    const totalLabel = page.getByText("total est.", { exact: true });
+    await expect(totalLabel).toBeVisible();
+    const totalValue = (
+      await totalLabel.locator("xpath=following-sibling::div[1]").innerText()
+    ).trim();
+    const totalMatch = totalValue.match(/^(\d+\.\d{3}) USDC$/);
+    expect(
+      totalMatch,
+      `totals row should render total est. in USDC, got "${totalValue}"`,
+    ).toBeTruthy();
+    const displayedTotal = parseFloat(totalMatch?.[1] ?? "");
 
     // Regression: the totals row is exactly what a user reads before
     // authorizing on-chain spend. If it silently drifted from the sum of
@@ -256,8 +266,15 @@ test.describe("Orchestrator decompose result", () => {
       0.0005 * count + 0.0005,
     );
 
-    const etaMatch = pageText.match(/eta\s*(\d+\.\d+)s/);
-    expect(etaMatch, "totals row should render an eta in seconds").toBeTruthy();
+    // Same label/value split (and the same `uppercase` caption) for the eta.
+    const etaLabel = page.getByText("eta", { exact: true });
+    await expect(etaLabel).toBeVisible();
+    const etaValue = (
+      await etaLabel.locator("xpath=following-sibling::div[1]").innerText()
+    ).trim();
+    expect(etaValue, "totals row should render an eta in seconds").toMatch(
+      /^\d+\.\d+s$/,
+    );
   });
 });
 
