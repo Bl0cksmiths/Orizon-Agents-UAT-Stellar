@@ -338,7 +338,13 @@ test.describe('/app/pdax — degrades honestly when data reads are unauthenticat
     // regression that silently auto-fires the fetch on mount, which would
     // hit the API-key-gated endpoint unauthenticated on every page view.
     await expect(page.getByText('No transactions loaded yet.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'load' })).toBeVisible();
+    // Exact name: accessible-name matching is substring-based by default, and
+    // the balances panel's refresh control reads "◉ loading…" while its fetch
+    // is in flight — which also contains "load" and would make this ambiguous
+    // on a cold backend.
+    await expect(
+      page.getByRole('button', { name: 'load', exact: true }),
+    ).toBeVisible();
   });
 
   test('WL-06 the deposit-address and price panels start with no fabricated address/price — only after an explicit action', async ({ page }) => {
