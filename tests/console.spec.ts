@@ -191,7 +191,14 @@ test.describe('Overview — loading, loaded, and failed states stay visually and
     const main = page.getByRole('main');
     // The skeleton tiles are aria-hidden by design; this sr-only status is
     // the only accessible signal that data is loading, not absent.
-    await expect(main.getByRole('status', { name: 'Loading metrics…' })).toBeAttached();
+    // Matched by its text, not by `name`: `status` is not a name-from-content
+    // role, so the accessible name of <span role="status">Loading metrics…
+    // </span> (components/ui/skeleton.tsx — it carries no aria-label) is
+    // empty, and a `{ name: … }` option can never match it however long the
+    // assertion waits.
+    await expect(
+      main.getByRole('status').filter({ hasText: 'Loading metrics…' }),
+    ).toBeAttached();
     // Regression: tile labels must render immediately so "no data yet" never
     // reads as "no such metric" while the fetch is pending.
     await expect(main.getByText('Agents online', { exact: true })).toBeVisible();
