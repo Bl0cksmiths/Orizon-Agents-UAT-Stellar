@@ -300,8 +300,11 @@ test.describe("Execution plan actions", () => {
     // connect prompt instead of a clickable Authorize button that would
     // throw on `wallet.address` being undefined mid-flow.
     await expect(page.getByText(/wallet required/i)).toBeVisible();
+    // Scoped to <main>: the console topbar renders its own Connect Wallet on
+    // every /app route, so an unscoped locator matches two buttons and trips
+    // strict mode. The plan card's prompt is the one being gated on here.
     await expect(
-      page.getByRole("button", { name: "Connect Wallet" }),
+      page.getByRole("main").getByRole("button", { name: "Connect Wallet" }),
     ).toBeVisible();
 
     // The on-chain button only renders in the connected branch of

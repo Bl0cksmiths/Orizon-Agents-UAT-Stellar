@@ -52,7 +52,13 @@ test.describe('/app/wallet — disconnected state', () => {
     // page's document outline for screen-reader users.
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Wallet');
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Connect Wallet' })).toBeVisible();
+    // Scoped to <main>: the console topbar renders a Connect Wallet control
+    // of its own on every /app route, so an unscoped locator matches two
+    // buttons and trips strict mode. The page's own prompt is the one under
+    // test here.
+    await expect(
+      page.getByRole('main').getByRole('button', { name: 'Connect Wallet' }),
+    ).toBeVisible();
   });
 
   test('shows the disconnected session copy instead of an empty/blank session card', async ({ page }) => {
@@ -220,9 +226,13 @@ test.describe('/app/send — disconnected + client-side validation', () => {
     await expect(
       page.getByText('Connect a Stellar wallet on', { exact: false }),
     ).toBeVisible();
-    // Two "Connect Wallet" buttons render disconnected: the header one and
-    // the one inside the "wallet required" card.
-    await expect(page.getByRole('button', { name: 'Connect Wallet' })).toHaveCount(2);
+    // Two "Connect Wallet" buttons render disconnected inside the page
+    // itself: the one beside the page heading and the one inside the
+    // "wallet required" card. Scoped to <main> so the console topbar's own
+    // Connect Wallet (present on every /app route) isn't counted as a third.
+    await expect(
+      page.getByRole('main').getByRole('button', { name: 'Connect Wallet' }),
+    ).toHaveCount(2);
   });
 
   test('WL-05 the TxStatus lifecycle tracker is absent when idle — no phantom "building/signing" steps before a send is attempted', async ({ page }) => {

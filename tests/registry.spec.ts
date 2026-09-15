@@ -268,7 +268,12 @@ test.describe("/app/register — registration form", () => {
     await expect(page.getByLabel("skills")).toBeVisible();
     await expect(page.getByLabel("price per step (USDC)")).toBeVisible();
 
-    await expect(page.getByRole("button", { name: "Connect Wallet" })).toBeVisible();
+    // Scoped to <main>: the console topbar renders its own Connect Wallet on
+    // every /app route, so an unscoped locator matches two buttons and trips
+    // strict mode. The form's own prompt is the one under test.
+    await expect(
+      page.getByRole("main").getByRole("button", { name: "Connect Wallet" }),
+    ).toBeVisible();
     // Two separate elements both contain the substring "connect a wallet"
     // (the owner-status line and the submit-button hint) — the longer,
     // unique string avoids a strict-mode multi-match here.
