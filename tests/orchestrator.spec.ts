@@ -245,7 +245,7 @@ test.describe("Orchestrator decompose result", () => {
     );
     const totalMatch = pageText.match(/total est\.\s*(\d+\.\d{3}) USDC/);
     expect(totalMatch, "totals row should render total est. in USDC").toBeTruthy();
-    const displayedTotal = parseFloat(totalMatch![1]);
+    const displayedTotal = parseFloat(totalMatch![1]!);
 
     // Regression: the totals row is exactly what a user reads before
     // authorizing on-chain spend. If it silently drifted from the sum of
