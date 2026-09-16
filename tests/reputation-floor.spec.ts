@@ -987,4 +987,44 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
       "the index does not say the plan in the frame was supplied by the test",
     ).toMatch(/supplied by the test/i);
   });
+
+  test("RF-17 the provenance note states plainly that the plan was written by the test, and why the live target cannot produce one", () => {
+    const notePath = join(EVIDENCE_DIR, EVIDENCE_NOTE);
+    expect(
+      existsSync(notePath),
+      `no provenance note at ${notePath} — evidence that does not say how it was made is not evidence`,
+    ).toBe(true);
+
+    const note = readFileSync(notePath, "utf8");
+
+    expect(note, "the note does not name the image it describes").toContain(
+      EVIDENCE_IMAGE,
+    );
+    expect(note, "the note does not record the exact intent").toContain(
+      EVIDENCE_INTENT,
+    );
+    expect(note, "the note does not name the network").toContain(
+      EXPECTED_NETWORK,
+    );
+    expect(note, "the note does not record the applied floor").toContain(
+      `${FLOOR_BPS} bps`,
+    );
+
+    // The disclosure, in plain words. Checked as three separate claims so a
+    // note that keeps the words but drops the substance still fails: the plan
+    // was authored by the test, the live target cannot produce one, and the
+    // panel had to be opened before the frame existed.
+    expect(
+      note,
+      "the note does not say the plan was written by the test",
+    ).toMatch(/written by the test/i);
+    expect(
+      note,
+      "the note does not explain that the live target cannot produce a floor-acted plan",
+    ).toMatch(/cannot produce/i);
+    expect(
+      note,
+      "the note does not disclose that the floor panel ships collapsed and was opened for the capture",
+    ).toMatch(/collapsed/i);
+  });
 });
