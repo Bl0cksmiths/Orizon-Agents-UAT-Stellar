@@ -979,7 +979,7 @@ no wallet has been verified. That is the state today.
 ## D-024 — The reputation `degraded` flag is computed, logged, and then discarded at the API boundary
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Resolved in `main`, not yet deployed** — see D-031
 - **Affects:** RF-11
 
 **Steps to reproduce**
@@ -1028,6 +1028,19 @@ of the chain. This is the exact condition the flag was added to surface.
 **Resolution path** — Add `degraded: bool = False` to the router's
 `ReputationInfo` mirror, and carry it onto `PlanStep` from `_rep_fields` so the
 plan card can distinguish the two states. Both are additive with a safe default.
+
+**Resolution** — Both halves are fixed upstream, the second in a better shape
+than suggested here. The router's `ReputationInfo` mirror now declares
+`degraded: bool = False`, so the reputation routes carry it. On the plan the
+signal is `DecomposeResponse.reputation_degraded` — a property of the whole
+plan rather than a per-step flag, and deliberately not called `degraded`,
+because that word already means "re-admitted below the floor by the starvation
+backstop" on both `PlanStep` and `PlanFloorNotice.kind`; a third meaning in one
+payload would be its own defect. Verified by
+`test_rf11_client_can_tell_an_outage_plan_from_a_cold_start_plan`, which now
+asserts an outage plan reports `reputation_degraded: true` and a genuine cold
+start reports `false` — the flag has to distinguish the two states without
+crying wolf on every newcomer.
 
 ---
 
