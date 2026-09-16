@@ -64,14 +64,15 @@ const REP_LABEL_SHAPE = /^(prior estimate|on-chain reputation) \d+\.\d{2}\b/;
 /**
  * Drives the orchestrator form with a preset intent and waits for the card.
  *
- * Marks the calling test slow first: the wait below is budgeted at
- * COLD_START_TIMEOUT (75s, the documented Render free-tier wake), which is
- * longer than the suite's 60s per-test timeout — without the extension the
- * test is killed before its own assertion can ever time out, turning a slow
- * backend into an unreadable failure instead of a clear one.
+ * Raises the calling test's budget first. The suite's per-test timeout is 60s,
+ * but this helper can legitimately spend the navigation budget (90s) plus four
+ * COLD_START_TIMEOUT waits (75s each) before anything is actually wrong —
+ * roughly 390s against a cold edge and a sleeping Render backend. A test
+ * killed below the sum of its own waits reports "test timeout" instead of the
+ * specific wait that overran, which says nothing about the deployment.
  */
 async function decomposeIntent(page: Page, intent: string): Promise<void> {
-  test.slow();
+  test.setTimeout(COLD_START_TIMEOUT * 6);
   await page.goto("/app/orchestrator");
   // The preset buttons are client-rendered, so they appear only once the
   // console shell has hydrated. Waiting for them explicitly (rather than
