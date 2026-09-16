@@ -281,7 +281,7 @@ does not hold. RF-16 is verified where the decision is actually made — in
 | D-029 | Major | Resolved in `main` | a floor relaxation on the free-form path told the buyer nothing |
 | D-030 | Major | Resolved in `main` | a floor above the prior bound booted silently, ending permissionless onboarding |
 | D-031 | Major | Open | the deployment is 284 commits behind `main`, and nothing on it says so |
-| D-032 | Minor | Open | the plan card states the applied floor only when the floor acted |
+| D-032 | Minor | **Withdrawn** | claimed the plan card never states the applied floor; it does, via `FloorSummary` — the finding was mine and it was wrong |
 | D-033 | Minor | Open | an upstream drift-check test asserts a POSIX path and fails on Windows |
 | D-025 | Minor | Open | Firefox and WebKit binaries will not download on the authoring machine |
 | D-026 | Minor | Open | `/api/health` reports a build-independent version |
