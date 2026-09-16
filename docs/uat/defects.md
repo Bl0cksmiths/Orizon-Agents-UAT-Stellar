@@ -1348,3 +1348,43 @@ API's response shape against the source tree.
 the three resolved defects should then verify on the browser surface too. Fix
 D-026 in the same pass so the next gap announces itself instead of having to be
 inferred.
+
+---
+
+## D-032 — The plan card states the applied floor only when the floor acted
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** RF-14
+
+**Steps to reproduce** — Decompose any intent whose plan needs no floor action
+(every intent on the current deployment, since no agent has on-chain evidence)
+and read the execution-plan card.
+
+**Expected** — story 6.02 asks that the plan card show "reputation, source, the
+applied floor, and any exclusions". The threshold is part of the claim: a buyer
+told an agent scores 3.50 learns nothing unless they also know what score was
+required.
+
+**Actual** — the floor appears nowhere on a clean plan. It is present only
+inside a `PlanFloorNotice.reason` string (`below routing floor (4200 < 5500 bps)`),
+and that panel renders only when `notices` is non-empty. Per-step reputation and
+source do render, so the criterion fails on its third element only.
+
+**Not the same thing as the badge decision, which is correct.**
+`execution-plan.tsx` deliberately does not pass `floorBps` to `ReputationBadge`,
+and documents why at length: the badge decides below-floor with
+`(lowerBoundBps ?? bps) < floorBps`, a `PlanStep` carries only the smoothed
+`rep_bps` and no lower bound, so handing it the floor would compare the wrong
+number and could clear an agent the planner would have excluded. That reasoning
+is sound and this defect does not ask for it to be reversed.
+
+**Impact** — Minor, and now cheap to fix. `DecomposeResponse.floor_bps` was
+added upstream precisely so "the card can state the threshold rather than only
+the verdict", and the frontend's `lib/types.ts` already declares it — but no
+component reads it. The data is being sent and dropped.
+
+**Resolution path** — State the plan-level threshold once on the card, next to
+the totals, from `plan.floor_bps`, as a plain statement of the routing
+requirement rather than a per-step verdict. Blocked on D-031 for live
+verification: the deployed backend does not yet send the field.
