@@ -1388,3 +1388,47 @@ component reads it. The data is being sent and dropped.
 the totals, from `plan.floor_bps`, as a plain statement of the routing
 requirement rather than a per-step verdict. Blocked on D-031 for live
 verification: the deployed backend does not yet send the field.
+
+---
+
+## D-033 — A drift-check test asserts a POSIX path and fails on Windows
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** the backend exit criterion "full suite green" on a non-Linux machine
+
+**Steps to reproduce** — On Windows, from a clean checkout of backend
+`origin/main` (`6867f45`):
+
+```
+python -m pytest tests/test_contract_drift.py -q
+```
+
+**Expected** — pass, as it does on CI.
+
+**Actual**
+
+```
+FAILED tests/test_contract_drift.py::test_a_missing_canonical_map_is_a_failure_that_names_where_it_looked
+AssertionError: assert '/nowhere/one' in 'cannot find the canonical address book (addresses.json).
+  Looked in:\n    - \nowhere\one\n    - \nowhere\two\n ...'
+```
+
+**Cause** — The test builds `Path("/nowhere/one")` and asserts the literal
+string `"/nowhere/one"` appears in the error message. `Path` renders with the
+host separator, so the message contains `\nowhere\one` on Windows. The
+production code is correct; the assertion is not portable.
+
+**Attribution** — Not introduced by this programme. Verified by running the
+file in a detached worktree at `origin/main` with none of the RF work present;
+the RF branch touches only `.github/workflows/ci.yml` and the three
+`tests/test_floor_*.py` files.
+
+**Impact** — Minor and bounded. CI runs `ubuntu-latest`, so this never goes red
+there. It does mean "the full suite passes" is untrue on a Windows dev machine,
+and it cost this programme a round of investigation to rule out as its own
+regression — which is the real cost of a platform-dependent assertion.
+
+**Resolution path** — Assert against the rendered path rather than the literal:
+compare with `str(Path("/nowhere/one"))`, or normalise separators before the
+`in` check.
