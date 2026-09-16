@@ -195,16 +195,16 @@ fixed on one surface and still present on the other, so a row that said only
 | RF-02 | BE `tests/test_floor_boundaries.py` | **Pass** — cold-start agent keeps its kit step, not substituted |
 | RF-03 | BE `tests/test_floor_boundaries.py` | **Pass** — named in no notice on either path; routable silently |
 | RF-04 | BE `tests/test_floor_disclosure.py` | **Pass** — kit exclusion notice names the agent and both deciding numbers |
-| RF-05 | BE `tests/test_floor_disclosure.py` | **Partial** — absent from the prompt (pass); hired anyway if the model names it (xfail, D-028) |
+| RF-05 | BE `tests/test_floor_disclosure.py` | **Partial** (`main`) — absent from the prompt (pass); still hired if the model names it anyway (xfail, D-028 open) |
 | RF-06 | BE `tests/test_floor_boundaries.py` | **Pass** — lower bound exactly on the floor is admitted (`>=`) |
 | RF-07 | BE `tests/test_floor_boundaries.py` | **Pass** — one basis point above the floor is admitted |
 | RF-08 | BE `tests/test_floor_boundaries.py` | **Pass** — one bp below fails `passes_floor` and is kept out of both paths |
-| RF-09 | BE `tests/test_floor_visibility.py` | Pending |
-| RF-10 | BE `tests/test_floor_visibility.py` | Pending |
+| RF-09 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — outage degrades every agent to the prior and still plans, on both paths |
+| RF-10 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — exactly one warning per batch, naming agents, reason and both numbers |
 | RF-11 | BE `tests/test_floor_visibility.py` | Pending |
 | RF-12 | BE `tests/test_floor_disclosure.py` | **Pass** — kit backstop flags each step and states why the floor was relaxed |
-| RF-13 | BE `tests/test_floor_disclosure.py` | **Partial** — planner stays supplied (pass); relaxation undisclosed (xfail, D-029) |
+| RF-13 | BE `tests/test_floor_disclosure.py` | **Pass** (`main`) — free-form now discloses the relaxation; was D-029, marker removed. Still absent on the deployed build (D-031) |
 | RF-14 | `tests/reputation-floor.spec.ts` | Pending |
-| RF-15 | BE `tests/test_floor_visibility.py` | Pending |
+| RF-15 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — startup warning added upstream; was D-030, marker removed |
 | RF-16 | BE `tests/test_floor_boundaries.py` | **Partial** — arithmetic and rating direction pass; end-to-end blocked, see test-plan note |
 | RF-17 | `tests/reputation-floor.spec.ts` | Pending |
