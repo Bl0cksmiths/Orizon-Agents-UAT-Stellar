@@ -183,6 +183,12 @@ Backend criteria are verified in the **backend** repo's pytest suite, against
 the real service and both real planners with only the Soroban `rep_state` read
 stubbed (test-plan.md, method B). Browser criteria are verified here.
 
+**Every row names the surface it was verified on, and the two disagree.** The
+backend suite runs against `main`; the browser specs run against the deployed
+orizons.xyz, which is 284 commits behind it (defect D-031). Three defects are
+fixed on one surface and still present on the other, so a row that said only
+"Pass" would be true of one build and false of the other.
+
 | criterion | spec | status |
 | --- | --- | --- |
 | RF-01 | BE `tests/test_floor_boundaries.py` | **Pass** — cold-start agent offered to the free-form planner |
