@@ -389,3 +389,30 @@ cross-browser sign-off and is not claimed as one.
    floor information is carried in text and `aria-label`, never by colour
    alone — which the existing `ReputationBadge` and notice-row markup satisfy
    by design.
+
+## Pass / fail per criterion
+
+Surface in brackets: (`main`) = backend pytest, (dep) = the deployed stack.
+
+| id | criterion | result |
+| --- | --- | --- |
+| RF-01 | cold-start agent routable, free-form | **Pass** (`main`, and observed live: 5677 vs 5500) |
+| RF-02 | cold-start agent keeps its kit step | **Pass** (`main`) |
+| RF-03 | cold-start agent named in no notice | **Pass** (`main`) |
+| RF-04 | sub-floor agent excluded on the kit path, with both numbers | **Pass** (`main`) |
+| RF-05 | sub-floor agent absent from the free-form plan | **Fail** — absent from the prompt, hired if named (D-028) |
+| RF-06 | lower bound exactly on the floor is admitted | **Pass** (`main`) |
+| RF-07 | one basis point above is admitted | **Pass** (`main`) |
+| RF-08 | one basis point below is refused, on both paths | **Pass** (`main`) |
+| RF-09 | outage degrades every agent and still plans | **Pass** (`main`) |
+| RF-10 | exactly one warning per batch, with the numbers | **Pass** (`main`) |
+| RF-11 | client can tell an outage from a cold start | **Pass** (`main`) · **Fail** (dep) — fields not served (D-031) |
+| RF-12 | kit backstop flags each step and says why | **Pass** (`main`) |
+| RF-13 | free-form backstop discloses the relaxation | **Pass** (`main`) · **Fail** (dep) — D-031 |
+| RF-14 | one frame shows reputation, source, floor, exclusions | **Partial** (dep) — per-step yes; floor actions collapsed (D-034); a11y name missing (D-035) |
+| RF-15 | hostile floor warns at startup | **Pass** (`main`) |
+| RF-16 | reputation moves in the right direction | **Partial** — arithmetic and rating direction pass; end to end needs a signed settlement |
+| RF-17 | Deliverable 2 evidence frame captured and filed | **Pass** (dep) |
+
+**13 pass, 3 partial, 1 fail** against `main`. On the deployed stack two further
+criteria cannot be met at all until the backend is deployed.
