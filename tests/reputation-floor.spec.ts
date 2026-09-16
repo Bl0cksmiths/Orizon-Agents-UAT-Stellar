@@ -96,11 +96,27 @@ async function decomposeIntent(page: Page, intent: string): Promise<void> {
 }
 
 /**
- * The heading of the floor panel in execution-plan.tsx. The panel renders only
- * when `plan.notices` is non-empty, so this string is both the handle for
- * asserting it IS there and the handle for asserting it is NOT.
+ * Heading of the floor panel, read from the DEPLOYED markup rather than from
+ * the frontend repo's working tree — the two have diverged. The live build
+ * renders the panel as a collapsed `<details>` whose `<summary>` carries
+ * `<h3>Reputation floor · N changes</h3>`; the source checkout still shows an
+ * always-open `<div>` headed "reputation floor — why this plan changed shape",
+ * a string that appears nowhere on the deployment. Asserting the old string
+ * was absent could therefore never fail, whatever the card did.
+ *
+ * The panel renders only when `plan.notices` is non-empty, so this handle is
+ * both how a test asserts the panel IS there and how it asserts it is NOT.
  */
-const FLOOR_PANEL_HEADING = "reputation floor — why this plan changed shape";
+const FLOOR_PANEL_HEADING = "Reputation floor";
+
+/** The floor panel itself: the `<details>` whose summary heading is the one
+ * above. Matched through the heading rather than by tag alone so it stays
+ * precise if the page ever grows a second disclosure. */
+function floorPanel(page: Page) {
+  return page
+    .locator("details")
+    .filter({ has: page.getByRole("heading", { name: FLOOR_PANEL_HEADING }) });
+}
 
 /** The `<ol>` of step rows inside the execution-plan card. */
 function stepRows(page: Page) {
@@ -171,7 +187,7 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
     // A panel that renders when nothing happened is as wrong as one that
     // stays hidden when something did.
     await expect(
-      page.getByText(FLOOR_PANEL_HEADING),
+      floorPanel(page),
       "the floor panel rendered for a plan with no floor actions",
     ).toHaveCount(0);
 
