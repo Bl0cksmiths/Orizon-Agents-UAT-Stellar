@@ -502,3 +502,22 @@ relative to the deployment. It is not — the working tree carries
 `exclusions-panel.tsx` and `floor-summary.tsx`, both matching what the
 deployment renders. The lead's own D-032 was the mirror-image error and has been
 withdrawn.
+
+## Where the Deliverable 2 evidence is filed
+
+`docs/evidence/` in **this** repository: the image, a provenance note, and an
+index row (`docs/evidence/README.md`). All three are written by the RF-17 tests
+rather than by hand, and regenerate on re-capture, so the recorded state cannot
+drift from the frame it describes.
+
+The programme's earlier evidence index lives in the frontend repository
+(`docs/evidence/week-1.md`). A pointer belongs there too, and is not added,
+because that remote refuses this account (D-012, and D-027 for the backend). The
+UAT repository is the only writable one, which is why the index was started
+here. Add the cross-reference when access allows — it is one line.
+
+The note states plainly what an image cannot: that the plan behind the frame was
+supplied by the test, that the live registry holds 17 agents with no on-chain
+evidence and therefore cannot place any agent below the floor, that the panel
+was opened with one click, and which build the frame came from — anchored to the
+observed response shape, since the deployment exposes no build identifier.
