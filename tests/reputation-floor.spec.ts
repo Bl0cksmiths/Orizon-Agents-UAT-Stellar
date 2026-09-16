@@ -388,6 +388,28 @@ async function supplyPlan(page: Page, plan: SuppliedPlan): Promise<void> {
 }
 
 /**
+ * The accessible label `ReputationBadge` is expected to build for a step.
+ *
+ * A faithful duplicate of the label construction in
+ * components/ui/reputation-badge.tsx — `bps / 2000` to two decimals behind
+ * the source phrase — kept here for the same reason as
+ * tests/evidence-helpers.ts: the suite has no module resolution into the app.
+ *
+ * The plan card passes the badge neither `count` nor `floorBps`, so neither
+ * the "from N rated jobs" clause nor the "below the X network floor" clause
+ * can appear on a step. That absence is itself worth pinning: it means a step
+ * routed BELOW the floor is announced to a screen reader exactly like any
+ * other on-chain score, and only the separate "below floor" chip distinguishes
+ * it.
+ */
+function expectedBadgeLabel(step: SuppliedPlanStep): string {
+  const score = (step.rep_bps / 2000).toFixed(2);
+  return step.rep_source === "prior"
+    ? `prior estimate ${score} — no on-chain ratings yet`
+    : `on-chain reputation ${score}`;
+}
+
+/**
  * Opens the floor disclosure by clicking its summary, the way a buyer would.
  * The deployed card ships the panel collapsed, so every per-action detail —
  * agent, replacement, reason, floor in bps — is one interaction away; a
@@ -472,5 +494,59 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
       errors.getConsoleErrors(),
       JSON.stringify(errors.getConsoleErrors(), null, 2),
     ).toEqual([]);
+  });
+
+  test("RF-14 every step of a floor-acted plan carries its own reputation badge, and the substituted and below-floor steps are flagged", async ({
+    page,
+  }) => {
+    await supplyPlan(page, FLOOR_ACTED_PLAN);
+    await decomposeIntent(page, EVIDENCE_INTENT);
+
+    const steps = stepRows(page);
+    await expect(steps).toHaveCount(FLOOR_ACTED_PLAN.steps.length);
+
+    for (const [i, step] of FLOOR_ACTED_PLAN.steps.entries()) {
+      const row = steps.nth(i);
+      const where = `step ${i + 1} (${step.agent_name})`;
+
+      await expect(row, `${where} does not name its agent`).toContainText(
+        step.agent_name,
+      );
+
+      const badge = row.locator(REP_BADGE);
+      await expect(badge, `${where} has no reputation badge`).toHaveCount(1);
+      // Exact, not a pattern: the score AND whether it came from the chain or
+      // the prior both have to survive into the accessible name.
+      await expect(
+        badge,
+        `${where} announces the wrong score or the wrong source`,
+      ).toHaveAttribute("aria-label", expectedBadgeLabel(step));
+
+      if (step.substituted_for) {
+        await expect(
+          row,
+          `${where} does not say whose place it was routed in`,
+        ).toContainText(`for ${step.substituted_for}`);
+      }
+
+      if (step.degraded) {
+        await expect(
+          row,
+          `${where} was re-admitted below the floor but is not flagged as such`,
+        ).toContainText("below floor");
+      }
+    }
+
+    // An excluded agent was never routed, so it must not appear as a step —
+    // the panel is the only place it is named.
+    const excluded = FLOOR_ACTED_PLAN.notices.find((n) => n.kind === "excluded");
+    const excludedName = excluded?.agent_name ?? "";
+    expect(excludedName, "the supplied plan has no excluded notice").not.toBe(
+      "",
+    );
+    await expect(
+      steps.filter({ hasText: excludedName }),
+      `the excluded agent ${excludedName} was rendered as a plan step`,
+    ).toHaveCount(0);
   });
 });
