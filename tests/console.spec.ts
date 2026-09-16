@@ -363,9 +363,15 @@ test.describe('Accessibility smoke', () => {
         headings.map((h) => h.evaluate((el) => Number(el.tagName.slice(1)))),
       );
       for (let i = 1; i < levels.length; i++) {
+        const prev = levels[i - 1];
+        const cur = levels[i];
+        // `T | undefined` from indexing under noUncheckedIndexedAccess; both
+        // are in range, so assert that rather than silently skipping a pair.
+        expect(prev, `no heading level at ${i - 1}`).toBeDefined();
+        expect(cur, `no heading level at ${i}`).toBeDefined();
         // Regression: a jump like h1 -> h3 (skipping h2) breaks screen-reader
         // document-outline navigation even though it looks fine visually.
-        expect(levels[i] - levels[i - 1]).toBeLessThanOrEqual(1);
+        expect(cur! - prev!).toBeLessThanOrEqual(1);
       }
     });
 
