@@ -287,6 +287,10 @@ export async function expectHeadingStructure(page: Page): Promise<void> {
     for (let i = 1; i < levels.length; i++) {
       const prev = levels[i - 1];
       const cur = levels[i];
+      // Indexing a JS array yields `T | undefined` under
+      // noUncheckedIndexedAccess. Both are in range here, but narrowing them
+      // explicitly is cheaper than an assertion that would go stale.
+      if (prev === undefined || cur === undefined) continue;
       if (cur > prev + 1) {
         skipped = { from: prev, to: cur };
         break;
