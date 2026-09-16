@@ -33,6 +33,17 @@ import { COLD_START_TIMEOUT, collectConsoleErrors } from "./fixtures";
  *      plain words, that the plan behind the frame was supplied by the test.
  */
 
+/**
+ * Every test in this file drives the SAME shared, free-tier deployment: one
+ * Vercel edge, one Render backend behind a whole-service rate-limit bucket,
+ * and (in part 3) a screenshot whose frame must be reproducible. Running them
+ * concurrently makes each one slower than the thing it is measuring — two
+ * browsers against this target reliably exhaust the navigation budget — so
+ * they run one at a time regardless of the project's `fullyParallel` setting.
+ * Nothing here is skipped or conditional: serial ordering is the only change.
+ */
+test.describe.configure({ mode: "serial" });
+
 /** The kit preset this stream drives. One of the four LLM-free presets in
  * page.tsx, so the live plan is deterministic run to run. */
 const EVIDENCE_INTENT = "tetris game in html";
