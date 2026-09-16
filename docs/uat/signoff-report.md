@@ -191,3 +191,26 @@ that fails if anyone tightens the guard to `<= 0` and breaks `orizon_batch`.
 4. Point `UAT_BASE_URL` and `UAT_EXPECTED_NETWORK` at a testnet deployment and
    re-run the EV suite to clear D-001.
 5. Re-issue this report with observed results replacing authored ones.
+
+---
+
+# Story 6.02 — reputation floor and routing boundaries
+
+## The result depends on which build you mean
+
+This story was verified twice over, on two surfaces that do not agree, and no
+single verdict is true of both:
+
+| surface | what it is | how it was verified |
+| --- | --- | --- |
+| backend `main` | `6867f45` plus this story's tests | pytest, real service, both real planners, only the Soroban `rep_state` read stubbed |
+| the deployment | orizons.xyz, 284 commits behind `main` | Playwright against the live site |
+
+Three defects this story raised — D-024, D-029, D-030 — are **fixed on `main`
+and still present on the deployment** (D-031). A row saying only "Pass" would be
+true of one build and false of the other, so every criterion below names its
+surface, and so does every row of `traceability.md`.
+
+The gap is invisible from outside the deployment: `/api/health` reports a
+hardcoded `"version":"0.1.0"` (D-026), so nothing served identifies the build.
+It was found by diffing the API's response shape against the source tree.
