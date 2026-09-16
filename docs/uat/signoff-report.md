@@ -302,3 +302,36 @@ criterion asks that an outage and a cold start be *distinguishable*, not that
 they be distinguished in a particular field. The test was rewritten to assert
 the plan-level flag on both sides — `true` on an outage, `false` on a genuine
 cold start, so it cannot cry wolf on every newcomer.
+
+## D-028 is the one that matters, and it is still open
+
+The routing guarantee this story exists to check holds on the demo-kit path and
+does **not** hold on the free-form path — which is every non-curated intent,
+i.e. the normal product.
+
+`_build_kit_plan` calls `passes_floor` on every pipeline agent and substitutes
+or drops the ones that fail. The free-form path applies the floor once, while
+building the planner's `AVAILABLE_AGENTS` shortlist, and never again. The clamp
+over what the model returns filters on registry membership and
+`is_dispatchable()` only. Upstream's own comment now states the scope plainly:
+the notices "describe the shortlist the model chose from, not the model's
+choice."
+
+So a sub-floor agent is hired whenever the model names one, and there are two
+ordinary ways that happens:
+
+1. **The starvation backstop puts them there.** When fewer than
+   `_MIN_ROUTABLE_AGENTS` clear the floor, sub-floor agents are deliberately
+   placed *into* the prompt. The model then names them legitimately and they are
+   hired with no flag on the step — while the kit path, in the identical
+   situation, marks every re-admitted step `degraded=True`. The two paths
+   disagree about the same event.
+2. **The intent is attacker-controllable.** It is spliced into the prompt,
+   fenced and with the planner told not to obey it — but fencing is a
+   mitigation, not a guarantee. An intent naming a specific agent id is a
+   plausible route to hiring an agent the floor excluded.
+
+A structural check after the model returns costs one call and does not depend on
+the model's cooperation. Pinned by
+`test_rf05_sub_floor_agent_is_absent_from_the_free_form_plan`, which is the only
+remaining `xfail` in this story's suite.
