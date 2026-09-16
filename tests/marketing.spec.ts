@@ -478,7 +478,7 @@ test.describe("robots.txt & sitemap.xml", () => {
     const robots = await (await page.request.get("/robots.txt")).text();
     const match = robots.match(/Sitemap:\s*(\S+)/i);
     expect(match).not.toBeNull();
-    const declaredSitemapUrl = match![1].trim();
+    const declaredSitemapUrl = match![1]!.trim();
     expect(declaredSitemapUrl).toBe("https://orizons.xyz/sitemap.xml");
     // The declared URL must itself resolve — a stale/renamed sitemap route
     // would otherwise silently break crawler discovery.
