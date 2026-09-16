@@ -1249,3 +1249,37 @@ computation out of it), then pass `notices=` on the free-form
 `DecomposeResponse` the way the kit branch already does. The schema needs no
 change — `DecomposeResponse.notices` already exists and already defaults to an
 empty list, and the frontend already renders it.
+
+---
+
+## D-030 — A reputation floor above the prior lower bound booted silently, killing permissionless onboarding
+
+- **Severity:** Major
+- **Status:** **Resolved in `main`, not yet deployed** — see D-031
+- **Affects:** RF-15
+
+**Steps to reproduce** — `tests/test_floor_visibility.py::test_rf15_floor_above_the_prior_bound_warns_at_startup`
+in the backend repo. Set `REPUTATION_FLOOR_BPS=9000`, above the prior's own
+lower bound of 5677 bps, and start the application.
+
+**Expected** — a startup warning naming both numbers and stating the
+consequence: a cold-start agent is scored on the prior bound, so no newly
+registered agent can ever be routed.
+
+**Actual (at the time of the finding)** — nothing. `prior_clears_floor()`
+existed but was called only from `_log_degraded`, i.e. only when an RPC outage
+happened to trigger a degradation warning. A config that silently ends
+permissionless onboarding started quietly, and the failure mode is silence:
+registration keeps succeeding and nobody new is ever hired.
+
+**Resolution** — Fixed upstream in `app/main.py` by
+`_report_cold_start_routability()`, called as the first statement of `lifespan`.
+It reports the healthy case at INFO and the broken case at WARNING, naming the
+floor, the prior lower bound, the prior parameters and the margin, and spelling
+out the trap: *"never routed means never rated, and never rated means it can
+never clear the floor."* It also names the remedy and notes that the value in
+force is whatever the Render dashboard sets.
+
+Verified by the RF-15 test above, which was written as a strict `xfail` against
+the old behaviour and now XPASSes against `main` — the marker has been removed
+and the test stands as a regression guard.
