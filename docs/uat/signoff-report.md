@@ -240,3 +240,34 @@ exclusion, substitution or degradation notice. It is also verified live: every
 one of the twelve seeded agents on the deployment reads `lower_bound_bps: 5677`
 against `floor_bps: 5500`, so the cold-start invariant that Deliverable 1
 depends on holds on the real target, not only in tests.
+
+## How a sub-floor agent was produced
+
+The story warned that this is not a checkbox, and it is not. Reputation is
+derived, never set: the only inputs are `sum_w` / `weight` / `count` /
+`disputed` in the `ReputationLedger`, written by the settler after a settled
+workflow. Three methods were available and each buys a different grade of
+evidence (test-plan.md has the full table).
+
+The boundary states were built by **binary-searching the shipped arithmetic**
+for ledger inputs whose Wilson lower bound lands exactly on the floor, one basis
+point above, and one below — then asserting the search hit the target exactly
+and failing loudly if it could not. Under shipped config that is `weight = 5`
+USDC with `sum_w` of 289 650 000 000 / 289 820 000 000 / 289 480 000 000. None
+of it is hardcoded: `prior_weight_stroops()`, `settings.reputation_floor_bps`
+and the real functions are read at fixture time, so a change to the prior, to
+`WILSON_Z` or to the floor moves the fixture with it instead of silently
+un-testing the edge. The states are fed in as a `rep_state`-shaped map — what
+the contract would return — so the real `smoothed_bps` → `lower_bound_bps` →
+`passes_floor` chain decides the outcome rather than an asserted number.
+
+**What could not be produced, and why it is not a gap in the product.** A full
+workflow was run on the live testnet target (`tsk_9c1d3dbc25edcce8`, 6 agents,
+0.168 USDC, `complete`) and reputation did not move. That is correct:
+`_submit_ratings` runs only when `_settle_onchain` returned a `charge_tx` and a
+`job_id`, which needs a wallet-signed x402 authorization. A simulated run
+settles no money, so it mints no reputation — reputation is a record of settled
+economic history, exactly as claimed. Moving reputation end to end therefore
+needs a funded wallet and a human at a signing prompt, which UAT deliberately
+does not hold. RF-16 is verified where the decision is actually made — in
+`synthetic_rating` and the smoothing chain it feeds — and recorded as partial.
