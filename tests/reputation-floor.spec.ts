@@ -180,3 +180,38 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
     await expect(stepRows(page).first()).toBeVisible();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Part 2 — a decompose response supplied by the test
+// ---------------------------------------------------------------------------
+
+/**
+ * The routing floor the deployment actually applies, as served by
+ * GET /api/stellar/reputation/params (`floor_bps`). Every notice reason in the
+ * supplied plan below quotes this number, and the plan card is asserted to
+ * print it — so it has to be the real one. A fixture quoting a floor the
+ * deployment no longer applies would render just as convincingly and prove
+ * nothing, which is what the guard test below exists to prevent.
+ */
+const FLOOR_BPS = 5500;
+
+test.describe("RF-14 supplied plan — floor actions on the card (decompose intercepted)", () => {
+  test("RF-14 the routing floor the deployment applies is the floor the supplied plan quotes", async ({
+    request,
+  }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 2);
+    const res = await request.get("/api/stellar/reputation/params", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(
+      res.ok(),
+      `GET /api/stellar/reputation/params answered ${res.status()}`,
+    ).toBe(true);
+
+    const params = (await res.json()) as { floor_bps?: number };
+    expect(
+      params.floor_bps,
+      "the supplied plan's notice reasons quote a floor this deployment does not apply",
+    ).toBe(FLOOR_BPS);
+  });
+});
