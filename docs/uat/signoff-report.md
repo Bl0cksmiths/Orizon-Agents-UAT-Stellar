@@ -365,3 +365,27 @@ the run and that this story did not touch).
 Browser coverage is **Chromium only** — Firefox and WebKit binaries will not
 download on the authoring machine (D-025), so a green run here is not
 cross-browser sign-off and is not claimed as one.
+
+## Known limitations of this story's verification
+
+1. **Two surfaces, one of them stale.** Browser results describe a build 284
+   commits behind `main` (D-031). Until the deployment catches up, the browser
+   half of RF-11 and RF-13 cannot be confirmed at all, because the fields they
+   depend on are not served.
+2. **Chromium only.** Firefox and WebKit could not be installed (D-025). The
+   configured matrix — chromium-desktop, chromium-mobile, webkit-desktop,
+   firefox-desktop — is unchanged and will cover the rest as soon as the
+   binaries install, with no test edits.
+3. **The backend work cannot be published.** The account has no write access to
+   the backend remote (D-027), so this story's three test files exist as local
+   commits on `uat` in a worktree, and backend CI has never run them. The CI
+   trigger for `uat`/`uat-*` branches is committed and ships with that push.
+4. **RF-16 is partial by construction**, not by omission — see "How a sub-floor
+   agent was produced" above.
+5. **Accessibility and performance were not re-tested here.** They are not
+   story-6.02 criteria; the AX and PF criteria in `test-plan.md` and their
+   results in the sections above stand unchanged. The one accessibility
+   property this story did exercise is that the plan card's reputation and
+   floor information is carried in text and `aria-label`, never by colour
+   alone — which the existing `ReputationBadge` and notice-row markup satisfy
+   by design.
