@@ -211,6 +211,195 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
  */
 const FLOOR_BPS = 5500;
 
+/**
+ * Mirror of the frontend's `DecomposeResponse` / `PlanStep` /
+ * `PlanFloorNotice` (lib/types.ts). Duplicated rather than imported: this
+ * suite ships outside the app's TypeScript project and runs against the
+ * deployed site, not its source tree — the same rationale as
+ * tests/evidence-helpers.ts.
+ *
+ * The shape has to be exact. lib/api.ts validates every decompose body
+ * through `isDecomposeResponse` (lib/guards.ts) and throws on a mismatch, so
+ * a body the app cannot parse would render an error alert instead of a plan
+ * and every assertion below would be checking nothing.
+ *
+ * Fields are written as the live backend writes them today (verified against
+ * POST /api/orchestrator/decompose on 2026-09-17): explicit
+ * `substituted_for: null` and `degraded: false` on ordinary steps rather than
+ * omitted keys. That response carries no `floor_bps` and no
+ * `reputation_degraded` on this deployment, so neither is invented here — the
+ * applied floor reaches the card only inside the notice `reason` text.
+ */
+type SuppliedPlanStep = {
+  agent_id: string;
+  agent_name: string;
+  rationale: string;
+  est_price_usdc: number;
+  est_eta_seconds: number;
+  rep_bps: number;
+  rep_source: "onchain" | "prior";
+  substituted_for: string | null;
+  degraded: boolean;
+};
+
+type SuppliedNotice = {
+  kind: "excluded" | "substituted" | "degraded";
+  agent_id: string;
+  agent_name: string;
+  replacement_id?: string;
+  replacement_name?: string;
+  reason: string;
+};
+
+type SuppliedPlan = {
+  plan_id: string;
+  intent: string;
+  steps: SuppliedPlanStep[];
+  total_usdc: number;
+  total_eta: number;
+  notices: SuppliedNotice[];
+};
+
+/**
+ * How the deployed card words each notice kind. Two of the three are the
+ * backend's own word; `degraded` is rendered as "kept below floor", which is
+ * why this mapping exists rather than asserting `notice.kind` directly — an
+ * assertion on the raw enum would fail on the one kind whose wording the card
+ * deliberately softens.
+ */
+const NOTICE_KIND_LABEL: Record<SuppliedNotice["kind"], string> = {
+  excluded: "excluded",
+  substituted: "substituted",
+  degraded: "kept below floor",
+};
+
+/**
+ * A plan whose shape the reputation floor changed: one agent excluded, one
+ * substituted, one re-admitted below the floor by the starvation backstop —
+ * alongside steps that cleared the floor on on-chain evidence and one still
+ * carrying only the prior.
+ *
+ * This plan is SUPPLIED BY THE TEST and cannot be obtained from the live
+ * target: every one of the deployment's seeded agents reads `count: 0`,
+ * `source: "prior"`, so all of them share the same Wilson lower bound of
+ * 5677 bps against a 5500 bps floor. Nothing on that registry sits below the
+ * floor, so the real backend has no floor action to report.
+ */
+const FLOOR_ACTED_PLAN: SuppliedPlan = {
+  plan_id: "pln_uat_rf14",
+  intent: EVIDENCE_INTENT,
+  steps: [
+    {
+      agent_id: "agt_09l5",
+      agent_name: "research.pro",
+      rationale: "extract feature brief + edge cases for the build",
+      est_price_usdc: 0.024,
+      est_eta_seconds: 0.6,
+      rep_bps: 7000,
+      rep_source: "prior",
+      substituted_for: null,
+      degraded: false,
+    },
+    {
+      agent_id: "agt_02k2",
+      agent_name: "design.figma",
+      rationale: "lock design tokens: palette, typography, motion",
+      est_price_usdc: 0.018,
+      est_eta_seconds: 0.4,
+      rep_bps: 8150,
+      rep_source: "onchain",
+      substituted_for: null,
+      degraded: false,
+    },
+    {
+      agent_id: "agt_11c0",
+      agent_name: "code.gen",
+      rationale: "implement single-file HTML using brief + tokens",
+      est_price_usdc: 0.054,
+      est_eta_seconds: 2.6,
+      rep_bps: 7720,
+      rep_source: "onchain",
+      substituted_for: null,
+      degraded: false,
+    },
+    {
+      agent_id: "agt_14q8",
+      agent_name: "code.review.pro",
+      rationale: "polish pass: a11y, motion, persistence, edge cases",
+      est_price_usdc: 0.061,
+      est_eta_seconds: 1.8,
+      rep_bps: 6480,
+      rep_source: "onchain",
+      substituted_for: "agt_12r0",
+      degraded: false,
+    },
+    {
+      agent_id: "agt_08j2",
+      agent_name: "deploy.v0",
+      rationale: "seal artifact + record on-chain proof",
+      est_price_usdc: 0.011,
+      est_eta_seconds: 0.4,
+      rep_bps: 5210,
+      rep_source: "onchain",
+      substituted_for: null,
+      degraded: true,
+    },
+  ],
+  total_usdc: 0.168,
+  total_eta: 5.8,
+  notices: [
+    {
+      kind: "excluded",
+      agent_id: "agt_05x7",
+      agent_name: "seo.brief",
+      reason: `below routing floor (4200 < ${FLOOR_BPS} bps)`,
+    },
+    {
+      kind: "substituted",
+      agent_id: "agt_12r0",
+      agent_name: "code.critic",
+      replacement_id: "agt_14q8",
+      replacement_name: "code.review.pro",
+      reason: `below routing floor (5090 < ${FLOOR_BPS} bps)`,
+    },
+    {
+      kind: "degraded",
+      agent_id: "agt_08j2",
+      agent_name: "deploy.v0",
+      reason: `kept by starvation backstop, below routing floor (5210 < ${FLOOR_BPS} bps)`,
+    },
+  ],
+};
+
+/**
+ * Fulfils ONLY `POST /api/orchestrator/decompose`. Every other request the
+ * page makes — the document, the bundles, the network and reputation routes —
+ * still reaches the real deployment, so what renders is the deployed
+ * frontend's own markup and accessibility semantics.
+ */
+async function supplyPlan(page: Page, plan: SuppliedPlan): Promise<void> {
+  await page.route("**/api/orchestrator/decompose", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(plan),
+    }),
+  );
+}
+
+/**
+ * Opens the floor disclosure by clicking its summary, the way a buyer would.
+ * The deployed card ships the panel collapsed, so every per-action detail —
+ * agent, replacement, reason, floor in bps — is one interaction away; a
+ * closed `<details>` does not render its contents at all, so nothing inside
+ * is reachable by role until this runs.
+ */
+async function openFloorPanel(page: Page): Promise<void> {
+  const panel = floorPanel(page);
+  await panel.locator("summary").click({ timeout: COLD_START_TIMEOUT });
+  await expect(panel).toHaveJSProperty("open", true);
+}
+
 test.describe("RF-14 supplied plan — floor actions on the card (decompose intercepted)", () => {
   test("RF-14 the routing floor the deployment applies is the floor the supplied plan quotes", async ({
     request,
@@ -229,5 +418,59 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
       params.floor_bps,
       "the supplied plan's notice reasons quote a floor this deployment does not apply",
     ).toBe(FLOOR_BPS);
+  });
+
+  test("RF-14 the opened floor panel names every floor action — its kind, the agent, the replacement, and the reason carrying the applied floor in bps", async ({
+    page,
+  }) => {
+    const errors = collectConsoleErrors(page);
+    await supplyPlan(page, FLOOR_ACTED_PLAN);
+    await decomposeIntent(page, EVIDENCE_INTENT);
+
+    const panel = floorPanel(page);
+    await expect(
+      panel,
+      "the floor panel did not render for a plan carrying floor notices",
+    ).toBeVisible();
+
+    await openFloorPanel(page);
+
+    const rows = panel.getByRole("listitem");
+    await expect(rows).toHaveCount(FLOOR_ACTED_PLAN.notices.length);
+
+    for (const [i, notice] of FLOOR_ACTED_PLAN.notices.entries()) {
+      const row = rows.nth(i);
+      const where = `floor notice ${i + 1} (${notice.kind})`;
+
+      // The action taken, as a word the buyer can read — not a colour.
+      await expect(row, `${where} does not name the action taken`).toContainText(
+        NOTICE_KIND_LABEL[notice.kind],
+      );
+      // The agent it was taken against.
+      await expect(row, `${where} does not name the agent`).toContainText(
+        notice.agent_name,
+      );
+      // The reason, verbatim as the backend words it.
+      await expect(row, `${where} does not give the reason`).toContainText(
+        notice.reason,
+      );
+      // ...and that reason carries the floor that was applied, in bps.
+      await expect(
+        row,
+        `${where} does not state the applied floor in basis points`,
+      ).toContainText(`${FLOOR_BPS} bps`);
+
+      if (notice.replacement_name) {
+        await expect(
+          row,
+          `${where} does not name what was routed in its place`,
+        ).toContainText(notice.replacement_name);
+      }
+    }
+
+    expect(
+      errors.getConsoleErrors(),
+      JSON.stringify(errors.getConsoleErrors(), null, 2),
+    ).toEqual([]);
   });
 });
