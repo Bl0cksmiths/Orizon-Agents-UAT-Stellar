@@ -1351,10 +1351,10 @@ inferred.
 
 ---
 
-## D-032 — The plan card states the applied floor only when the floor acted
+## D-032 — ~~The plan card states the applied floor only when the floor acted~~ (WITHDRAWN)
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Withdrawn — the finding was wrong.** The cause is D-031.
 - **Affects:** RF-14
 
 **Steps to reproduce** — Decompose any intent whose plan needs no floor action
@@ -1384,10 +1384,23 @@ added upstream precisely so "the card can state the threshold rather than only
 the verdict", and the frontend's `lib/types.ts` already declares it — but no
 component reads it. The data is being sent and dropped.
 
-**Resolution path** — State the plan-level threshold once on the card, next to
-the totals, from `plan.floor_bps`, as a plain statement of the routing
-requirement rather than a per-step verdict. Blocked on D-031 for live
-verification: the deployed backend does not yet send the field.
+**Withdrawal** — This defect was raised against a stale reading of
+`execution-plan.tsx` and a grep scoped to that one file. The frontend *does*
+state the applied floor at plan level: `FloorSummary`
+(`app/app/orchestrator/_components/floor-summary.tsx`) is rendered from
+`execution-plan.tsx:200`, prints the floor above the steps, and has its own unit
+suite. Its module docstring makes the same argument this defect did — "a buyer
+read three verdicts against a threshold nobody stated" — and it was written
+before this defect was filed.
+
+It renders nothing on the deployed stack for one reason: it returns `null` when
+`plan.floor_bps` is absent, deliberately, because defaulting to a constant "would
+narrate a threshold nobody applied". The deployed backend does not send
+`floor_bps` — which is **D-031**, the stale deployment, and not a frontend gap.
+
+No code change is wanted. The floor will state itself on the card as soon as the
+backend is deployed. Left in the log rather than deleted so the record shows what
+was claimed and why it was wrong.
 
 ---
 
