@@ -271,3 +271,34 @@ economic history, exactly as claimed. Moving reputation end to end therefore
 needs a funded wallet and a human at a signing prompt, which UAT deliberately
 does not hold. RF-16 is verified where the decision is actually made — in
 `synthetic_rating` and the smoothing chain it feeds — and recorded as partial.
+
+## Defects raised by this story
+
+| id | severity | status | what |
+| --- | --- | --- | --- |
+| D-024 | Major | Resolved in `main` | the reputation `degraded` flag was computed, logged, then dropped by the router's mirror model — no client could ever see it |
+| D-028 | Major | **Open** | the free-form planner never re-checks the floor on what the model returns |
+| D-029 | Major | Resolved in `main` | a floor relaxation on the free-form path told the buyer nothing |
+| D-030 | Major | Resolved in `main` | a floor above the prior bound booted silently, ending permissionless onboarding |
+| D-031 | Major | Open | the deployment is 284 commits behind `main`, and nothing on it says so |
+| D-032 | Minor | Open | the plan card states the applied floor only when the floor acted |
+| D-033 | Minor | Open | an upstream drift-check test asserts a POSIX path and fails on Windows |
+| D-025 | Minor | Open | Firefox and WebKit binaries will not download on the authoring machine |
+| D-026 | Minor | Open | `/api/health` reports a build-independent version |
+| D-027 | Blocker | Open | the repository account cannot push to the backend repo |
+
+**The pins did their job.** Every defect above was recorded as a strict
+`xfail` test rather than a note, which is why the three fixed upstream announced
+themselves: when `main` moved, those tests turned into `XPASS(strict)` — a
+*failure* — instead of passing quietly and leaving the defect log stale. Each
+marker has since been removed and the test now stands as a regression guard.
+
+**One correction the fixes forced, and it was mine, not theirs.** The RF-11 test
+asserted a per-step `degraded` marker. Upstream put the signal on the plan
+instead, as `DecomposeResponse.reputation_degraded`, and deliberately avoided
+the name `degraded` because that word already means "re-admitted below the floor
+by the starvation backstop" on both `PlanStep` and `PlanFloorNotice.kind`. The
+criterion asks that an outage and a cold start be *distinguishable*, not that
+they be distinguished in a particular field. The test was rewritten to assert
+the plan-level flag on both sides — `true` on an outage, `false` on a genuine
+cold start, so it cannot cry wolf on every newcomer.
