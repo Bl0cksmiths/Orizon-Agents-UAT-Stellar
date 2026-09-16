@@ -1283,3 +1283,46 @@ force is whatever the Render dashboard sets.
 Verified by the RF-15 test above, which was written as a strict `xfail` against
 the old behaviour and now XPASSes against `main` — the marker has been removed
 and the test stands as a regression guard.
+
+---
+
+## D-031 — The UAT target runs a build 284 commits behind `main`, and nothing on the target says so
+
+- **Severity:** Major (process)
+- **Status:** Open
+- **Affects:** the standing of every RF result, and of this whole programme's verdict
+
+**Steps to reproduce**
+
+```
+curl -s -X POST https://orizons.xyz/api/orchestrator/decompose \
+  -H "Content-Type: application/json" -d '{"intent":"tetris game in html"}'
+```
+
+**Expected** — a response shaped like the `DecomposeResponse` on `main`, which
+now carries `floor_bps` (the floor this plan was built under) and
+`reputation_degraded` (at least one reputation read fell back to the prior).
+
+**Actual** — the response carries neither; its keys are `plan_id`, `intent`,
+`steps`, `total_usdc`, `total_eta`, `notices`. `GET /api/stellar/reputation/{id}`
+likewise returns no `degraded` field. Both were added upstream in the week-2
+backend consolidation (PR #56, 284 commits), which is merged to `main` and not
+deployed.
+
+**Impact** — Three defects in this log (D-024, D-029, D-030) are fixed in
+`main` and still present on the target this programme tests. Any RF result
+taken through the browser describes the old build; any result taken through the
+backend suite describes `main`. The two disagree, and a reader of the sign-off
+cannot tell which one a given line refers to unless it says so explicitly —
+which is why every RF row in `traceability.md` now names the surface it was
+verified on.
+
+This is also D-026 with consequences: because `/api/health` reports a hardcoded
+`"version":"0.1.0"`, nothing served by the target identifies its build, so the
+284-commit gap is invisible from the outside. It was found only by diffing the
+API's response shape against the source tree.
+
+**Resolution path** — Deploy `main` to the UAT target and re-run the RF suite;
+the three resolved defects should then verify on the browser surface too. Fix
+D-026 in the same pass so the next gap announces itself instead of having to be
+inferred.
