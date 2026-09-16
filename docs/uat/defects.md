@@ -1206,7 +1206,7 @@ channel the free-form path currently lacks).
 ## D-029 — The free-form path relaxes the reputation floor and tells the buyer nothing
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Resolved in `main`, not yet deployed** — see D-031
 - **Affects:** RF-13
 
 **Steps to reproduce** — `tests/test_floor_disclosure.py::test_rf13_free_form_response_discloses_that_the_floor_was_relaxed`
@@ -1249,6 +1249,15 @@ computation out of it), then pass `notices=` on the free-form
 `DecomposeResponse` the way the kit branch already does. The schema needs no
 change — `DecomposeResponse.notices` already exists and already defaults to an
 empty list, and the frontend already renders it.
+
+**Resolution** — Fixed upstream along the line suggested: `_routable_registry`
+replaces `_registry_prompt_fragment` and returns `(registry_block, notices)`,
+with the notice construction factored into a new `app/services/plan_notices.py`,
+and the free-form `DecomposeResponse` now passes `notices=`. The response also
+gained `floor_bps`, so the card can state the threshold and not only the
+verdict. Verified by `test_rf13_free_form_response_discloses_that_the_floor_was_relaxed`,
+written as a strict `xfail` against the old behaviour and now passing against
+`main` with the marker removed.
 
 ---
 
