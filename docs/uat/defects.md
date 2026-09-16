@@ -1465,3 +1465,45 @@ regression — which is the real cost of a platform-dependent assertion.
 **Resolution path** — Assert against the rendered path rather than the literal:
 compare with `str(Path("/nowhere/one"))`, or normalise separators before the
 `in` check.
+
+---
+
+## D-034 — The reputation-floor panel ships collapsed, so no single frame names the floor's actions
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** RF-14
+
+**Steps to reproduce** — Decompose a plan the floor acted on and look at the
+execution-plan card without touching it.
+
+**Expected** — RF-14 asks that one frame show, for every floor action, the agent
+named, the action taken, and the reason including the applied floor in bps.
+
+**Actual** — the panel renders as a closed `<details>`
+(`app/app/orchestrator/_components/exclusions-panel.tsx:256`, no `open`
+attribute). The delivered frame carries the summary only — *"Reputation floor ·
+3 changes / 1 excluded · 1 substituted · 1 kept below the floor"*. A closed
+`<details>` does not render its contents at all, so the agent names and reasons
+are absent from the DOM and unreachable by role until the summary is activated.
+
+**The disclosure itself is a defensible design, and this is not a request to
+delete it.** The component's docstring argues for native `<details>`/`<summary>`
+because "it is focusable" and keyboard-operable for free, and the summary
+deliberately carries the counts as "the part a buyer who never opens it should
+still see". Against a plan with many notices on a 390px viewport, collapsing is
+reasonable.
+
+**Impact** — Two concrete consequences, both small. A buyer skimming the card
+before authorizing sees that the floor acted three times but not on whom or why.
+And the SOW §6.1 Deliverable 2 evidence frame requires one interaction to
+produce, which the provenance note must therefore state — evidence that silently
+implies "this is what the page shows" when the page shows less is the failure
+mode the note exists to prevent.
+
+**Resolution path** — Either default the panel to open when the notice count is
+small (`open={notices.length <= 3}`), or promote the first line of each notice
+into the summary. Either keeps the disclosure and satisfies the criterion.
+Pinned by `RF-14 the first frame of a floor-acted plan names every floor action
+and its reason, with no interaction`, marked `test.fail()`; an unexpected pass
+is the signal it has been fixed.
