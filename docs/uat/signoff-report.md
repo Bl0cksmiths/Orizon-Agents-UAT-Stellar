@@ -214,3 +214,29 @@ surface, and so does every row of `traceability.md`.
 The gap is invisible from outside the deployment: `/api/health` reports a
 hardcoded `"version":"0.1.0"` (D-026), so nothing served identifies the build.
 It was found by diffing the API's response shape against the source tree.
+
+## The two behaviours that look like bugs, and are not
+
+Both were verified as correct and neither is filed. The story was explicit that
+they must be checked rather than "fixed", and they were.
+
+**The floor fails open during an RPC outage.** Verified: with the ledger
+unreadable, every agent falls back to the Bayesian prior, whose lower bound is
+5677 bps against a 5500 floor, so every agent stays routable and the plan still
+builds. This is deliberate and argued in `reputation_svc.py`'s module docstring
+— an unreadable ledger genuinely means "reputation unknown", and the product's
+answer to unknown reputation is "routable". Failing closed would drop every
+agent below the floor at once and hand routing to the starvation backstop,
+which picks a top-N by identical prior scores: the same agents hired, with
+weaker semantics.
+
+What this story *did* insist on is that the fail-open be visible, and that is
+where the real defects were (D-024, and the logging half that story 3.05 had
+already fixed).
+
+**A brand-new agent with zero ratings is routable.** Verified on both planning
+paths, and verified to be routable *silently* — a cold-start agent appears in no
+exclusion, substitution or degradation notice. It is also verified live: every
+one of the twelve seeded agents on the deployment reads `lower_bound_bps: 5677`
+against `floor_bps: 5500`, so the cold-start invariant that Deliverable 1
+depends on holds on the real target, not only in tests.
