@@ -1507,3 +1507,46 @@ into the summary. Either keeps the disclosure and satisfies the criterion.
 Pinned by `RF-14 the first frame of a floor-acted plan names every floor action
 and its reason, with no interaction`, marked `test.fail()`; an unexpected pass
 is the signal it has been fixed.
+
+---
+
+## D-035 — A step kept below the floor announces to a screen reader as an ordinary step
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** RF-14 (accessibility of the floor signal)
+
+**Steps to reproduce** — Render a plan in which the starvation backstop
+re-admitted a step below the floor, and read the step row with a screen reader
+(or inspect its accessible names).
+
+**Expected** — the step's below-floor status is part of what assistive tech
+announces, not only of what the page looks like.
+
+**Actual** — the step announces as plain `on-chain reputation 2.60`, identical
+to any other step. The distinguishing `▾ below floor` chip is a `<Badge>` inside
+a `<span title="Kept by the starvation backstop despite scoring below the
+routing floor.">` (`execution-plan.tsx:249`). A `title` on a non-interactive
+`<span>` is not reliably exposed as an accessible name, and it is not part of
+the reputation badge's own `aria-label`.
+
+**The obvious fix is the wrong one, and the code already says why.**
+`ExecutionPlan` deliberately does not pass `floorBps` to `ReputationBadge`, with
+a long comment explaining that the badge decides below-floor with
+`(lowerBoundBps ?? bps) < floorBps` while a `PlanStep` carries only the smoothed
+`rep_bps` and no lower bound — so passing the floor would compare the wrong
+number and could clear an agent the planner would have excluded. That reasoning
+holds. Making the badge itself announce the floor verdict would reintroduce
+exactly that bug.
+
+**Impact** — Minor, and bounded: meaning is not carried by colour alone (the
+glyph and the words "below floor" are visible text), so a sighted user is
+correctly informed. The gap is specifically the non-visual path, on the one step
+type the buyer most needs to notice.
+
+**Resolution path** — Give the chip its own accessible name rather than routing
+the floor into the badge: move the explanatory sentence onto the `Badge` as an
+`aria-label`, or add visually-hidden text inside it. Pinned by the exact
+`aria-label` assertion in `RF-14 every step of a floor-acted plan carries its own
+reputation badge, and the substituted and below-floor steps are flagged`, which
+fails loudly if the label changes.
