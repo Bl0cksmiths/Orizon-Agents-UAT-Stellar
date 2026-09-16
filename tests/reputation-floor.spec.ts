@@ -95,6 +95,13 @@ async function decomposeIntent(page: Page, intent: string): Promise<void> {
   ).toBeVisible({ timeout: COLD_START_TIMEOUT });
 }
 
+/**
+ * The heading of the floor panel in execution-plan.tsx. The panel renders only
+ * when `plan.notices` is non-empty, so this string is both the handle for
+ * asserting it IS there and the handle for asserting it is NOT.
+ */
+const FLOOR_PANEL_HEADING = "reputation floor — why this plan changed shape";
+
 /** The `<ol>` of step rows inside the execution-plan card. */
 function stepRows(page: Page) {
   return page.locator("ol").first().getByRole("listitem");
@@ -135,5 +142,41 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
       errors.getConsoleErrors(),
       JSON.stringify(errors.getConsoleErrors(), null, 2),
     ).toEqual([]);
+  });
+
+  test("RF-14 a live plan reporting no floor actions does not render the floor panel", async ({
+    page,
+  }) => {
+    // Registered before the navigation, so it spans BOTH the shell hydration
+    // and the backend's cold-start wake — hence twice the single-wait budget.
+    const decomposed = page.waitForResponse(
+      (r) =>
+        r.url().includes("/api/orchestrator/decompose") &&
+        r.request().method() === "POST",
+      { timeout: COLD_START_TIMEOUT * 2 },
+    );
+    await decomposeIntent(page, EVIDENCE_INTENT);
+    const plan = (await (await decomposed).json()) as { notices?: unknown[] };
+
+    // The premise, asserted rather than assumed. If this ever fails because
+    // the live registry gained on-chain evidence and a real agent fell below
+    // the floor, the honest negative below is no longer the right assertion —
+    // and the RF-17 provenance note stops being true. Both must be revisited
+    // together, which is why this is a hard assertion and not a branch.
+    expect(
+      plan.notices,
+      "the live backend reported floor actions — the cold-start premise behind this file no longer holds",
+    ).toEqual([]);
+
+    // A panel that renders when nothing happened is as wrong as one that
+    // stays hidden when something did.
+    await expect(
+      page.getByText(FLOOR_PANEL_HEADING),
+      "the floor panel rendered for a plan with no floor actions",
+    ).toHaveCount(0);
+
+    // ...and the card itself did render, so the count above is a real absence
+    // and not a plan that never arrived.
+    await expect(stepRows(page).first()).toBeVisible();
   });
 });
