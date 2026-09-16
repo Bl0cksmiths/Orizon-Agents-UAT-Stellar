@@ -549,4 +549,45 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
       `the excluded agent ${excludedName} was rendered as a plan step`,
     ).toHaveCount(0);
   });
+
+  /**
+   * RF-14 asks for ONE frame that shows, for every floor action, the agent
+   * named, the action taken, and the reason including the applied floor in
+   * basis points. The deployed card does not do that: it ships the panel as a
+   * collapsed `<details>`, so the frame a buyer first sees carries only the
+   * summary counts ("1 excluded · 1 substituted · 1 kept below the floor")
+   * and every detail RF-14 names is one click away. A closed `<details>` does
+   * not render its contents, so nothing inside it is in the frame at all.
+   *
+   * Marked `test.fail()` rather than deleted or softened: the gap is real, it
+   * is in application code this suite must not change, and it stays proven
+   * while the suite stays green. If the card ever ships the panel open (or
+   * inlines the actions above the fold), this test starts passing and
+   * Playwright reports an unexpected pass — which is the signal to drop the
+   * marker, not to widen it.
+   */
+  test("RF-14 the first frame of a floor-acted plan names every floor action and its reason, with no interaction", async ({
+    page,
+  }) => {
+    test.fail();
+
+    await supplyPlan(page, FLOOR_ACTED_PLAN);
+    await decomposeIntent(page, EVIDENCE_INTENT);
+
+    const panel = floorPanel(page);
+    await expect(panel).toBeVisible();
+
+    // Deliberately no click: this is the frame as delivered.
+    const rows = panel.getByRole("listitem");
+    await expect(
+      rows,
+      "the panel ships collapsed, so no floor action is rendered in the delivered frame",
+    ).toHaveCount(FLOOR_ACTED_PLAN.notices.length);
+
+    for (const notice of FLOOR_ACTED_PLAN.notices) {
+      const row = rows.filter({ hasText: notice.agent_name });
+      await expect(row).toBeVisible();
+      await expect(row).toContainText(notice.reason);
+    }
+  });
 });
