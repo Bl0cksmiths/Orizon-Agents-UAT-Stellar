@@ -1308,7 +1308,7 @@ and the test stands as a regression guard.
 
 ---
 
-## D-031 — The UAT target runs a build 284 commits behind `main`, and nothing on the target says so
+## D-031 — The UAT target is a split-version stack: a current frontend against a backend 284 commits behind
 
 - **Severity:** Major (process)
 - **Status:** Open
@@ -1344,10 +1344,30 @@ This is also D-026 with consequences: because `/api/health` reports a hardcoded
 284-commit gap is invisible from the outside. It was found only by diffing the
 API's response shape against the source tree.
 
-**Resolution path** — Deploy `main` to the UAT target and re-run the RF suite;
-the three resolved defects should then verify on the browser surface too. Fix
-D-026 in the same pass so the next gap announces itself instead of having to be
-inferred.
+**Refinement after further checking** — only the *backend* is stale. The
+deployed frontend is current with `main`: `/app/bind` serves 200 and the nav
+carries the new Bind and My Agents entries, both of which post-date the old
+build. So the stack is split, and the two halves fail silently against each
+other rather than loudly:
+
+- `FloorSummary` ships in the deployed frontend and returns `null` when
+  `plan.floor_bps` is absent — deliberately, since defaulting to a constant
+  "would narrate a threshold nobody applied". The backend never sends the field,
+  so the component renders nothing and the applied floor goes unstated on the
+  live plan card. Nothing errors; a feature simply is not there.
+- The same holds for `reputation_degraded`: the frontend can distinguish an
+  outage from a cold start, and the backend gives it nothing to distinguish
+  with.
+
+A silent split like this is exactly what D-026 makes hard to notice, and it is
+why a withdrawn defect (D-032) was filed against the frontend for a backend
+cause.
+
+**Resolution path** — Deploy the backend `main` to the UAT target and re-run the
+RF suite; the three resolved defects should then verify on the browser surface
+too, and the floor summary should appear without a frontend change. Fix D-026 in
+the same pass so the next split announces itself instead of having to be
+inferred from response shapes.
 
 ---
 
