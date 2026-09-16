@@ -204,7 +204,7 @@ fixed on one surface and still present on the other, so a row that said only
 | RF-11 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — outage plan reports `reputation_degraded: true`, cold start reports `false`; was D-024, marker removed. Neither field exists on the deployed build (D-031) |
 | RF-12 | BE `tests/test_floor_disclosure.py` | **Pass** — kit backstop flags each step and states why the floor was relaxed |
 | RF-13 | BE `tests/test_floor_disclosure.py` | **Pass** (`main`) — free-form now discloses the relaxation; was D-029, marker removed. Still absent on the deployed build (D-031) |
-| RF-14 | `tests/reputation-floor.spec.ts` | Pending |
+| RF-14 | `tests/reputation-floor.spec.ts` | **Partial** (deployed) — per-step reputation and source render in one frame; the floor panel ships collapsed so its actions do not (`test.fail()`, D-034). Below-floor step lacks an accessible name (D-035) |
 | RF-15 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — startup warning added upstream; was D-030, marker removed |
 | RF-16 | BE `tests/test_floor_boundaries.py` | **Partial** — arithmetic and rating direction pass; end-to-end blocked, see test-plan note |
-| RF-17 | `tests/reputation-floor.spec.ts` | Pending |
+| RF-17 | `tests/reputation-floor.spec.ts` | **Pass** (deployed) — `docs/evidence/rf-17-reputation-floor-plan.png`, with a provenance note asserted by test, stating the plan was supplied by the test and why the live target cannot produce one |
