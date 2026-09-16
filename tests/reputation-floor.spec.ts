@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import {
@@ -664,6 +664,7 @@ async function frameThePlanCard(page: Page): Promise<void> {
 }
 
 const EVIDENCE_NOTE = "rf-17-reputation-floor-plan.md";
+const EVIDENCE_INDEX = "README.md";
 
 /**
  * Everything the provenance note states, gathered from the live deployment in
@@ -941,5 +942,49 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
     });
 
     writeFileSync(join(EVIDENCE_DIR, EVIDENCE_NOTE), note, "utf8");
+  });
+
+  test("RF-17 the evidence index records the image, the exact intent, the reputation state behind it, and that the plan was supplied by the test", () => {
+    const indexPath = join(EVIDENCE_DIR, EVIDENCE_INDEX);
+    expect(
+      existsSync(indexPath),
+      `no evidence index at ${indexPath} — the deliverable has nothing describing it`,
+    ).toBe(true);
+
+    const index = readFileSync(indexPath, "utf8");
+
+    // The image, and an image that actually exists.
+    expect(index, "the index does not name the image").toContain(EVIDENCE_IMAGE);
+    expect(
+      existsSync(join(EVIDENCE_DIR, EVIDENCE_IMAGE)),
+      "the index names an image that is not in this directory",
+    ).toBe(true);
+    expect(index, "the index does not point at the provenance note").toContain(
+      EVIDENCE_NOTE,
+    );
+
+    // The exact intent behind the frame.
+    expect(index, "the index does not record the exact intent").toContain(
+      EVIDENCE_INTENT,
+    );
+
+    // The reputation state behind it: cold start, and the floor it was
+    // measured against.
+    expect(
+      index,
+      "the index does not record that every agent was on the prior",
+    ).toContain('source: "prior"');
+    expect(
+      index,
+      "the index does not record the routing floor that was applied",
+    ).toContain(`${FLOOR_BPS} bps`);
+
+    // ...and how that state was produced. This is the assertion that keeps the
+    // index honest: an index that quietly loses this sentence would present a
+    // test-authored plan as something the live backend decided.
+    expect(
+      index,
+      "the index does not say the plan in the frame was supplied by the test",
+    ).toMatch(/supplied by the test/i);
   });
 });
