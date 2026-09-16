@@ -201,7 +201,7 @@ fixed on one surface and still present on the other, so a row that said only
 | RF-08 | BE `tests/test_floor_boundaries.py` | **Pass** — one bp below fails `passes_floor` and is kept out of both paths |
 | RF-09 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — outage degrades every agent to the prior and still plans, on both paths |
 | RF-10 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — exactly one warning per batch, naming agents, reason and both numbers |
-| RF-11 | BE `tests/test_floor_visibility.py` | Pending |
+| RF-11 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — outage plan reports `reputation_degraded: true`, cold start reports `false`; was D-024, marker removed. Neither field exists on the deployed build (D-031) |
 | RF-12 | BE `tests/test_floor_disclosure.py` | **Pass** — kit backstop flags each step and states why the floor was relaxed |
 | RF-13 | BE `tests/test_floor_disclosure.py` | **Pass** (`main`) — free-form now discloses the relaxation; was D-029, marker removed. Still absent on the deployed build (D-031) |
 | RF-14 | `tests/reputation-floor.spec.ts` | Pending |
