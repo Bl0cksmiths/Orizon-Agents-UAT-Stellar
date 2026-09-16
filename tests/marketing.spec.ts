@@ -347,7 +347,11 @@ test.describe("Marketing sections: presence and document order", () => {
     await expect(headings).toHaveCount(SECTION_HEADINGS.length);
     const texts = await headings.allTextContents();
     for (let i = 0; i < SECTION_HEADINGS.length; i++) {
-      expect(texts[i]).toMatch(SECTION_HEADINGS[i]);
+      const expected = SECTION_HEADINGS[i];
+      // Indexing gives `T | undefined` under noUncheckedIndexedAccess; the
+      // count assertion above already guarantees both are present.
+      expect(expected, `no expected heading at ${i}`).toBeDefined();
+      expect(texts[i]).toMatch(expected!);
     }
   });
 
