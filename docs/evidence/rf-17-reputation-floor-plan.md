@@ -3,7 +3,7 @@
 **Artifact:** `rf-17-reputation-floor-plan.png`  
 **Satisfies:** SOW §6.1 Deliverable 2 — one frame showing per-agent
 reputation alongside an excluded sub-floor agent.  
-**Captured:** 2026-09-16T18:22:56.375Z at 1440×1600, Chromium.  
+**Captured:** 2026-09-16T18:43:48.672Z at 1440×1600, Chromium.  
 **Produced by:** `tests/reputation-floor.spec.ts` — the RF-17 test, which
 asserts every element below is inside the single frame before it captures it.
 
