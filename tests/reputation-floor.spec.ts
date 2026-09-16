@@ -1,4 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { COLD_START_TIMEOUT, collectConsoleErrors } from "./fixtures";
 
 /**
@@ -589,5 +591,131 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
       await expect(row).toBeVisible();
       await expect(row).toContainText(notice.reason);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Part 3 — the evidence frame (SOW §6.1 Deliverable 2)
+// ---------------------------------------------------------------------------
+
+/** Where the deliverable and its provenance note live, relative to this spec. */
+const EVIDENCE_DIR = join(__dirname, "..", "docs", "evidence");
+const EVIDENCE_IMAGE = "rf-17-reputation-floor-plan.png";
+
+/**
+ * The frame is composed at a fixed size rather than at whatever the executing
+ * project happens to use, so the deliverable is the same image whichever
+ * project captures it — and so the "it all fits in one frame" assertions
+ * below mean something specific rather than something viewport-dependent.
+ */
+const EVIDENCE_VIEWPORT = { width: 1440, height: 1600 };
+
+/**
+ * Fails unless the element's whole box sits inside the viewport — that is,
+ * unless it is genuinely IN the frame a viewport screenshot captures, rather
+ * than merely present in the document somewhere below the fold. Without this,
+ * a screenshot proves only that a file was written.
+ */
+async function expectInFrame(
+  page: Page,
+  locator: Locator,
+  label: string,
+): Promise<void> {
+  const viewport = page.viewportSize();
+  const width = viewport?.width ?? 0;
+  const height = viewport?.height ?? 0;
+  expect(height, "the page has no fixed viewport to frame against").toBeGreaterThan(0);
+
+  const box = await locator.boundingBox();
+  expect(box, `${label} has no layout box — it is not rendered`).not.toBeNull();
+
+  const top = box?.y ?? -1;
+  const left = box?.x ?? -1;
+  const bottom = top + (box?.height ?? 0);
+  const right = left + (box?.width ?? 0);
+
+  expect(top, `${label} starts ${Math.round(-top)}px above the frame`).toBeGreaterThanOrEqual(0);
+  expect(
+    bottom,
+    `${label} extends ${Math.round(bottom - height)}px below the frame`,
+  ).toBeLessThanOrEqual(height);
+  expect(left, `${label} starts left of the frame`).toBeGreaterThanOrEqual(0);
+  expect(right, `${label} extends past the right edge of the frame`).toBeLessThanOrEqual(width);
+}
+
+/**
+ * Scrolls the execution-plan card to just below the top of the viewport so the
+ * frame is composed identically on every run, instead of depending on where
+ * the page happened to be left.
+ */
+async function frameThePlanCard(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const heading = Array.from(document.querySelectorAll("h2")).find(
+      (h) => h.textContent?.trim() === "Execution plan",
+    );
+    if (!heading) throw new Error("execution-plan heading not found");
+    const target = window.scrollY + heading.getBoundingClientRect().top - 24;
+    window.scrollTo({ top: target, behavior: "instant" });
+  });
+}
+
+test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
+  test("RF-17 one frame carries every step's reputation alongside the floor panel naming the excluded sub-floor agent", async ({
+    page,
+  }) => {
+    await page.setViewportSize(EVIDENCE_VIEWPORT);
+    await supplyPlan(page, FLOOR_ACTED_PLAN);
+    await decomposeIntent(page, EVIDENCE_INTENT);
+
+    // The panel ships collapsed on this build, so the frame RF-17 asks for
+    // exists only after this click. That is recorded in the provenance note,
+    // not papered over.
+    await openFloorPanel(page);
+    await frameThePlanCard(page);
+
+    const steps = stepRows(page);
+    await expect(steps).toHaveCount(FLOOR_ACTED_PLAN.steps.length);
+
+    const badges = page.locator(REP_BADGE);
+    await expect(
+      badges,
+      "the frame does not carry one reputation badge per step",
+    ).toHaveCount(FLOOR_ACTED_PLAN.steps.length);
+
+    const excluded = FLOOR_ACTED_PLAN.notices.find((n) => n.kind === "excluded");
+    const excludedName = excluded?.agent_name ?? "";
+    expect(excludedName, "the supplied plan has no excluded notice").not.toBe("");
+
+    const panel = floorPanel(page);
+    const excludedRow = panel
+      .getByRole("listitem")
+      .filter({ hasText: excludedName });
+    await expect(excludedRow).toBeVisible();
+
+    // Everything RF-17 requires has to be inside ONE frame. Asserted before
+    // the capture: a screenshot taken without this proves nothing once the
+    // layout moves.
+    for (let i = 0; i < FLOOR_ACTED_PLAN.steps.length; i++) {
+      const step = FLOOR_ACTED_PLAN.steps[i];
+      await expectInFrame(
+        page,
+        badges.nth(i),
+        `the reputation badge for step ${i + 1} (${step?.agent_name ?? "?"})`,
+      );
+    }
+    await expectInFrame(page, panel, "the reputation-floor panel");
+    await expectInFrame(
+      page,
+      excludedRow,
+      `the excluded sub-floor agent row (${excludedName})`,
+    );
+
+    mkdirSync(EVIDENCE_DIR, { recursive: true });
+    // Viewport-clipped, not fullPage: the deliverable has to be a single
+    // frame, and `fullPage` would stitch one out of several.
+    await page.screenshot({
+      path: join(EVIDENCE_DIR, EVIDENCE_IMAGE),
+      animations: "disabled",
+    });
   });
 });
