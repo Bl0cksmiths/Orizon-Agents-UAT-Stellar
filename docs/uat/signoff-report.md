@@ -462,3 +462,43 @@ It is NO-GO on four specific things:
 
 Nothing in this list needs a new test. Every item above is already pinned by one
 that fails today and passes when it is fixed.
+
+## Delivery hygiene, audited
+
+- Every commit message in this programme matches `added|updated|merged <name>
+  module`; no other shape appears in either repository.
+- No AI attribution anywhere: `git log --format=%B | grep -iE
+  "co-authored-by|generated with|claude|anthropic|openai|copilot"` returns
+  nothing in either repository.
+- No `test.skip`, no `.only(`, no `TODO`/`FIXME`, no debug logging introduced in
+  any of the four new test files.
+- Two `xfail(strict=True)` pins and one `test.fail()` are present and are
+  deliberate: each names an open defect (D-028, D-034) and turns *red* when the
+  defect is fixed, which is how three earlier defects announced their own fixes.
+- **Commits over ~40 lines, reviewed.** Seven exist, all in
+  `tests/reputation-floor.spec.ts` and the provenance note. Each is a single
+  Playwright test case or a single document, which Rule 2 names as an
+  indivisible unit — splitting one across commits would leave the file
+  unparseable. They are large because the suite's comment density matches the
+  repository's own style, not because several changes were bundled: the largest
+  (243 lines) carries one `test(` declaration and 56 lines of comment.
+- Typecheck in this repository is green. It was **red on `main` before this
+  programme** — eleven `noUncheckedIndexedAccess` errors across
+  `fixtures.ts`, `console.spec.ts`, `marketing.spec.ts` and
+  `orchestrator.spec.ts`, none of them from the new spec — and was fixed here in
+  six one-edit commits.
+
+## Independent re-verification
+
+Stream reports were not taken on trust. Each stream's suite was re-run by the
+lead against the integrated branch: the backend disclosure file (5 pass /
+1 xfail), the visibility file (6 pass), and the full backend gate (ruff, format,
+mypy, 1245 tests). The browser suite was re-run end to end —
+**9 passed in 11.2m on chromium-desktop**, with the D-034 pin failing exactly as
+designed.
+
+One stream claim was checked and found wrong: that the frontend source was stale
+relative to the deployment. It is not — the working tree carries
+`exclusions-panel.tsx` and `floor-summary.tsx`, both matching what the
+deployment renders. The lead's own D-032 was the mirror-image error and has been
+withdrawn.
