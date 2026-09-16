@@ -416,3 +416,49 @@ Surface in brackets: (`main`) = backend pytest, (dep) = the deployed stack.
 
 **13 pass, 3 partial, 1 fail** against `main`. On the deployed stack two further
 criteria cannot be met at all until the backend is deployed.
+
+## Recommendation for story 6.02: NO-GO
+
+Not because the reputation floor is broken — most of it is right, and the parts
+this story was told to treat as correct are provably correct. The floor's
+arithmetic holds exactly at its boundary, cold start is routable and silent on
+both paths, the outage fails open deliberately and now loudly, and the demo-kit
+path discloses every action it takes. Three of the defects raised here were
+fixed upstream within days and their pins now stand as regression guards.
+
+It is NO-GO on four specific things:
+
+1. **D-028 — the routing guarantee does not hold on the free-form path.** This
+   is the story's own headline question, and the answer is no for every
+   non-curated intent. A sub-floor agent the planner names is hired. Until the
+   clamp calls `passes_floor`, "the routing guarantee holds for newcomers,
+   sub-floor agents and chain outages alike" is true of the demo path and not of
+   the product.
+2. **D-027 — the backend verification cannot be delivered.** The account has no
+   write access to the backend remote, so the three test files that decide most
+   of these criteria are local commits that backend CI has never run.
+3. **D-031 — the deployed stack is split.** A current frontend against a backend
+   284 commits behind means RF-11 and RF-13 fail on the surface real users touch,
+   and a shipped frontend feature (the floor summary) renders nothing because the
+   field it needs is not sent.
+4. **Browser coverage is Chromium only** (D-025). Not a product finding, but it
+   is not cross-browser sign-off and must not be recorded as one.
+
+## To reach GO on 6.02
+
+1. Fix D-028: call `reputation_svc.passes_floor` in the free-form clamp and
+   record what it drops through the `plan_notices` channel that now exists. The
+   pinned `xfail` turns green on its own when this lands.
+2. Grant `rie-hash14` write access to the backend repo, or have a maintainer
+   collect the three branches from `be-worktrees/` (D-027). The CI trigger for
+   `uat`/`uat-*` is already committed and ships with that push.
+3. Deploy the backend `main` and re-run the RF suite. RF-11 and RF-13 should then
+   pass on the deployed surface, and the floor summary should appear on the plan
+   card with no frontend change.
+4. Fix D-026 in the same pass so the next split deployment announces itself.
+5. Decide on D-034 and D-035 — both small, both in the frontend, both pinned by
+   tests that will flip when fixed.
+6. Install Firefox and WebKit, or let CI do it, and re-run for the full matrix.
+
+Nothing in this list needs a new test. Every item above is already pinned by one
+that fails today and passes when it is fixed.
