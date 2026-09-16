@@ -335,3 +335,33 @@ A structural check after the model returns costs one call and does not depend on
 the model's cooperation. Pinned by
 `test_rf05_sub_floor_agent_is_absent_from_the_free_form_plan`, which is the only
 remaining `xfail` in this story's suite.
+
+## What was actually executed
+
+This matters because the previous report could not say it: defect D-002 recorded
+that *no commit in that programme had ever been run*. That is no longer true of
+the backend half.
+
+On the integrated backend branch (`origin/main` `6867f45` + this story's three
+test files + the CI trigger):
+
+| gate | result |
+| --- | --- |
+| `ruff check .` | clean |
+| `ruff format --check .` | 200 files already formatted |
+| `mypy` | no issues in 101 source files |
+| `pytest -q` | 1245 tests — 1 failed, 1 skipped, 1 xfailed, the rest passed |
+
+The single failure is **D-033**, an upstream Windows path-portability assertion
+in `tests/test_contract_drift.py`. It was reproduced on a detached worktree at
+clean `origin/main` with none of this story's work present, so it is not a
+regression from this programme; CI runs `ubuntu-latest`, where it passes. The
+one `xfail` is D-028, the open routing defect, pinned deliberately.
+
+The frontend repository's own suite was also run: `tsc --noEmit` clean, 17 files
+and 305 tests passed (with 8 pre-existing vitest timer errors that do not fail
+the run and that this story did not touch).
+
+Browser coverage is **Chromium only** — Firefox and WebKit binaries will not
+download on the authoring machine (D-025), so a green run here is not
+cross-browser sign-off and is not claimed as one.
