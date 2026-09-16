@@ -1,7 +1,11 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test, expect, type Locator, type Page } from "@playwright/test";
-import { COLD_START_TIMEOUT, collectConsoleErrors } from "./fixtures";
+import {
+  COLD_START_TIMEOUT,
+  EXPECTED_NETWORK,
+  collectConsoleErrors,
+} from "./fixtures";
 
 /**
  * RF-14 / RF-17 — what the execution-plan card tells a buyer about the
@@ -659,9 +663,146 @@ async function frameThePlanCard(page: Page): Promise<void> {
   });
 }
 
+const EVIDENCE_NOTE = "rf-17-reputation-floor-plan.md";
+
+/**
+ * Everything the provenance note states, gathered from the live deployment in
+ * the same run that captures the frame. Nothing here is a constant copied from
+ * a brief: evidence that quotes yesterday's numbers is evidence about
+ * yesterday.
+ */
+type ProvenanceFacts = {
+  capturedAt: string;
+  baseUrl: string;
+  network: string;
+  floorBps: number;
+  priorBps: number;
+  agentCount: number;
+  agentsWithOnchainEvidence: number;
+  lowerBoundsBps: number[];
+  liveDecomposeKeys: string[];
+  liveNoticeCount: number;
+  healthVersion: string;
+  reputationHasDegradedKey: boolean;
+};
+
+/**
+ * The provenance note that ships beside the image.
+ *
+ * Its job is to stop the frame from being read as something it is not. The
+ * plan in the picture was supplied by this test; a reader who does not know
+ * that would take it as the live backend having excluded a real agent, which
+ * it did not and today cannot. That sentence is the first thing under the
+ * heading for exactly that reason.
+ */
+function buildProvenanceNote(f: ProvenanceFacts): string {
+  const uniqueLowerBounds = Array.from(new Set(f.lowerBoundsBps)).sort(
+    (a, b) => a - b,
+  );
+  return [
+    "# RF-17 — reputation floor evidence frame",
+    "",
+    `**Artifact:** \`${EVIDENCE_IMAGE}\`  `,
+    "**Satisfies:** SOW §6.1 Deliverable 2 — one frame showing per-agent",
+    "reputation alongside an excluded sub-floor agent.  ",
+    `**Captured:** ${f.capturedAt} at ${EVIDENCE_VIEWPORT.width}×${EVIDENCE_VIEWPORT.height}, Chromium.  `,
+    `**Produced by:** \`tests/reputation-floor.spec.ts\` — the RF-17 test, which`,
+    "asserts every element below is inside the single frame before it captures it.",
+    "",
+    "## Read this first: the plan was supplied by the test",
+    "",
+    "The decompose response behind this screenshot was **written by the test**,",
+    "not produced by the live backend deciding anything. The test fulfilled",
+    "`POST /api/orchestrator/decompose` itself with a response containing three",
+    "floor notices (one excluded, one substituted, one kept below the floor).",
+    "",
+    "It had to. On the day of capture the live testnet registry held",
+    `${f.agentCount} agents and **${f.agentsWithOnchainEvidence} of them had any`,
+    "on-chain rating at all** — every agent reads `count: 0`, `source: \"prior\"`,",
+    `with a Wilson lower bound of ${uniqueLowerBounds.join(" / ")} bps against a`,
+    `routing floor of ${f.floorBps} bps. Nothing on that registry sits below the`,
+    "floor, so the real backend has no floor action to report and cannot produce",
+    "a floor-acted plan on this target. A live decompose of the same intent, run",
+    `in the same session, returned \`notices: []\` (${f.liveNoticeCount} notices).`,
+    "",
+    "Everything else in the frame is real: the deployed frontend, its markup, its",
+    "accessibility semantics, its wording, and every request other than the",
+    "decompose call.",
+    "",
+    "## The panel in the frame was opened by one click",
+    "",
+    "The deployed card ships the floor panel as a **collapsed** `<details>`",
+    '("Reputation floor · 3 changes"). The frame shows it open because the test',
+    "clicked the summary once. As delivered, the first frame a buyer sees carries",
+    "only the summary counts, not the agent names or the reasons.",
+    "",
+    "## Target",
+    "",
+    "| | |",
+    "| --- | --- |",
+    `| URL | ${f.baseUrl} |`,
+    `| Network (\`GET /api/stellar/network\`) | ${f.network} |`,
+    `| Routing floor (\`GET /api/stellar/reputation/params\` → \`floor_bps\`) | ${f.floorBps} bps |`,
+    `| Bayesian prior (\`prior_bps\`) | ${f.priorBps} bps |`,
+    "",
+    "## The exact intent",
+    "",
+    `    ${EVIDENCE_INTENT}`,
+    "",
+    "One of the four demo-kit presets, which are deterministic and LLM-free. The",
+    "intent shown in the frame's textarea is this string, submitted through the",
+    "page's own preset button and Decompose control.",
+    "",
+    "## The reputation state behind the frame",
+    "",
+    "**In the picture (supplied by the test):** five steps — one scored on the",
+    "prior at 7000 bps, four on claimed on-chain evidence at 8150 / 7720 / 6480 /",
+    "5210 bps — plus three floor actions: `seo.brief` excluded at 4200 bps,",
+    "`code.critic` substituted by `code.review.pro` at 5090 bps, and `deploy.v0`",
+    "kept below the floor at 5210 bps by the starvation backstop.",
+    "",
+    "**On the live target (measured this run):** every agent on the prior, no",
+    "on-chain evidence anywhere, no agent below the floor, no notices.",
+    "",
+    "## Which build this is",
+    "",
+    "The deployment exposes no build identifier: `GET /api/health` returns a",
+    `hardcoded \`"version": "${f.healthVersion}"\` (defect D-026). The best`,
+    "available anchor is the capture date above plus the response shape observed",
+    "in the same run:",
+    "",
+    `- \`POST /api/orchestrator/decompose\` top-level keys: ${f.liveDecomposeKeys.map((k) => `\`${k}\``).join(", ")}`,
+    "  — no `floor_bps`, no `reputation_degraded`.",
+    `- \`GET /api/stellar/reputation/{agent_id}\` carries ${f.reputationHasDegradedKey ? "a" : "no"} \`degraded\` key`,
+    "  (defect D-024: the backend strips the flag at the API boundary, so no",
+    "  client can tell an RPC outage from a cold start).",
+    "",
+    "Later builds add those fields; a frame captured against one of them would",
+    "show a different shape here.",
+    "",
+    "## What this frame proves, and what it does not",
+    "",
+    "**Proves:** given a plan whose shape the floor changed, the deployed card",
+    "renders, in one frame, a reputation badge per step carrying the score and",
+    "whether it came from the chain or the prior, and — once the disclosure is",
+    "open — each floor action with the agent named, the action taken, the",
+    "replacement where there was one, and the reason including the applied floor",
+    "in basis points.",
+    "",
+    "**Does not prove:** that the live backend produced any of it. It did not.",
+    "Nor does it cover the free-form intent path: on that path the floor is",
+    "applied only while building the planner prompt and is never re-checked",
+    "afterwards, and a floor relaxation there emits no notice at all (defects",
+    "D-028, D-029). The notices rendered here are, on this build, only ever",
+    "produced by the demo-kit path.",
+    "",
+  ].join("\n");
+}
+
 test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
   test("RF-17 one frame carries every step's reputation alongside the floor panel naming the excluded sub-floor agent", async ({
     page,
+    request,
   }) => {
     await page.setViewportSize(EVIDENCE_VIEWPORT);
     await supplyPlan(page, FLOOR_ACTED_PLAN);
@@ -717,5 +858,88 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
       path: join(EVIDENCE_DIR, EVIDENCE_IMAGE),
       animations: "disabled",
     });
+
+    // ---- provenance -----------------------------------------------------
+    // Read from the deployment in this same run, and asserted, not narrated:
+    // the note's central claim is that no agent here can be below the floor,
+    // and a note that states that without checking is just a nicer-looking
+    // guess. `request` bypasses the page's route, so the decompose below is
+    // the real backend answering.
+    test.setTimeout(COLD_START_TIMEOUT * 10);
+
+    const networkRes = await request.get("/api/stellar/network", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(networkRes.ok()).toBe(true);
+    const network = ((await networkRes.json()) as { network?: string }).network ?? "";
+    expect(network, "the target no longer reports the expected network").toBe(
+      EXPECTED_NETWORK,
+    );
+
+    const paramsRes = await request.get("/api/stellar/reputation/params", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(paramsRes.ok()).toBe(true);
+    const params = (await paramsRes.json()) as {
+      floor_bps: number;
+      prior_bps: number;
+    };
+
+    const batchRes = await request.get("/api/stellar/reputation", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(batchRes.ok()).toBe(true);
+    const batch = (await batchRes.json()) as {
+      reputations: Record<
+        string,
+        { count: number; source: string; lower_bound_bps: number; degraded?: boolean }
+      >;
+    };
+    const reputations = Object.values(batch.reputations);
+    expect(
+      reputations.length,
+      "the live registry returned no agents to describe",
+    ).toBeGreaterThan(0);
+
+    const withEvidence = reputations.filter(
+      (r) => r.source !== "prior" || r.count > 0,
+    ).length;
+    // The premise of the whole note.
+    expect(
+      withEvidence,
+      "an agent now carries on-chain evidence, so the note's claim that this registry cannot produce a sub-floor agent is no longer true",
+    ).toBe(0);
+
+    const healthRes = await request.get("/api/health", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(healthRes.ok()).toBe(true);
+    const health = (await healthRes.json()) as { version?: string };
+
+    const liveRes = await request.post("/api/orchestrator/decompose", {
+      data: { intent: EVIDENCE_INTENT },
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(liveRes.ok()).toBe(true);
+    const live = (await liveRes.json()) as Record<string, unknown> & {
+      notices?: unknown[];
+    };
+
+    const note = buildProvenanceNote({
+      capturedAt: new Date().toISOString(),
+      baseUrl: new URL(page.url()).origin,
+      network,
+      floorBps: params.floor_bps,
+      priorBps: params.prior_bps,
+      agentCount: reputations.length,
+      agentsWithOnchainEvidence: withEvidence,
+      lowerBoundsBps: reputations.map((r) => r.lower_bound_bps),
+      liveDecomposeKeys: Object.keys(live).sort(),
+      liveNoticeCount: live.notices?.length ?? 0,
+      healthVersion: health.version ?? "(absent)",
+      reputationHasDegradedKey: reputations.some((r) => "degraded" in r),
+    });
+
+    writeFileSync(join(EVIDENCE_DIR, EVIDENCE_NOTE), note, "utf8");
   });
 });
