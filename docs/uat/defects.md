@@ -1550,3 +1550,47 @@ the floor into the badge: move the explanatory sentence onto the `Badge` as an
 `aria-label` assertion in `RF-14 every step of a floor-acted plan carries its own
 reputation badge, and the substituted and below-floor steps are flagged`, which
 fails loudly if the label changes.
+
+## D-036 — The deployed backend predates story 2.06: the settlement evidence route is missing
+
+- **Severity:** Blocker (for story 6.05's entry criterion)
+- **Status:** Open
+- **Affects:** EX-00 (6.05 precondition); every 6.05 result is therefore a result about the *old* build
+
+**Failing Given/When/Then (story 6.05, Preconditions)** — *"A deployed backend
+carrying them. Check this first: … confirm GET /api/stellar/settlement/{id}
+returns 200 rather than 404 before starting."*
+
+**Steps to reproduce** (2026-09-17T02:48Z)
+
+```
+curl -s https://orizons.xyz/api/stellar/settlement/abc
+```
+
+**Expected** — `200` with a `SettlementEvidence` body (route
+`app/routers/stellar.py:383` on backend `main`, added 2026-09-16 in
+`13b53e1 exposed the settlement evidence route`).
+
+**Actual** — the framework's generic route-miss:
+
+```json
+{"detail":"Not Found","error":{"code":"not_found","message":"Not Found","request_id":"233332118cbc4d5b"}}
+```
+
+A valid-pattern id (`abc` matches `^[A-Za-z0-9_]{1,32}$`) gets the same body,
+so this is not an unknown-agent 404 — the route is not mounted.
+
+**What *is* deployed** — the binding routes (`/api/agents/{id}/bind*`) and
+`dispatch_signer` on `/api/stellar/network`, so stories 2.01/2.02 are live. The
+run went ahead against that build by the product owner's decision, and every
+line of `evidence/6.05-external-dispatch.md` is labelled as describing it.
+
+**Impact** — Two of the three 6.05 defects below (D-037, D-038) are already
+fixed on backend `main` and still reproduce on the target. Same class as D-031;
+same missing tool as D-026 (no build identifier to tell which is which).
+
+**Resolution path** — Redeploy backend `main`, confirm the route answers 200,
+and re-run the 6.05 procedure in `evidence/6.05-external-dispatch.md`. Pinned
+by `EX-00 the settlement evidence route is deployed` (`test.fail()` until then).
+
+---
