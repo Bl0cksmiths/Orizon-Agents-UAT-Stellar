@@ -26,6 +26,11 @@ const captured = JSON.parse(
 const rawBody = Buffer.from(captured.raw_body_base64, "base64");
 const signature = captured.headers["x-orizon-signature"] ?? "";
 
+// Registered and bound on testnet by the 6.05 run, and deliberately never
+// cleaned up: registration tx 64ad14cd…fa3e.
+const EX_AGENT_ID = "uat605_ext_op";
+const EX_AGENT_OWNER = "GBWMD26IB6CMG3JO3HU7SD7ZJSTF4BIJ5JS77ANMLJ52M6FV6K3J7BQJ";
+
 async function publishedSigner(request: import("@playwright/test").APIRequestContext): Promise<string> {
   const response = await request.get("/api/stellar/network", { timeout: COLD_START_TIMEOUT });
   expect(response.status()).toBe(200);
@@ -61,5 +66,15 @@ test.describe("EX — external agent dispatch (story 6.05)", () => {
         boundEndpointUrl: "https://another-operator.example/dispatch",
       }),
     ).toBe(false);
+  });
+
+  test("EX-01 EX-07 the run's binding still reads back, owned by the registering wallet", async ({ request }) => {
+    const response = await request.get(`/api/agents/${EX_AGENT_ID}/binding`, { timeout: COLD_START_TIMEOUT });
+    expect(response.status()).toBe(200);
+    const binding = await response.json();
+    expect(binding.agent_id).toBe(EX_AGENT_ID);
+    expect(binding.owner).toBe(EX_AGENT_OWNER);
+    // Anonymous reads get the origin only; any https origin proves a binding exists.
+    expect(binding.endpoint_url).toMatch(/^https:\/\/[^/]+$/);
   });
 });
