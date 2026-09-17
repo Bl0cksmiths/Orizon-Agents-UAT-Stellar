@@ -89,4 +89,12 @@ test.describe("EX — external agent dispatch (story 6.05)", () => {
     const agentIds = (plan.steps as { agent_id: string }[]).map((step) => step.agent_id);
     expect(agentIds, "offered to the planner, not merely listed").toContain(EX_AGENT_ID);
   });
+
+  test("EX-00 the settlement evidence route is deployed", async ({ request }) => {
+    // D-036: the deployed backend predates story 2.06. Remove the marker when
+    // the route answers — it is 6.05's entry criterion.
+    test.fail();
+    const response = await request.get(`/api/stellar/settlement/${EX_AGENT_ID}`, { timeout: COLD_START_TIMEOUT });
+    expect(response.status()).toBe(200);
+  });
 });
