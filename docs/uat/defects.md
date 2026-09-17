@@ -1762,3 +1762,37 @@ envelope carries the documented fields`, `test.fail()` until a re-captured
 dispatch carries it.
 
 ---
+
+## D-041 — A backend restart erases every buyer's task, trace and artifact; only the binding survives
+
+- **Severity:** Major
+- **Status:** Open — by design on `main` too (`app/state.py`: "state lives in this one process. Contents are lost on restart")
+- **Affects:** EX-07, EX-08 (stories 2.02, 2.04)
+
+**Steps to reproduce** — let the Render free-tier instance idle into a spin-down
+(observed: `uptime_seconds` 4055.1 at 03:56Z → 26.1 at 04:19Z), then:
+
+```
+curl -s https://orizons.xyz/api/tasks/tsk_8d326dbaabd6e65e      # completed at 03:58Z
+curl -s -X POST https://orizons.xyz/api/orchestrator/execute \
+  -H 'content-type: application/json' -d '{"plan_id":"pln_9b0d8421"}'
+```
+
+**Expected** — a completed task stays readable by its buyer; the artifact the
+buyer "paid" for (`spent 0.019`) can be fetched again.
+
+**Actual** — `404 unknown task: tsk_8d326dbaabd6e65e` and `404 unknown
+plan_id: pln_9b0d8421` (request `f8d90966d9f54af3`). The binding, in contrast,
+read back unchanged and the agent was still decomposed onto (EX-07 passes).
+
+**Impact** — on the free tier a restart follows any ~15-minute quiet period, so
+every task and trace this run produced was gone within 20 minutes of the last
+one. 6.05's evidence exists only because it was copied out at the time. A buyer
+reopening yesterday's run, or an operator asking "why did my step fail", gets
+404 — the same answer as a wrong task token.
+
+**Resolution path** — persist terminal tasks, traces and artifacts in the store
+the binding already uses; or keep the instance warm and say in the UI that
+history does not survive a restart.
+
+---
