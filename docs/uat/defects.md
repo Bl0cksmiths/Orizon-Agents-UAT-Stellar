@@ -1734,3 +1734,31 @@ runbook's Settlement position. Until then, finalize with a status or field that
 distinguishes "delivered, unsettled" from "complete".
 
 ---
+
+## D-040 — The deployed dispatch envelope carries no `deadline_ms`, which the operator guide tells operators to read
+
+- **Severity:** Major
+- **Status:** Open — present on backend `main` (`external_http.py:420`), not deployed (D-036)
+- **Affects:** EX-02, EX-05 (stories 2.02, 2.03)
+
+**Steps to reproduce** — decode `raw_body_base64` in
+`docs/uat/evidence/6.05/dispatch-ok.json`.
+
+**Expected** — per `docs/operators/verifying-a-dispatch.md`: *"must arrive
+within `deadline_ms`, the budget carried in the envelope … Read it from the body
+rather than hard-coding it"*.
+
+**Actual** — the signed body's keys are `v, agent_id, intent, rationale,
+context, dispatch_id, ts, network`. No `deadline_ms`. The effective budget,
+observed from the timeout case, is ≈100 s (`match agent` at 02.759, `failed` at
+102.940), and nothing tells the operator that.
+
+**Impact** — an operator following the guide has no budget to honour and must
+guess; a handler written as the guide says (`body.deadline_ms`) reads
+`undefined`. The UAT endpoint fell back to its own 120 s default.
+
+**Resolution path** — deploy `main`. Pinned by `EX-02 the captured dispatch
+envelope carries the documented fields`, `test.fail()` until a re-captured
+dispatch carries it.
+
+---
