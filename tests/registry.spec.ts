@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { stubWalletSession } from "./fixtures";
 
 /**
  * E2E coverage for the agent-registry feature area on the LIVE production
@@ -268,7 +269,12 @@ test.describe("/app/register — registration form", () => {
     await expect(page.getByLabel("skills")).toBeVisible();
     await expect(page.getByLabel("price per step (USDC)")).toBeVisible();
 
-    await expect(page.getByRole("button", { name: "Connect Wallet" })).toBeVisible();
+    // Scoped to <main>: the console topbar renders its own Connect Wallet on
+    // every /app route, so an unscoped locator matches two buttons and trips
+    // strict mode. The form's own prompt is the one under test.
+    await expect(
+      page.getByRole("main").getByRole("button", { name: "Connect Wallet" }),
+    ).toBeVisible();
     // Two separate elements both contain the substring "connect a wallet"
     // (the owner-status line and the submit-button hint) — the longer,
     // unique string avoids a strict-mode multi-match here.
@@ -356,7 +362,10 @@ test.describe("/app/register — registration form", () => {
     const skillsField = page.getByLabel("skills");
     await skillsField.click();
     await skillsField.blur();
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    // Scoped to <main>: Next's route announcer is a permanently mounted,
+    // usually-empty `role="alert"` portalled into document.body, so an
+    // unscoped count can never be 0 however clean the form is.
+    await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
   });
 
   test("skills: a 17th chip is silently rejected rather than surfacing a message", async ({ page }) => {
@@ -374,7 +383,9 @@ test.describe("/app/register — registration form", () => {
     // message can never actually render. If a future edit makes 17 skills
     // reachable, this assertion is what would catch skills silently
     // exceeding the backend's cap with no operator-visible feedback.
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    // Scoped to <main> for the same reason as the test above: Next's route
+    // announcer is an always-present empty `role="alert"` outside the page.
+    await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
     // The cap is only ever surfaced via aria-invalid on the field itself —
     // SkillsInput's own `rejected` state, set independently of the page's
     // (broken) touched-skills wiring above.
@@ -454,9 +465,36 @@ test.describe("/app/register — registration form", () => {
   });
 
   test("keyboard-only navigation reaches the submit button", async ({ page }) => {
+    // "Register agent" is disabled until every sync field validates, the id
+    // check has returned available AND a wallet is connected
+    // (register/page.tsx `canSubmit`) — and a disabled button is correctly
+    // skipped by Tab, so tabbing at a disconnected form asserts nothing about
+    // tab ORDER. Give the control the precondition that makes it focusable:
+    // the localStorage wallet-session stub (no signer needed to enable the
+    // button), and a stubbed availability read so this stays a pure
+    // keyboard-order test rather than a second cold-start round trip.
+    await stubWalletSession(page);
+    await page.route("**/stellar/agent-id-available/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ available: true }),
+      }),
+    );
     await page.goto(`${BASE_URL}/app/register`);
-    await page.getByLabel("agent id").focus();
+
+    const idField = page.getByLabel("agent id");
+    await idField.fill(freshAgentId());
+    await idField.blur();
+    await page.getByLabel("display name").fill("QA Test Agent");
+    const priceField = page.getByLabel("price per step (USDC)");
+    await priceField.fill("1.5");
+    await priceField.blur();
+
     const submit = page.getByRole("button", { name: /Register agent/i });
+    await expect(submit).toBeEnabled();
+
+    await idField.focus();
     const reached = await tabUntilFocused(page, submit);
     expect(reached).toBe(true);
   });

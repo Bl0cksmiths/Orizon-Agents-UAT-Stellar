@@ -191,7 +191,14 @@ test.describe('Overview — loading, loaded, and failed states stay visually and
     const main = page.getByRole('main');
     // The skeleton tiles are aria-hidden by design; this sr-only status is
     // the only accessible signal that data is loading, not absent.
-    await expect(main.getByRole('status', { name: 'Loading metrics…' })).toBeAttached();
+    // Matched by its text, not by `name`: `status` is not a name-from-content
+    // role, so the accessible name of <span role="status">Loading metrics…
+    // </span> (components/ui/skeleton.tsx — it carries no aria-label) is
+    // empty, and a `{ name: … }` option can never match it however long the
+    // assertion waits.
+    await expect(
+      main.getByRole('status').filter({ hasText: 'Loading metrics…' }),
+    ).toBeAttached();
     // Regression: tile labels must render immediately so "no data yet" never
     // reads as "no such metric" while the fetch is pending.
     await expect(main.getByText('Agents online', { exact: true })).toBeVisible();
@@ -209,7 +216,12 @@ test.describe('Overview — loading, loaded, and failed states stay visually and
     // Regression: this is the core invariant — metrics render from `overview`,
     // which stays null on failure, so all 4 tiles must show the labeled
     // failure state, never a fabricated "0" a viewer could mistake for real.
-    await expect(main.getByText('unavailable', { exact: true })).toHaveCount(4);
+    // Five nodes carry the bare word on this page, not four: the 4 metric
+    // tiles (METRIC_KEYS in app/app/page.tsx) plus the "Recent tasks" card's
+    // own count slot, which reads "unavailable" instead of "N tracked" when
+    // the tasks fetch fails — one more truthful failure label, not a missing
+    // one.
+    await expect(main.getByText('unavailable', { exact: true })).toHaveCount(5);
     await expect(main.getByText('throughput unavailable', { exact: false })).toBeVisible();
     await expect(main.getByText('skill mix unavailable', { exact: false })).toBeVisible();
     await expect(main.getByText("couldn't load recent tasks", { exact: false })).toBeVisible();

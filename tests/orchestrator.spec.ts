@@ -236,16 +236,26 @@ test.describe("Orchestrator decompose result", () => {
     }
 
     // "total est." / "eta" only ever appear inside the plan card (confirmed
-    // against sidebar.tsx / topbar.tsx, which render neither), so reading
-    // the whole page's text is unambiguous and avoids a brittle DOM-parent
+    // against sidebar.tsx / topbar.tsx, which render neither), so these
+    // unscoped text locators are unambiguous and avoid a brittle DOM-parent
     // traversal to scope a container that has no test id.
-    const pageText = (await page.locator("body").innerText()).replace(
-      /\s+/g,
-      " ",
-    );
-    const totalMatch = pageText.match(/total est\.\s*(\d+\.\d{3}) USDC/);
-    expect(totalMatch, "totals row should render total est. in USDC").toBeTruthy();
-    const displayedTotal = parseFloat(totalMatch![1]!);
+    //
+    // Read as label + value nodes rather than with one regex over the page
+    // text: execution-plan.tsx renders the caption and the figure as two
+    // separate <div>s, and the caption carries `uppercase`, so a page-wide
+    // `innerText` (which returns the RENDERED text) reads "TOTAL EST." and
+    // no single-line /total est\. … USDC/ pattern can ever match it.
+    const totalLabel = page.getByText("total est.", { exact: true });
+    await expect(totalLabel).toBeVisible();
+    const totalValue = (
+      await totalLabel.locator("xpath=following-sibling::div[1]").innerText()
+    ).trim();
+    const totalMatch = totalValue.match(/^(\d+\.\d{3}) USDC$/);
+    expect(
+      totalMatch,
+      `totals row should render total est. in USDC, got "${totalValue}"`,
+    ).toBeTruthy();
+    const displayedTotal = parseFloat(totalMatch?.[1] ?? "");
 
     // Regression: the totals row is exactly what a user reads before
     // authorizing on-chain spend. If it silently drifted from the sum of
@@ -256,8 +266,15 @@ test.describe("Orchestrator decompose result", () => {
       0.0005 * count + 0.0005,
     );
 
-    const etaMatch = pageText.match(/eta\s*(\d+\.\d+)s/);
-    expect(etaMatch, "totals row should render an eta in seconds").toBeTruthy();
+    // Same label/value split (and the same `uppercase` caption) for the eta.
+    const etaLabel = page.getByText("eta", { exact: true });
+    await expect(etaLabel).toBeVisible();
+    const etaValue = (
+      await etaLabel.locator("xpath=following-sibling::div[1]").innerText()
+    ).trim();
+    expect(etaValue, "totals row should render an eta in seconds").toMatch(
+      /^\d+\.\d+s$/,
+    );
   });
 });
 
@@ -300,8 +317,11 @@ test.describe("Execution plan actions", () => {
     // connect prompt instead of a clickable Authorize button that would
     // throw on `wallet.address` being undefined mid-flow.
     await expect(page.getByText(/wallet required/i)).toBeVisible();
+    // Scoped to <main>: the console topbar renders its own Connect Wallet on
+    // every /app route, so an unscoped locator matches two buttons and trips
+    // strict mode. The plan card's prompt is the one being gated on here.
     await expect(
-      page.getByRole("button", { name: "Connect Wallet" }),
+      page.getByRole("main").getByRole("button", { name: "Connect Wallet" }),
     ).toBeVisible();
 
     // The on-chain button only renders in the connected branch of
@@ -351,7 +371,12 @@ test.describe("Orchestrator error handling", () => {
     // plain <div> here would leave screen-reader users with zero signal
     // that anything failed (ErrorNote / this inline block exist precisely
     // to fix that class of silent failure).
-    const alert = page.getByRole("alert");
+    //
+    // Scoped to <main>: Next's own route announcer is a permanently mounted,
+    // usually-empty `role="alert"` (#__next-route-announcer__, portalled into
+    // document.body inside a shadow root that Playwright pierces), so an
+    // unscoped alert locator always matches it too.
+    const alert = page.getByRole("main").getByRole("alert");
     await expect(alert).toBeVisible();
     await expect(alert).toContainText(/500|forced_failure|forced test failure/);
 
@@ -412,7 +437,11 @@ test.describe("Trace page without a live task", () => {
     // The page must never go blank/white even while the stream is still
     // trying — the header and h1 render synchronously from taskId alone.
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Trace");
-    await expect(page.getByText("nonexistent-task-id-e2e")).toBeVisible();
+    // trace/page.tsx renders the task id twice by design — once in the
+    // stream card's status Badge and once in the "Task" summary row — so
+    // `.first()` here, not a tighter selector: both are legitimate and
+    // either one being visible proves the id reached the page.
+    await expect(page.getByText("nonexistent-task-id-e2e").first()).toBeVisible();
 
     // Regression: openTraceStream must eventually give up (settle(false))
     // rather than leaving the UI claiming "streaming…" forever against a
@@ -469,7 +498,12 @@ test.describe("Full run: trace tablist and sandboxed artifact preview", () => {
 
     const artifactTabId = await artifactTab.getAttribute("id");
     expect(artifactTabId, "artifact tab should have an id").toBeTruthy();
-    const artifactPanel = page.getByRole("tabpanel");
+    // Two tabpanels are on screen once the artifact arrives: trace/page.tsx's
+    // own artifact panel, and the preview panel of the nested tablist inside
+    // artifact-viewer.tsx. The outer one comes first in the DOM and is the
+    // panel this tab controls, so take it explicitly rather than matching
+    // both and tripping strict mode.
+    const artifactPanel = page.getByRole("tabpanel").first();
     await expect(artifactPanel).toBeVisible();
     await expect(artifactPanel).toHaveAttribute(
       "aria-labelledby",
@@ -581,6 +615,16 @@ test.describe("Accessibility", () => {
   }) => {
     await gotoOrchestrator(page);
     const textarea = page.getByLabel(/intent/i);
+    // Decompose is disabled while the intent is empty (page.tsx:
+    // `disabled={!intent.trim() || plan.pending}`), and a disabled button is
+    // correctly skipped by Tab — so type an intent first. Without it this
+    // test asserts nothing about tab ORDER, only that an empty form gates
+    // submit (which OR-03 already covers).
+    await textarea.fill("calculator web app");
+    await expect(
+      page.getByRole("button", { name: "Decompose ▸" }),
+    ).toBeEnabled();
+
     await textarea.focus();
     await expect(textarea).toBeFocused();
 
