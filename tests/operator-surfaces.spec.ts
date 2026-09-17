@@ -48,4 +48,18 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
     await page.getByLabel("endpoint url").fill("https://orizon-uat-no-such-host-606.invalid/dispatch");
     await expect(page.locator("#bind-endpoint-err")).toContainText("rule: unresolvable_host", { timeout: 30_000 });
   });
+
+  test("OS-07 with no wallet the dashboard claims nothing about ownership", async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.goto("/app/operator");
+    await expect(page.getByText("Connect a wallet", { exact: true })).toBeVisible({ timeout: 90_000 });
+    await expect(
+      page.getByText(
+        "Agent ownership is recorded on-chain against an account, so there is nothing to show until a wallet is connected.",
+        { exact: false },
+      ),
+    ).toBeVisible();
+    await expect(page.getByText("agents owned", { exact: false })).toHaveCount(0);
+    await expect(page.getByText("Settlement", { exact: true })).toHaveCount(0);
+  });
 });
