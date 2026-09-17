@@ -121,4 +121,18 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
     await expect(card.getByText("Not eligible — no endpoint is bound.", { exact: false })).toBeVisible({ timeout: 90_000 });
     await expect(card).not.toContainText("routable from the day it is registered");
   });
+
+  test("OS-07 a settlement lookup that failed is not shown as zero earnings", async ({ page }) => {
+    test.setTimeout(180_000);
+    await stubWalletSession(page, { address: SEVERAL_AGENTS_OWNER });
+    const settlement = page.waitForResponse((r) => r.url().includes("/api/stellar/settlement/w1_audit_a7x"), { timeout: 120_000 });
+    await page.goto("/app/operator");
+    const card = page.locator("main li").filter({ has: page.getByText("w1_audit_a7x", { exact: true }) }).first();
+    if ((await settlement).ok()) {
+      await expect(card.getByText("settled revenue", { exact: false })).toBeVisible({ timeout: 90_000 });
+    } else {
+      await expect(card).toContainText("This is a failed lookup, not a zero — no figure is shown because none was read.", { timeout: 90_000 });
+      await expect(card.getByText("settled revenue", { exact: false })).toHaveCount(0);
+    }
+  });
 });
