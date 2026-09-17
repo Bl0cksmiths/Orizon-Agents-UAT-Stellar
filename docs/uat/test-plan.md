@@ -793,3 +793,13 @@ payments have ever settled. What is tested is whether the page says so honestly.
 | OS-02 | each wallet named in SOW §3.3 | an endpoint is bound | it succeeds, or the wallet's inability to sign messages is documented and the SOW claim corrected |
 | OS-03 | the registration page | it is read before anything is signed | it already says listing takes two signatures and what the second is for |
 | OS-04 | any wallet, at either prompt | the signature is rejected | every form value survives and the message is neutral, not an error |
+| OS-05 | an agent already bound | it is bound to a different endpoint | the change succeeds and the new endpoint is what reads back, in the API and on the page |
+| OS-06 | a plaintext, private, loopback or unresolvable endpoint | it is submitted | it is refused before anything is signed, with a message naming the rule |
+| OS-07 | no wallet, a wallet owning nothing, a wallet owning several agents | each is opened on `/app/operator` | each states its own situation accurately, and no sentence claims more than the system knows |
+| OS-08 | a real phone | the binding flow and the dashboard are used | every field, message and figure is usable and legible |
+
+**Fixture wallets for OS-07** — never cleaned up, all testnet: no agents
+`GDJHP2I6…PKXJ` (6.05 payer); several unbound `GBI2I3WL…ADBH`
+(`w1_audit_a7x`, `sign_probe_bb5c12`); one bound `GBWMD26I…7BQJ`
+(`uat605_ext_op`). The spec re-derives counts from `/api/agents` and the binding
+reads on every run rather than hard-coding them.
