@@ -1796,3 +1796,57 @@ the binding already uses; or keep the instance warm and say in the UI that
 history does not survive a restart.
 
 ---
+
+## D-042 — The reference agent never reads `.env`: a signer pinned there is silently ignored and unsigned dispatches are accepted
+
+- **Severity:** Critical
+- **Status:** Open
+- **Affects:** OS-01 (story 2.04), repository `Orizon-Agents-Example-Agent-Stellar` at `38a9510`
+
+**Failing Given/When/Then (story 6.06)** — *Given a clean clone and no prior
+context, When the README is followed literally, Then each command should do
+what it says — and every step that does not should be filed against story 2.04
+with the actual output.*
+
+**Steps to reproduce** — clean clone, then exactly what `.env.example` line 1
+says (*"Copy to .env and edit"*), pinning the signer the way its comment
+instructs:
+
+```
+cp .env.example .env
+# ORIZON_SIGNER=GB5MKHDFLJZ6OFPAHM7R4HGBUPFV5PZYL3W27VTIUZZ25JMQSDZBKCMR   (from GET /api/stellar/network)
+python agent.py
+curl -X POST http://localhost:8787/ -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: abcdef0123456789' -d '{"v":2,…,"dispatch_id":"abcdef0123456789","ts":<now>,"network":"testnet","deadline_ms":100000}'
+```
+
+**Expected** — the agent starts with the signer pinned and refuses the unsigned
+request, as README step 1 promises: *"pin a signer and they are refused"*.
+
+**Actual** (2026-09-17 14:08, no signature header sent)
+
+```
+WARNING orizon.agent ORIZON_SIGNER is not set: this agent will run UNVERIFIED dispatches. …
+INFO orizon.agent listening on http://127.0.0.1:8787 — bound endpoint http://127.0.0.1:8787/dispatch, network testnet, signature NOT CHECKED
+WARNING orizon.agent UNSIGNED dispatch accepted: ORIZON_SIGNER is not set, so anyone who can reach this endpoint can run this agent. …
+unsigned request with .env pinning a signer -> HTTP 200
+```
+
+`agent.py` reads configuration only through `os.environ.get` (`agent.py:100-120`);
+nothing loads `.env`, and `requirements.txt` has no dotenv package. README step
+1 even says *"With no `.env` present the agent accepts an unsigned envelope"*,
+implying the file is honoured.
+
+**Impact** — an operator who does what the example file says believes their
+endpoint refuses forged dispatches while it runs anyone's. The startup warning
+is the only signal. On Render the `render.yaml` prompts set real environment
+variables, so a deployment made through the Blueprint is not affected — a
+laptop, VPS or any non-Blueprint host is.
+
+**Resolution path** — either load `.env` in `agent.py` (stdlib parse, no new
+dependency), or change `.env.example`'s first line and README step 1 to say
+"export these as environment variables". No UAT test can pin this (the repo is
+not under test here); the reproduction transcript is in
+`evidence/6.06-operator-surfaces.md`.
+
+---
