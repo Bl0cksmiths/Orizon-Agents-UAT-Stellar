@@ -23,4 +23,19 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
     const submitBox = await submit.boundingBox();
     expect(disclosureBox!.y).toBeLessThan(submitBox!.y);
   });
+
+  for (const refused of [
+    { kind: "plaintext", url: "http://example.com/dispatch", rule: "scheme_not_https" },
+    { kind: "private", url: "https://10.0.0.5/dispatch", rule: "non_public_address" },
+    { kind: "loopback", url: "https://localhost/dispatch", rule: "loopback_host" },
+  ]) {
+    test(`OS-06 a ${refused.kind} endpoint is refused before signing, naming its rule`, async ({ page }) => {
+      await page.goto("/app/bind");
+      await page.getByLabel("endpoint url").fill(refused.url);
+      const refusal = page.locator("#bind-endpoint-err");
+      await expect(refusal).toContainText(`rule: ${refused.rule}`, { timeout: 90_000 });
+      await expect(refusal).toHaveAttribute("role", "alert");
+      await expect(page.getByRole("button", { name: /Bind endpoint/ })).toBeDisabled();
+    });
+  }
 });
