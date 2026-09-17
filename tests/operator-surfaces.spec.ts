@@ -135,4 +135,19 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
       await expect(card.getByText("settled revenue", { exact: false })).toHaveCount(0);
     }
   });
+
+  test("OS-07 where the money would be, the dashboard names the escrow defect instead of a zero", async ({ page }) => {
+    // D-036: the deployed backend has no settlement route, so the panel can
+    // only report a failed lookup and the escrow explanation never renders.
+    // Remove the marker once GET /api/stellar/settlement/{id} answers 200.
+    test.fail();
+    test.setTimeout(180_000);
+    await stubWalletSession(page, { address: SEVERAL_AGENTS_OWNER });
+    await page.goto("/app/operator");
+    const card = page.locator("main li").filter({ has: page.getByText("w1_audit_a7x", { exact: true }) }).first();
+    await expect(card.getByText("Settlement", { exact: true })).toBeVisible({ timeout: 90_000 });
+    await expect(card.getByText("Why nothing settles", { exact: false })).toBeVisible({ timeout: 30_000 });
+    await expect(card).toContainText("This is a defect in the escrow contract, on the platform's side of the line.");
+    await expect(card).toContainText("It is not a measure of your agent, and not a signal about demand for it.");
+  });
 });
