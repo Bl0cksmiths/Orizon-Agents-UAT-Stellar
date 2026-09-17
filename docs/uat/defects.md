@@ -1892,3 +1892,42 @@ both.
 **Pinned by** `OS-06 an unresolvable endpoint is refused before signing, naming its rule` (`test.fail()`).
 
 ---
+
+## D-044 — My Agents shows catalog placeholders as facts: every on-chain agent is "online" with "runs 0"
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** OS-07 (story 2.06)
+
+**Failing Given/When/Then (story 6.06)** — *Given no wallet, a wallet owning
+nothing, and a wallet owning several agents, When each is opened, Then each
+should state its own situation accurately — and nothing on the page should claim
+more than the system actually knows.*
+
+**Steps to reproduce** — `/app/operator` with the session of
+`GBI2I3WL…AADBH` (owns `w1_audit_a7x`, `sign_probe_bb5c12`) and of
+`GBWMD26I…7BQJ` (owns `uat605_ext_op`).
+
+**Expected** — a status the system can back, or none.
+
+**Actual** (2026-09-17)
+
+- `w1_audit_a7x` and `sign_probe_bb5c12`: badge **`online`** next to
+  **`unbound`**. There is no endpoint for anything to be online at.
+- `uat605_ext_op`: badge **`online`** while its bound endpoint was a stopped
+  tunnel answering `530`; **`runs 0`** although the deployed service dispatched
+  to it eight times on 2026-09-17 (`evidence/6.05-external-dispatch.md` §6–§7).
+- `GET /api/agents` returns `"status":"online","runs":0` for all six on-chain
+  agents. The card renders those fields verbatim (`agent-card.tsx:70-71`); for
+  seeded catalog agents they are demo values, for on-chain agents nothing
+  computes them.
+
+**Impact** — the two figures an operator reads first to know whether their
+service is alive and used are constants. `online` for a dead endpoint is the
+opposite of what the operator needs to know.
+
+**Pinned by** `OS-07 an agent with no endpoint bound is not presented as online` (`test.fail()`).
+`runs` has no separate test: it cannot be asserted without a known dispatch
+count, which a restart erases (D-041).
+
+---
