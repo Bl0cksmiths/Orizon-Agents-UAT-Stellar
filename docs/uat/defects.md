@@ -1850,3 +1850,45 @@ not under test here); the reproduction transcript is in
 `evidence/6.06-operator-surfaces.md`.
 
 ---
+
+## D-043 — An unresolvable endpoint passes the preflight and is refused only after the owner has signed
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** OS-06 (story 2.01)
+
+**Failing Given/When/Then (story 6.06)** — *Given a plaintext, private, loopback
+or unresolvable endpoint, When it is submitted, Then it should be refused before
+anything is signed, with a message naming the rule it broke.*
+
+**Steps to reproduce**
+
+```
+curl -sG https://orizons.xyz/api/agents/bind/endpoint-check \
+  --data-urlencode "url=https://orizon-uat-no-such-host-605.invalid/dispatch"
+```
+
+**Expected** — `{"allowed":false,"rule":"unresolvable_host",…}`, and on
+`/app/bind` a refusal under the endpoint field with the bind button disabled.
+
+**Actual** — `{"allowed":true,"rule":null,"message":null}`, also for
+`https://nonexistent-subdomain-6x06.example.com/dispatch`. `/app/bind` shows
+`✓ endpoint allowed` and enables the button. The DNS check exists
+(`unresolvable_host` in `endpoint_policy.py`) but runs only inside
+`POST /api/agents/{id}/bind`, after the signature — so the owner signs, then is
+refused.
+
+Plaintext (`scheme_not_https`), private (`non_public_address`), loopback
+(`loopback_host`, and `non_public_address` for `127.0.0.1` / `[::1]`) and the
+metadata address are all refused before signing, naming the rule, as the
+criterion asks.
+
+**Why it is this way** — `binding.py`'s docstring orders the DNS check after
+authorization deliberately, *"so an anonymous caller cannot use this as a free
+resolver"*. That is a real concern; it trades against the criterion. A
+resolve-only preflight that returns just the rule (no addresses) would satisfy
+both.
+
+**Pinned by** `OS-06 an unresolvable endpoint is refused before signing, naming its rule` (`test.fail()`).
+
+---
