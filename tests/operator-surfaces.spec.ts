@@ -12,6 +12,10 @@ import { stubWalletSession } from "./fixtures";
 const TWO_SIGNATURES =
   "Listing an agent takes two signatures. This one is the on-chain registration transaction. Binding an endpoint afterwards takes a second, separate signature — a signed message that proves you own the agent. It moves no funds and costs no fee.";
 
+// Registered by earlier programme runs and never cleaned up: w1_audit_a7x and
+// sign_probe_bb5c12, both unbound.
+const SEVERAL_AGENTS_OWNER = "GBI2I3WLMP2Q6L26G7CBKRPP5WJ6G3GGYJHWALOJ7D6EBRGL5OZAADBH";
+
 test.describe("OS — operator surfaces (story 6.06)", () => {
   test("OS-03 the registration page explains both signatures before anything is clicked", async ({ page }) => {
     await page.goto("/app/register");
@@ -73,5 +77,24 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
     await expect(page.getByText("Ownership is read from the chain, not from this browser.", { exact: false })).toBeVisible();
     await expect(page.getByRole("link", { name: "Register an agent" }).or(page.getByRole("button", { name: "Register an agent" }))).toBeVisible();
     await expect(page.getByText("agents owned", { exact: false })).toHaveCount(0);
+  });
+
+  test("OS-07 a wallet owning several agents sees counts that match the registry and the bindings", async ({ page, request }) => {
+    test.setTimeout(240_000);
+    const owner = SEVERAL_AGENTS_OWNER;
+    const agents = (await (await request.get("/api/agents", { timeout: 90_000 })).json()) as { id: string; owner: string | null }[];
+    const owned = agents.filter((agent) => agent.owner === owner).map((agent) => agent.id);
+    expect(owned.length, "the fixture wallet must still own several agents").toBeGreaterThan(1);
+    let bound = 0;
+    for (const id of owned) {
+      if ((await request.get(`/api/agents/${id}/binding`, { timeout: 90_000 })).status() === 200) bound += 1;
+    }
+
+    await stubWalletSession(page, { address: owner });
+    await page.goto("/app/operator");
+    for (const id of owned) await expect(page.getByText(id, { exact: true }).first()).toBeVisible({ timeout: 90_000 });
+    const main = page.locator("main");
+    await expect(main).toContainText(new RegExp(`agents owned\\s*${owned.length}`, "i"));
+    await expect(main).toContainText(new RegExp(`endpoint bound\\s*${bound}\\s*of\\s*${owned.length}`, "i"));
   });
 });
