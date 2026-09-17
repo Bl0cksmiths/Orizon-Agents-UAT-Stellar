@@ -77,4 +77,16 @@ test.describe("EX — external agent dispatch (story 6.05)", () => {
     // Anonymous reads get the origin only; any https origin proves a binding exists.
     expect(binding.endpoint_url).toMatch(/^https:\/\/[^/]+$/);
   });
+
+  test("EX-02 EX-07 a matching intent is decomposed onto the bound external agent", async ({ request }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 2);
+    const response = await request.post("/api/orchestrator/decompose", {
+      timeout: COLD_START_TIMEOUT,
+      data: { intent: "Write a short haiku poem about the Stellar testnet" },
+    });
+    expect(response.status()).toBe(200);
+    const plan = await response.json();
+    const agentIds = (plan.steps as { agent_id: string }[]).map((step) => step.agent_id);
+    expect(agentIds, "offered to the planner, not merely listed").toContain(EX_AGENT_ID);
+  });
 });
