@@ -1690,3 +1690,47 @@ positive evidence either.
 tx in the trace and a `ReputationLedger` event for the agent.
 
 ---
+
+## D-039 — A buyer is never charged, and the run still reports `complete` with a `spent` that did not happen
+
+- **Severity:** Critical
+- **Status:** Open — known contract defect (`PaymentEscrow.charge` needs the payer's `require_auth()`, which only the settler's signature is present for); verified here, not re-diagnosed
+- **Affects:** EX-04, EX-05 (stories 2.02, 2.04)
+
+**Failing Given/When/Then (story 6.05)** — *Given the endpoint returns a valid
+result, When the run completes, Then the output should appear in the trace and
+artifact, and spent should include that step.* The first two clauses pass. The
+third passes literally and misleads: `spent` includes the step, and nobody paid.
+
+**Steps to reproduce** — `tsk_788c175e9dacb933` (single step) and
+`tsk_7aefc02aa3afae7c`, `tsk_8d326dbaabd6e65e` (two steps), each with a fresh
+payer authorization.
+
+**Expected** — `charge_tx` set, a `charged` event on `PaymentEscrow`, the
+payer's balance down by `spent`; or, if settlement cannot happen, a status that
+says so.
+
+**Actual**
+
+- Task: `"status": "complete"`, `"spent": 0.01` / `0.019`, `"charge_tx": null`,
+  `"proof_tx": null`.
+- Trace: the last line is `error · on-chain settlement failed`, after the
+  artifact line.
+- Chain: 0 `charged` events on `CBJPTMAP…525PI` across the run; payer
+  `GDJH…PKXJ` moved from 10000 to 9999.9481225 XLM — nine authorization fees
+  (≈0.0058 XLM each), nothing else. Owner `GBWM…7BQJ` unchanged since its
+  registration fee.
+
+So "the buyer was not charged for the failed step" (EX-05) is true, **for the
+wrong reason**: the buyer was not charged for any step.
+
+**Impact** — the buyer-facing number (`spent`) and status (`complete`) describe
+a settlement that did not happen; the only honest signal is one `error` trace
+line. An operator is never paid through the escrow.
+
+**Resolution path** — contract change (custody at `authorize`, or
+`transfer_from` against an allowance) — out of 6.05's scope, see the 2.04
+runbook's Settlement position. Until then, finalize with a status or field that
+distinguishes "delivered, unsettled" from "complete".
+
+---
