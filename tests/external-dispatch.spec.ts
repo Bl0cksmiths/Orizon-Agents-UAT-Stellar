@@ -97,4 +97,16 @@ test.describe("EX — external agent dispatch (story 6.05)", () => {
     const response = await request.get(`/api/stellar/settlement/${EX_AGENT_ID}`, { timeout: COLD_START_TIMEOUT });
     expect(response.status()).toBe(200);
   });
+
+  test("EX-02 the captured dispatch envelope carries the documented fields", () => {
+    // D-040: the deployed envelope has no deadline_ms. Re-capture a dispatch
+    // after the backend redeploys, then remove the marker.
+    test.fail();
+    const body = JSON.parse(rawBody.toString("utf8"));
+    expect(captured.headers["idempotency-key"]).toBe(body.dispatch_id);
+    expect(captured.headers["x-orizon-signature-version"]).toBe("orizon-dispatch:v1");
+    expect(body).toMatchObject({ v: 2, agent_id: EX_AGENT_ID, network: "testnet" });
+    expect(typeof body.ts).toBe("number");
+    expect(typeof body.deadline_ms).toBe("number");
+  });
 });
