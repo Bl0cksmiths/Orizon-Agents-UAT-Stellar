@@ -38,4 +38,14 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
       await expect(page.getByRole("button", { name: /Bind endpoint/ })).toBeDisabled();
     });
   }
+
+  test("OS-06 an unresolvable endpoint is refused before signing, naming its rule", async ({ page }) => {
+    // D-043: the preflight never resolves DNS, so an unresolvable host is
+    // allowed here and refused only by the bind itself, after the wallet has
+    // signed. Remove the marker when the refusal happens before the prompt.
+    test.fail();
+    await page.goto("/app/bind");
+    await page.getByLabel("endpoint url").fill("https://orizon-uat-no-such-host-606.invalid/dispatch");
+    await expect(page.locator("#bind-endpoint-err")).toContainText("rule: unresolvable_host", { timeout: 30_000 });
+  });
 });
