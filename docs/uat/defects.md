@@ -1983,10 +1983,13 @@ has no per-wallet capability check: both wallets stay in the picker on
 Transaction failed — Albedo does not support the "signMessage" function
 ```
 
-as an error, after the operator has already registered with that wallet (which
-works — registration is a transaction).
+as an error — possibly after the operator has already registered with that
+wallet, since registration is a transaction the kit does support for both.
+(That registration itself is still unverified for Albedo: its rows in
+`wallet-browser-matrix.md` are empty. Rabet is not a SOW §3.3 wallet at all,
+but the build offers it.)
 
-**Impact** — an Albedo or Rabet user can list an agent and then cannot make it
+**Impact** — an Albedo or Rabet user who registers cannot then make the agent
 routable, and the message calls it a failed transaction. Until the checklist
 confirms on a real browser, the SOW §3.3 claim for **binding** should name
 Freighter, xBull, LOBSTR and Hana only.
