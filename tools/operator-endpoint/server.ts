@@ -1,5 +1,6 @@
 import { appendFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { verifyDispatch } from "./verify-dispatch.ts";
 
 /**
  * Throwaway operator endpoint for story 6.05 — the external agent that the
@@ -17,6 +18,21 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 const PORT = Number(process.env.PORT ?? 8787);
 const CAPTURE_FILE = process.env.CAPTURE_FILE ?? "captures.jsonl";
+// Both pinned from configuration, per the operator guide: the signer from
+// GET /api/stellar/network fetched once, the URL as it was bound.
+const PINNED_SIGNER = process.env.PINNED_SIGNER ?? "";
+const BOUND_ENDPOINT_URL = process.env.BOUND_ENDPOINT_URL ?? "";
+
+function signatureCheck(req: IncomingMessage, rawBody: Buffer): boolean | null {
+  const signature = req.headers["x-orizon-signature"];
+  if (typeof signature !== "string" || !PINNED_SIGNER || !BOUND_ENDPOINT_URL) return null;
+  return verifyDispatch({
+    rawBody,
+    signatureBase64: signature,
+    pinnedSigner: PINNED_SIGNER,
+    boundEndpointUrl: BOUND_ENDPOINT_URL,
+  });
+}
 
 function readRawBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -34,6 +50,7 @@ function capture(req: IncomingMessage, rawBody: Buffer): void {
     url: req.url,
     headers: req.headers,
     raw_body_base64: rawBody.toString("base64"),
+    signature_verified: signatureCheck(req, rawBody),
   };
   appendFileSync(CAPTURE_FILE, JSON.stringify(record) + "\n");
 }
