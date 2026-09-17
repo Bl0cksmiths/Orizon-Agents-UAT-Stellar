@@ -164,4 +164,20 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
     await expect(page.getByText("Binding replaces the endpoint above.", { exact: false })).toBeVisible();
     await expect(page.getByRole("button", { name: /Replace endpoint/ })).toBeVisible();
   });
+
+  test.describe("OS-08 at a phone viewport (emulated — the real-phone pass is the checklist)", () => {
+    test.use({ viewport: { width: 360, height: 780 }, hasTouch: true });
+
+    for (const route of ["/app/bind?agent=uat605_ext_op", "/app/operator"]) {
+      test(`OS-08 ${route} fits the screen width with nothing cut off sideways`, async ({ page }) => {
+        test.setTimeout(180_000);
+        await stubWalletSession(page, { address: SEVERAL_AGENTS_OWNER });
+        await page.goto(route);
+        await expect(page.locator("main h1")).toBeVisible({ timeout: 90_000 });
+        await page.waitForLoadState("networkidle", { timeout: 90_000 }).catch(() => undefined);
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        expect(overflow, "horizontal scroll hides fields, messages or figures").toBeLessThanOrEqual(0);
+      });
+    }
+  });
 });
