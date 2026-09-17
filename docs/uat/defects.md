@@ -1550,3 +1550,249 @@ the floor into the badge: move the explanatory sentence onto the `Badge` as an
 `aria-label` assertion in `RF-14 every step of a floor-acted plan carries its own
 reputation badge, and the substituted and below-floor steps are flagged`, which
 fails loudly if the label changes.
+
+## D-036 — The deployed backend predates story 2.06: the settlement evidence route is missing
+
+- **Severity:** Blocker (for story 6.05's entry criterion)
+- **Status:** Open
+- **Affects:** EX-00 (6.05 precondition); every 6.05 result is therefore a result about the *old* build
+
+**Failing Given/When/Then (story 6.05, Preconditions)** — *"A deployed backend
+carrying them. Check this first: … confirm GET /api/stellar/settlement/{id}
+returns 200 rather than 404 before starting."*
+
+**Steps to reproduce** (2026-09-17T02:48Z)
+
+```
+curl -s https://orizons.xyz/api/stellar/settlement/abc
+```
+
+**Expected** — `200` with a `SettlementEvidence` body (route
+`app/routers/stellar.py:383` on backend `main`, added 2026-09-16 in
+`13b53e1 exposed the settlement evidence route`).
+
+**Actual** — the framework's generic route-miss:
+
+```json
+{"detail":"Not Found","error":{"code":"not_found","message":"Not Found","request_id":"233332118cbc4d5b"}}
+```
+
+A valid-pattern id (`abc` matches `^[A-Za-z0-9_]{1,32}$`) gets the same body,
+so this is not an unknown-agent 404 — the route is not mounted.
+
+**What *is* deployed** — the binding routes (`/api/agents/{id}/bind*`) and
+`dispatch_signer` on `/api/stellar/network`, so stories 2.01/2.02 are live. The
+run went ahead against that build by the product owner's decision, and every
+line of `evidence/6.05-external-dispatch.md` is labelled as describing it.
+
+**Impact** — Two of the three 6.05 defects below (D-037, D-038) are already
+fixed on backend `main` and still reproduce on the target. Same class as D-031;
+same missing tool as D-026 (no build identifier to tell which is which).
+
+**Resolution path** — Redeploy backend `main`, confirm the route answers 200,
+and re-run the 6.05 procedure in `evidence/6.05-external-dispatch.md`. Pinned
+by `EX-00 the settlement evidence route is deployed` (`test.fail()` until then).
+
+---
+
+## D-037 — On the deployed build every external failure reads the same: no failure class reaches the trace
+
+- **Severity:** Critical
+- **Status:** Open — fixed on backend `main` (`deb1320`, 2026-09-16), not deployed (D-036)
+- **Affects:** EX-05 (story 2.03)
+
+**Failing Given/When/Then (story 6.05)** — *Given a timeout, a refused
+connection, an oversize response and malformed JSON, When each is triggered,
+Then each should produce its own failure class in the trace, the workflow should
+continue, and the buyer should not be charged for the failed step.*
+
+The operator guide (`docs/operators/verifying-a-dispatch.md`, "When a dispatch
+fails, the buyer sees why") promises `external.<agent id> failed (<class>)`.
+
+**Steps to reproduce** — plan `pln_9b0d8421` (`agt_05x7` → `uat605_ext_op`),
+executed once per failure mode against the bound endpoint; full procedure in
+`evidence/6.05-external-dispatch.md`.
+
+**Expected** — six different trace lines: `(invalid_response)`,
+`(oversize_response)`, `(response_timeout)`, `(error_status)` for a proxy 502,
+`(error_status)` for a 530, `(no_connection)` for a refused port.
+
+**Actual** — the identical line in all six, with nothing after it:
+
+| case | task | trace line | at |
+| --- | --- | --- | --- |
+| malformed JSON | `tsk_95dcf7193c6d283d` | `external.uat605_ext_op failed` | 04.271 |
+| 2 MiB body | `tsk_2bdfa9d09615816c` | `external.uat605_ext_op failed` | 06.947 |
+| no answer | `tsk_e218509d84b39774` | `external.uat605_ext_op failed` | 102.940 |
+| origin down, tunnel up (502) | `tsk_1de17c1c6d80a0b9` | `external.uat605_ext_op failed` | 06.302 |
+| tunnel gone (530) | `tsk_4f975e5cc940914d` | `external.uat605_ext_op failed` | 03.659 |
+| refused TCP (`scanme.nmap.org:444`) | `tsk_bcf56ce4aa358947` | `external.uat605_ext_op failed` | 04.457 |
+
+Only elapsed time tells a timeout apart; nothing tells the other five apart.
+
+**What did hold** — the workflow continued in every case (`seo.brief` delivered,
+run finalized `failed` with `workflow incomplete — 1/2 agents produced output`),
+and `spent` was `0.009` — `agt_05x7`'s price only, the failed step excluded.
+
+**Impact** — the operator's only diagnostic is the class; without it the
+guide's fix table cannot be used, and an operator has to guess between "my JSON
+is wrong", "my body is too big" and "you cannot reach me".
+
+**Resolution path** — deploy `main`; re-run the six cases; each line should end
+in its class. `tests/test_dispatch_failure_taxonomy.py` on `main` covers it at
+unit level.
+
+---
+
+## D-038 — Non-delivery costs an external agent nothing: no rating reaches the chain, for failure or for success
+
+- **Severity:** Critical
+- **Status:** Open — fixed on backend `main` (ADR 0005 D2, rating no longer behind `if charge_tx and job_id`), not deployed (D-036)
+- **Affects:** EX-06 (story 2.03, whose premise is that non-delivery has a cost)
+
+**Failing Given/When/Then (story 6.05)** — *Given an external step that fails,
+When the run finalizes, Then record whether any rating reaches the chain. If
+none does, file it as a Bug against story 2.03.*
+
+**Steps to reproduce** — the eight runs in `evidence/6.05-external-dispatch.md`
+(two single-step successes, six failures), then:
+
+```
+curl -s https://orizons.xyz/api/stellar/reputation/uat605_ext_op
+# getEvents on ReputationLedger CDCSOBEV…422ZT, startLedger 4718140
+```
+
+**Expected** — after each failed run a low rating for `uat605_ext_op` on
+`ReputationLedger`, and `count` rising; after each delivered run a rating too.
+
+**Actual**
+
+- `GET /api/stellar/reputation/uat605_ext_op` before the first run and after the
+  last: `count 0`, `smoothed_bps 7000`, `source "prior"` — unchanged across all
+  eight runs.
+- Soroban RPC `getEvents` on `ReputationLedger` from ledger 4718140 (before the
+  registration) to 4718814 (after the last run): **0 events**.
+- `PaymentEscrow` over the same range: 9 `authd` events (one per payer
+  pre-authorization) and **0** `charged` events.
+- The settler account `GA7AI5TA…5OQV` submitted **0** transactions after
+  03:00Z on Horizon.
+
+No trace of any run carries a `reputation →` line. The gate is exactly as the
+story predicted: `charge_tx` is always falsy (D-039), so `_submit_ratings` is
+never reached.
+
+**Impact** — a dead endpoint keeps its cold-start prior (7000 bps, above the
+floor) indefinitely and stays routable; the planner kept offering
+`uat605_ext_op` after six consecutive failures. A delivering operator earns no
+positive evidence either.
+
+**Resolution path** — deploy `main`; re-run a failing case and expect a rating
+tx in the trace and a `ReputationLedger` event for the agent.
+
+---
+
+## D-039 — A buyer is never charged, and the run still reports `complete` with a `spent` that did not happen
+
+- **Severity:** Critical
+- **Status:** Open — known contract defect (`PaymentEscrow.charge` needs the payer's `require_auth()`, which only the settler's signature is present for); verified here, not re-diagnosed
+- **Affects:** EX-04, EX-05 (stories 2.02, 2.04)
+
+**Failing Given/When/Then (story 6.05)** — *Given the endpoint returns a valid
+result, When the run completes, Then the output should appear in the trace and
+artifact, and spent should include that step.* The first two clauses pass. The
+third passes literally and misleads: `spent` includes the step, and nobody paid.
+
+**Steps to reproduce** — `tsk_788c175e9dacb933` (single step) and
+`tsk_7aefc02aa3afae7c`, `tsk_8d326dbaabd6e65e` (two steps), each with a fresh
+payer authorization.
+
+**Expected** — `charge_tx` set, a `charged` event on `PaymentEscrow`, the
+payer's balance down by `spent`; or, if settlement cannot happen, a status that
+says so.
+
+**Actual**
+
+- Task: `"status": "complete"`, `"spent": 0.01` / `0.019`, `"charge_tx": null`,
+  `"proof_tx": null`.
+- Trace: the last line is `error · on-chain settlement failed`, after the
+  artifact line.
+- Chain: 0 `charged` events on `CBJPTMAP…525PI` across the run; payer
+  `GDJH…PKXJ` moved from 10000 to 9999.9481225 XLM — nine authorization fees
+  (≈0.0058 XLM each), nothing else. Owner `GBWM…7BQJ` unchanged since its
+  registration fee.
+
+So "the buyer was not charged for the failed step" (EX-05) is true, **for the
+wrong reason**: the buyer was not charged for any step.
+
+**Impact** — the buyer-facing number (`spent`) and status (`complete`) describe
+a settlement that did not happen; the only honest signal is one `error` trace
+line. An operator is never paid through the escrow.
+
+**Resolution path** — contract change (custody at `authorize`, or
+`transfer_from` against an allowance) — out of 6.05's scope, see the 2.04
+runbook's Settlement position. Until then, finalize with a status or field that
+distinguishes "delivered, unsettled" from "complete".
+
+---
+
+## D-040 — The deployed dispatch envelope carries no `deadline_ms`, which the operator guide tells operators to read
+
+- **Severity:** Major
+- **Status:** Open — present on backend `main` (`external_http.py:420`), not deployed (D-036)
+- **Affects:** EX-02, EX-05 (stories 2.02, 2.03)
+
+**Steps to reproduce** — decode `raw_body_base64` in
+`docs/uat/evidence/6.05/dispatch-ok.json`.
+
+**Expected** — per `docs/operators/verifying-a-dispatch.md`: *"must arrive
+within `deadline_ms`, the budget carried in the envelope … Read it from the body
+rather than hard-coding it"*.
+
+**Actual** — the signed body's keys are `v, agent_id, intent, rationale,
+context, dispatch_id, ts, network`. No `deadline_ms`. The effective budget,
+observed from the timeout case, is ≈100 s (`match agent` at 02.759, `failed` at
+102.940), and nothing tells the operator that.
+
+**Impact** — an operator following the guide has no budget to honour and must
+guess; a handler written as the guide says (`body.deadline_ms`) reads
+`undefined`. The UAT endpoint fell back to its own 120 s default.
+
+**Resolution path** — deploy `main`. Pinned by `EX-02 the captured dispatch
+envelope carries the documented fields`, `test.fail()` until a re-captured
+dispatch carries it.
+
+---
+
+## D-041 — A backend restart erases every buyer's task, trace and artifact; only the binding survives
+
+- **Severity:** Major
+- **Status:** Open — by design on `main` too (`app/state.py`: "state lives in this one process. Contents are lost on restart")
+- **Affects:** EX-07, EX-08 (stories 2.02, 2.04)
+
+**Steps to reproduce** — let the Render free-tier instance idle into a spin-down
+(observed: `uptime_seconds` 4055.1 at 03:56Z → 26.1 at 04:19Z), then:
+
+```
+curl -s https://orizons.xyz/api/tasks/tsk_8d326dbaabd6e65e      # completed at 03:58Z
+curl -s -X POST https://orizons.xyz/api/orchestrator/execute \
+  -H 'content-type: application/json' -d '{"plan_id":"pln_9b0d8421"}'
+```
+
+**Expected** — a completed task stays readable by its buyer; the artifact the
+buyer "paid" for (`spent 0.019`) can be fetched again.
+
+**Actual** — `404 unknown task: tsk_8d326dbaabd6e65e` and `404 unknown
+plan_id: pln_9b0d8421` (request `f8d90966d9f54af3`). The binding, in contrast,
+read back unchanged and the agent was still decomposed onto (EX-07 passes).
+
+**Impact** — on the free tier a restart follows any ~15-minute quiet period, so
+every task and trace this run produced was gone within 20 minutes of the last
+one. 6.05's evidence exists only because it was copied out at the time. A buyer
+reopening yesterday's run, or an operator asking "why did my step fail", gets
+404 — the same answer as a wrong task token.
+
+**Resolution path** — persist terminal tasks, traces and artifacts in the store
+the binding already uses; or keep the instance warm and say in the UI that
+history does not survive a restart.
+
+---
