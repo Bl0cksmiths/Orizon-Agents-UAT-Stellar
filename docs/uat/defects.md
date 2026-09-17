@@ -1643,3 +1643,50 @@ in its class. `tests/test_dispatch_failure_taxonomy.py` on `main` covers it at
 unit level.
 
 ---
+
+## D-038 — Non-delivery costs an external agent nothing: no rating reaches the chain, for failure or for success
+
+- **Severity:** Critical
+- **Status:** Open — fixed on backend `main` (ADR 0005 D2, rating no longer behind `if charge_tx and job_id`), not deployed (D-036)
+- **Affects:** EX-06 (story 2.03, whose premise is that non-delivery has a cost)
+
+**Failing Given/When/Then (story 6.05)** — *Given an external step that fails,
+When the run finalizes, Then record whether any rating reaches the chain. If
+none does, file it as a Bug against story 2.03.*
+
+**Steps to reproduce** — the eight runs in `evidence/6.05-external-dispatch.md`
+(two single-step successes, six failures), then:
+
+```
+curl -s https://orizons.xyz/api/stellar/reputation/uat605_ext_op
+# getEvents on ReputationLedger CDCSOBEV…422ZT, startLedger 4718140
+```
+
+**Expected** — after each failed run a low rating for `uat605_ext_op` on
+`ReputationLedger`, and `count` rising; after each delivered run a rating too.
+
+**Actual**
+
+- `GET /api/stellar/reputation/uat605_ext_op` before the first run and after the
+  last: `count 0`, `smoothed_bps 7000`, `source "prior"` — unchanged across all
+  eight runs.
+- Soroban RPC `getEvents` on `ReputationLedger` from ledger 4718140 (before the
+  registration) to 4718814 (after the last run): **0 events**.
+- `PaymentEscrow` over the same range: 9 `authd` events (one per payer
+  pre-authorization) and **0** `charged` events.
+- The settler account `GA7AI5TA…5OQV` submitted **0** transactions after
+  03:00Z on Horizon.
+
+No trace of any run carries a `reputation →` line. The gate is exactly as the
+story predicted: `charge_tx` is always falsy (D-039), so `_submit_ratings` is
+never reached.
+
+**Impact** — a dead endpoint keeps its cold-start prior (7000 bps, above the
+floor) indefinitely and stays routable; the planner kept offering
+`uat605_ext_op` after six consecutive failures. A delivering operator earns no
+positive evidence either.
+
+**Resolution path** — deploy `main`; re-run a failing case and expect a rating
+tx in the trace and a `ReputationLedger` event for the agent.
+
+---
