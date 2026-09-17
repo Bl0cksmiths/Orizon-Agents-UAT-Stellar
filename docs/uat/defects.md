@@ -1999,3 +1999,41 @@ Freighter, xBull, LOBSTR and Hana only.
 and mention it in the register page's two-signature disclosure.
 
 ---
+
+## D-047 — The README preflights and binds a root URL; the agent is configured for `/dispatch`; the signature needs them identical
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** OS-01 (story 2.04), `Orizon-Agents-Example-Agent-Stellar` at `38a9510`
+
+**Failing Given/When/Then (story 6.06)** — *Given a clean clone and no prior
+context, When the README is followed literally, Then each command should do what
+it says.*
+
+**Steps to reproduce** — read the README and `.env.example` in order, as an
+outsider would:
+
+| where | the URL it gives |
+| --- | --- |
+| README step 1, startup log | `bound endpoint http://127.0.0.1:8787/dispatch` |
+| README step 2, liveness curl | `https://YOUR-AGENT.onrender.com/` |
+| README step 3, preflight "before you spend a signature on it" | `…/endpoint-check?url=https://YOUR-AGENT.onrender.com/` — then *"paste the same URL you just preflighted"* |
+| `.env.example`, `ORIZON_ENDPOINT_URL` | `https://your-agent.onrender.com/dispatch` |
+| `agent.py:113` default | `http://127.0.0.1:8787/dispatch` |
+
+**Expected** — one URL, used everywhere.
+
+**Actual** — following step 3 literally binds `https://…onrender.com/`. Setting
+`ORIZON_ENDPOINT_URL` from `.env.example` (or `render.yaml`'s prompt, which
+gives no example) as `…/dispatch` makes every dispatch fail verification,
+because the signed message embeds the bound URL byte-for-byte. `.env.example`
+itself calls this *"the single most common setup mistake"*; the README walks the
+reader into it. The agent answers on any path, so the mismatch is invisible
+until the first real dispatch is refused with `401`.
+
+**Resolution path** — pick one (the root URL is simpler, since the agent serves
+any path) and use it in step 1's log, steps 2–3, `.env.example` and the
+`agent.py` default. Step 2 should also say to set `ORIZON_ENDPOINT_URL` and
+`ORIZON_SIGNER` in Render's prompt — it currently never mentions them.
+
+---
