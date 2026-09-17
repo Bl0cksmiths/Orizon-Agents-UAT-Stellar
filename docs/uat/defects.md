@@ -2070,3 +2070,38 @@ everything without complaint, so the pin binds Render only.
 laptops likely.
 
 ---
+
+## D-049 — The reference README says on-chain rating and attestation "work today"; on the deployed service neither happens
+
+- **Severity:** Major
+- **Status:** Open — true of backend `main` for ratings (ADR 0005 D2), not of the deployed build (D-036)
+- **Affects:** OS-01 (story 2.04)
+
+**Failing Given/When/Then (story 6.06)** — *Given a clean clone and no prior
+context, When the README is followed literally, Then each command should do what
+it says.* An outsider plans around the status section; it has to be as true as
+the commands.
+
+**The claim** — README, *Getting paid → Works today, end to end*: *"… executing
+it, and having the result rated on-chain in the reputation ledger … the
+orchestrator records the settlement attempt and seals an attestation against
+it."* And under *The one mistake*: an under-delivering response *"is rated
+**20 out of 100 on-chain**"*.
+
+**Actual, on orizons.xyz** — story 6.05 ran eight workflows through an external
+agent on 2026-09-17: 0 `ReputationLedger` events, reputation `count 0`
+throughout, `proof_tx null` on every task (`evidence/6.05-external-dispatch.md`
+§6–§8, D-038). No rating of any score, and no attestation, was written.
+
+The *Pending* paragraph on payouts is accurate and matches the dashboard's
+escrow note — that part should not change.
+
+**Impact** — an operator reading "works today" expects their reputation to move
+with their delivery and plans around the warning about the 20/100 rating; on
+the live service nothing they do moves it, good or bad.
+
+**Resolution path** — deploy backend `main` and re-check with a 6.05 re-run; or,
+until then, move rating and attestation from *Works today* to *Pending* with a
+pointer to D-038.
+
+---
