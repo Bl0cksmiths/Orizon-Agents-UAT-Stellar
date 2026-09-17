@@ -1594,3 +1594,52 @@ and re-run the 6.05 procedure in `evidence/6.05-external-dispatch.md`. Pinned
 by `EX-00 the settlement evidence route is deployed` (`test.fail()` until then).
 
 ---
+
+## D-037 — On the deployed build every external failure reads the same: no failure class reaches the trace
+
+- **Severity:** Critical
+- **Status:** Open — fixed on backend `main` (`deb1320`, 2026-09-16), not deployed (D-036)
+- **Affects:** EX-05 (story 2.03)
+
+**Failing Given/When/Then (story 6.05)** — *Given a timeout, a refused
+connection, an oversize response and malformed JSON, When each is triggered,
+Then each should produce its own failure class in the trace, the workflow should
+continue, and the buyer should not be charged for the failed step.*
+
+The operator guide (`docs/operators/verifying-a-dispatch.md`, "When a dispatch
+fails, the buyer sees why") promises `external.<agent id> failed (<class>)`.
+
+**Steps to reproduce** — plan `pln_9b0d8421` (`agt_05x7` → `uat605_ext_op`),
+executed once per failure mode against the bound endpoint; full procedure in
+`evidence/6.05-external-dispatch.md`.
+
+**Expected** — six different trace lines: `(invalid_response)`,
+`(oversize_response)`, `(response_timeout)`, `(error_status)` for a proxy 502,
+`(error_status)` for a 530, `(no_connection)` for a refused port.
+
+**Actual** — the identical line in all six, with nothing after it:
+
+| case | task | trace line | at |
+| --- | --- | --- | --- |
+| malformed JSON | `tsk_95dcf7193c6d283d` | `external.uat605_ext_op failed` | 04.271 |
+| 2 MiB body | `tsk_2bdfa9d09615816c` | `external.uat605_ext_op failed` | 06.947 |
+| no answer | `tsk_e218509d84b39774` | `external.uat605_ext_op failed` | 102.940 |
+| origin down, tunnel up (502) | `tsk_1de17c1c6d80a0b9` | `external.uat605_ext_op failed` | 06.302 |
+| tunnel gone (530) | `tsk_4f975e5cc940914d` | `external.uat605_ext_op failed` | 03.659 |
+| refused TCP (`scanme.nmap.org:444`) | `tsk_bcf56ce4aa358947` | `external.uat605_ext_op failed` | 04.457 |
+
+Only elapsed time tells a timeout apart; nothing tells the other five apart.
+
+**What did hold** — the workflow continued in every case (`seo.brief` delivered,
+run finalized `failed` with `workflow incomplete — 1/2 agents produced output`),
+and `spent` was `0.009` — `agt_05x7`'s price only, the failed step excluded.
+
+**Impact** — the operator's only diagnostic is the class; without it the
+guide's fix table cannot be used, and an operator has to guess between "my JSON
+is wrong", "my body is too big" and "you cannot reach me".
+
+**Resolution path** — deploy `main`; re-run the six cases; each line should end
+in its class. `tests/test_dispatch_failure_taxonomy.py` on `main` covers it at
+unit level.
+
+---
