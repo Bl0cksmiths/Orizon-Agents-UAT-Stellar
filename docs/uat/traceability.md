@@ -226,3 +226,19 @@ is re-checked live on every suite run.
 | EX-06 | run §8 — ReputationLedger `getEvents`, 0 events | **Fail** — D-038 against 2.03 |
 | EX-07 | `tests/external-dispatch.spec.ts` — the EX-01/EX-02 tests, re-run after the observed restart; run §9 | **Pass** — binding and routing survive; tasks do not (D-041) |
 | EX-08 | `evidence/6.05-external-dispatch.md`, `evidence/6.05/dispatch-ok.json` | **Pass** — 2.04 capture table filled on a local backend branch (backend push is 403, D-027) |
+
+## OS — operator surfaces (story 6.06)
+
+Deployed dApp, 2026-09-17. "Checklist" rows need a person with real wallet
+extensions and a real phone and have **not been run yet**.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| OS-01 | `evidence/6.06-operator-surfaces.md` §1 — clean-clone walk, transcripts | **Fail** — D-042, D-047, D-048, D-049; step 2 not walked (no Render account) |
+| OS-02 | `checklists/6.06-wallet-and-phone.md` B | **Pending** (checklist not run); D-046 from source |
+| OS-03 | `tests/operator-surfaces.spec.ts` — `OS-03 the registration page explains both signatures before anything is clicked` | **Pass** (deployed) |
+| OS-04 | `checklists/6.06-wallet-and-phone.md` A, B | **Pending** (checklist not run) |
+| OS-05 | `tests/operator-surfaces.spec.ts` — `OS-05 an already-bound agent shows the endpoint that reads back…`; 6.05 §2 API rebinds; checklist C | **Partial** — page and API pass; in-browser rebind pending |
+| OS-06 | `tests/operator-surfaces.spec.ts` — three `OS-06 a … endpoint is refused before signing` tests, and `OS-06 an unresolvable endpoint…` | **Partial** — 3 pass; unresolvable `test.fail()`, D-043 |
+| OS-07 | `tests/operator-surfaces.spec.ts` — no-wallet, owns-nothing, several-agents counts, failed-lookup-not-zero (pass); not-online `test.fail()` D-044; not-routable `test.fail()` D-045; escrow note `test.fail()` D-036 | **Partial** |
+| OS-08 | `tests/operator-surfaces.spec.ts` — two `OS-08 … fits the screen width` tests (emulated); checklist D | **Pending** — emulated width passes; real phone not run |
