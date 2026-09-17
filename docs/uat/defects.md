@@ -2037,3 +2037,36 @@ any path) and use it in step 1's log, steps 2–3, `.env.example` and the
 `ORIZON_SIGNER` in Render's prompt — it currently never mentions them.
 
 ---
+
+## D-048 — README step 1 does not run on Windows as written
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** OS-01 (story 2.04), `Orizon-Agents-Example-Agent-Stellar` at `38a9510`
+
+**Steps to reproduce** — Windows 11, Git Bash, Python 3.14.7 from python.org,
+clean clone:
+
+```
+$ python3 -m venv .venv && . .venv/bin/activate
+Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.
+exit=49
+```
+
+**Expected** — the commands, or a note for Windows.
+
+**Actual** — every `python3` in the README (steps 1 and 5, the smoke curl's
+`DISPATCH_ID` line, the test command) resolves to the Microsoft Store alias on a
+stock Windows install, and `.venv/bin/activate` is `.venv\Scripts\activate` there.
+The README's only environment note covers Debian, Ubuntu, Fedora and Homebrew.
+With `python` and `.venv/Scripts/activate` substituted, step 1 then works exactly
+as documented: `200` from the smoke curl, `37 passed` from the tests.
+
+Also: `.python-version` pins **3.12**; nothing checks it locally, and 3.14.7 ran
+everything without complaint, so the pin binds Render only.
+
+**Resolution path** — one line under step 1: *"On Windows use `python` and
+`.venv\Scripts\activate`."* The chapter-onboarding audience makes Windows
+laptops likely.
+
+---
