@@ -150,4 +150,18 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
     await expect(card).toContainText("This is a defect in the escrow contract, on the platform's side of the line.");
     await expect(card).toContainText("It is not a measure of your agent, and not a signal about demand for it.");
   });
+
+  test("OS-05 an already-bound agent shows the endpoint that reads back, and binding again replaces it", async ({ page, request }) => {
+    test.setTimeout(180_000);
+    // Bound in 6.05 and rebound twice there; the registry is the source of truth.
+    const binding = await (await request.get("/api/agents/uat605_ext_op/binding", { timeout: 90_000 })).json();
+    const host = new URL(binding.endpoint_url as string).host;
+
+    await stubWalletSession(page, { address: binding.owner as string });
+    await page.goto("/app/bind?agent=uat605_ext_op");
+    await expect(page.getByText(host, { exact: false }).first()).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByLabel("replacement endpoint url")).toBeVisible();
+    await expect(page.getByText("Binding replaces the endpoint above.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Replace endpoint/ })).toBeVisible();
+  });
 });
