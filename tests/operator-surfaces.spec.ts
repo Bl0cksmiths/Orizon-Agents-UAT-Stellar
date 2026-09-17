@@ -97,4 +97,16 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
     await expect(main).toContainText(new RegExp(`agents owned\\s*${owned.length}`, "i"));
     await expect(main).toContainText(new RegExp(`endpoint bound\\s*${bound}\\s*of\\s*${owned.length}`, "i"));
   });
+
+  test("OS-07 an agent with no endpoint bound is not presented as online", async ({ page }) => {
+    // D-044: the card's status badge reads the catalog's `status`, which is
+    // "online" for every on-chain agent, bound or not.
+    test.fail();
+    test.setTimeout(180_000);
+    await stubWalletSession(page, { address: SEVERAL_AGENTS_OWNER });
+    await page.goto("/app/operator");
+    const card = page.locator("main li").filter({ has: page.getByText("w1_audit_a7x", { exact: true }) }).first();
+    await expect(card.getByText("unbound", { exact: true })).toBeVisible({ timeout: 90_000 });
+    await expect(card.getByText("online", { exact: true })).toHaveCount(0);
+  });
 });
