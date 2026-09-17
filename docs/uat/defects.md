@@ -1931,3 +1931,30 @@ opposite of what the operator needs to know.
 count, which a restart erases (D-041).
 
 ---
+
+## D-045 — A card says "Not eligible" and, further down, that the same agent "is routable from the day it is registered"
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** OS-07 (story 2.06)
+
+**Steps to reproduce** — `/app/operator` as `GBI2I3WL…AADBH`; read the
+`w1_audit_a7x` card top to bottom.
+
+**Expected** — one answer to "can this agent be picked?".
+
+**Actual** — the Routing standing headline reads `✕ Not eligible — no endpoint is
+bound.`, and Gate 2's never-rated note on the same card ends: *"The prior is set
+above the floor deliberately, so an agent with no history is routable from the
+day it is registered."* That sentence is about the reputation gate only, but
+"routable" is the word the product uses for the whole verdict. It is rendered
+whenever `source === "prior"` (`routing-standing.tsx`), regardless of Gate 1.
+
+**Impact** — an operator who skims lands on the reassuring sentence. Say
+"clears the reputation floor from the day it is registered", or omit the
+sentence when Gate 1 fails.
+
+**Pinned by** `OS-07 a card that says its agent is not eligible does not also call it routable` (`test.fail()`).
+
+---
+
