@@ -1796,3 +1796,312 @@ the binding already uses; or keep the instance warm and say in the UI that
 history does not survive a restart.
 
 ---
+
+## D-042 — The reference agent never reads `.env`: a signer pinned there is silently ignored and unsigned dispatches are accepted
+
+- **Severity:** Critical
+- **Status:** Open
+- **Affects:** OS-01 (story 2.04), repository `Orizon-Agents-Example-Agent-Stellar` at `38a9510`
+
+**Failing Given/When/Then (story 6.06)** — *Given a clean clone and no prior
+context, When the README is followed literally, Then each command should do
+what it says — and every step that does not should be filed against story 2.04
+with the actual output.*
+
+**Steps to reproduce** — clean clone, then exactly what `.env.example` line 1
+says (*"Copy to .env and edit"*), pinning the signer the way its comment
+instructs:
+
+```
+cp .env.example .env
+# ORIZON_SIGNER=GB5MKHDFLJZ6OFPAHM7R4HGBUPFV5PZYL3W27VTIUZZ25JMQSDZBKCMR   (from GET /api/stellar/network)
+python agent.py
+curl -X POST http://localhost:8787/ -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: abcdef0123456789' -d '{"v":2,…,"dispatch_id":"abcdef0123456789","ts":<now>,"network":"testnet","deadline_ms":100000}'
+```
+
+**Expected** — the agent starts with the signer pinned and refuses the unsigned
+request, as README step 1 promises: *"pin a signer and they are refused"*.
+
+**Actual** (2026-09-17 14:08, no signature header sent)
+
+```
+WARNING orizon.agent ORIZON_SIGNER is not set: this agent will run UNVERIFIED dispatches. …
+INFO orizon.agent listening on http://127.0.0.1:8787 — bound endpoint http://127.0.0.1:8787/dispatch, network testnet, signature NOT CHECKED
+WARNING orizon.agent UNSIGNED dispatch accepted: ORIZON_SIGNER is not set, so anyone who can reach this endpoint can run this agent. …
+unsigned request with .env pinning a signer -> HTTP 200
+```
+
+`agent.py` reads configuration only through `os.environ.get` (`agent.py:100-120`);
+nothing loads `.env`, and `requirements.txt` has no dotenv package. README step
+1 even says *"With no `.env` present the agent accepts an unsigned envelope"*,
+implying the file is honoured.
+
+**Impact** — an operator who does what the example file says believes their
+endpoint refuses forged dispatches while it runs anyone's. The startup warning
+is the only signal. On Render the `render.yaml` prompts set real environment
+variables, so a deployment made through the Blueprint is not affected — a
+laptop, VPS or any non-Blueprint host is.
+
+**Resolution path** — either load `.env` in `agent.py` (stdlib parse, no new
+dependency), or change `.env.example`'s first line and README step 1 to say
+"export these as environment variables". No UAT test can pin this (the repo is
+not under test here); the reproduction transcript is in
+`evidence/6.06-operator-surfaces.md`.
+
+---
+
+## D-043 — An unresolvable endpoint passes the preflight and is refused only after the owner has signed
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** OS-06 (story 2.01)
+
+**Failing Given/When/Then (story 6.06)** — *Given a plaintext, private, loopback
+or unresolvable endpoint, When it is submitted, Then it should be refused before
+anything is signed, with a message naming the rule it broke.*
+
+**Steps to reproduce**
+
+```
+curl -sG https://orizons.xyz/api/agents/bind/endpoint-check \
+  --data-urlencode "url=https://orizon-uat-no-such-host-605.invalid/dispatch"
+```
+
+**Expected** — `{"allowed":false,"rule":"unresolvable_host",…}`, and on
+`/app/bind` a refusal under the endpoint field with the bind button disabled.
+
+**Actual** — `{"allowed":true,"rule":null,"message":null}`, also for
+`https://nonexistent-subdomain-6x06.example.com/dispatch`. `/app/bind` shows
+`✓ endpoint allowed` and enables the button. The DNS check exists
+(`unresolvable_host` in `endpoint_policy.py`) but runs only inside
+`POST /api/agents/{id}/bind`, after the signature — so the owner signs, then is
+refused.
+
+Plaintext (`scheme_not_https`), private (`non_public_address`), loopback
+(`loopback_host`, and `non_public_address` for `127.0.0.1` / `[::1]`) and the
+metadata address are all refused before signing, naming the rule, as the
+criterion asks.
+
+**Why it is this way** — `binding.py`'s docstring orders the DNS check after
+authorization deliberately, *"so an anonymous caller cannot use this as a free
+resolver"*. That is a real concern; it trades against the criterion. A
+resolve-only preflight that returns just the rule (no addresses) would satisfy
+both.
+
+**Pinned by** `OS-06 an unresolvable endpoint is refused before signing, naming its rule` (`test.fail()`).
+
+---
+
+## D-044 — My Agents shows catalog placeholders as facts: every on-chain agent is "online" with "runs 0"
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** OS-07 (story 2.06)
+
+**Failing Given/When/Then (story 6.06)** — *Given no wallet, a wallet owning
+nothing, and a wallet owning several agents, When each is opened, Then each
+should state its own situation accurately — and nothing on the page should claim
+more than the system actually knows.*
+
+**Steps to reproduce** — `/app/operator` with the session of
+`GBI2I3WL…AADBH` (owns `w1_audit_a7x`, `sign_probe_bb5c12`) and of
+`GBWMD26I…7BQJ` (owns `uat605_ext_op`).
+
+**Expected** — a status the system can back, or none.
+
+**Actual** (2026-09-17)
+
+- `w1_audit_a7x` and `sign_probe_bb5c12`: badge **`online`** next to
+  **`unbound`**. There is no endpoint for anything to be online at.
+- `uat605_ext_op`: badge **`online`** while its bound endpoint was a stopped
+  tunnel answering `530`; **`runs 0`** although the deployed service dispatched
+  to it eight times on 2026-09-17 (`evidence/6.05-external-dispatch.md` §6–§7).
+- `GET /api/agents` returns `"status":"online","runs":0` for all six on-chain
+  agents. The card renders those fields verbatim (`agent-card.tsx:70-71`); for
+  seeded catalog agents they are demo values, for on-chain agents nothing
+  computes them.
+
+**Impact** — the two figures an operator reads first to know whether their
+service is alive and used are constants. `online` for a dead endpoint is the
+opposite of what the operator needs to know.
+
+**Pinned by** `OS-07 an agent with no endpoint bound is not presented as online` (`test.fail()`).
+`runs` has no separate test: it cannot be asserted without a known dispatch
+count, which a restart erases (D-041).
+
+---
+
+## D-045 — A card says "Not eligible" and, further down, that the same agent "is routable from the day it is registered"
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** OS-07 (story 2.06)
+
+**Steps to reproduce** — `/app/operator` as `GBI2I3WL…AADBH`; read the
+`w1_audit_a7x` card top to bottom.
+
+**Expected** — one answer to "can this agent be picked?".
+
+**Actual** — the Routing standing headline reads `✕ Not eligible — no endpoint is
+bound.`, and Gate 2's never-rated note on the same card ends: *"The prior is set
+above the floor deliberately, so an agent with no history is routable from the
+day it is registered."* That sentence is about the reputation gate only, but
+"routable" is the word the product uses for the whole verdict. It is rendered
+whenever `source === "prior"` (`routing-standing.tsx`), regardless of Gate 1.
+
+**Impact** — an operator who skims lands on the reassuring sentence. Say
+"clears the reputation floor from the day it is registered", or omit the
+sentence when Gate 1 fails.
+
+**Pinned by** `OS-07 a card that says its agent is not eligible does not also call it routable` (`test.fail()`).
+
+---
+
+
+## D-046 — Albedo and Rabet are offered on the bind page but cannot sign the bind message
+
+- **Severity:** Major
+- **Status:** Open — from source; confirmation on a real browser is checklist section B
+- **Affects:** OS-02 (story 2.01; SOW §3.3 wallet claim)
+
+**Failing Given/When/Then (story 6.06)** — *Given each wallet named in SOW §3.3,
+When an endpoint is bound, Then it should succeed — or the wallet's inability to
+sign messages should be documented, with the SOW claim corrected to match.*
+
+**Evidence** — `@creit.tech/stellar-wallets-kit` 2.1.0 (frontend `package.json`
+pins `^2.1.0`; 2.1.0 is what its checkout installs). In
+`esm/sdk/modules/`, Freighter (`freighter.module.js:122`), xBull (`:73`),
+LOBSTR (`:72`) and Hana (`:82`) implement `signMessage`; Albedo
+(`albedo.module.js:80-83`) and Rabet (`rabet.module.js:84-87`) reject with
+`'Albedo does not support the "signMessage" function'` and the Rabet
+equivalent. The deployed bundle's resolved version was not inspected. The frontend
+has no per-wallet capability check: both wallets stay in the picker on
+`/app/bind`, and `classifyError` matches none of its patterns, so the page shows
+
+```
+Transaction failed — Albedo does not support the "signMessage" function
+```
+
+as an error — possibly after the operator has already registered with that
+wallet, since registration is a transaction the kit does support for both.
+(That registration itself is still unverified for Albedo: its rows in
+`wallet-browser-matrix.md` are empty. Rabet is not a SOW §3.3 wallet at all,
+but the build offers it.)
+
+**Impact** — an Albedo or Rabet user who registers cannot then make the agent
+routable, and the message calls it a failed transaction. Until the checklist
+confirms on a real browser, the SOW §3.3 claim for **binding** should name
+Freighter, xBull, LOBSTR and Hana only.
+
+**Resolution path** — hide or disable wallets without `signMessage` on
+`/app/bind` (or say "this wallet can register but not bind" before the prompt),
+and mention it in the register page's two-signature disclosure.
+
+---
+
+## D-047 — The README preflights and binds a root URL; the agent is configured for `/dispatch`; the signature needs them identical
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** OS-01 (story 2.04), `Orizon-Agents-Example-Agent-Stellar` at `38a9510`
+
+**Failing Given/When/Then (story 6.06)** — *Given a clean clone and no prior
+context, When the README is followed literally, Then each command should do what
+it says.*
+
+**Steps to reproduce** — read the README and `.env.example` in order, as an
+outsider would:
+
+| where | the URL it gives |
+| --- | --- |
+| README step 1, startup log | `bound endpoint http://127.0.0.1:8787/dispatch` |
+| README step 2, liveness curl | `https://YOUR-AGENT.onrender.com/` |
+| README step 3, preflight "before you spend a signature on it" | `…/endpoint-check?url=https://YOUR-AGENT.onrender.com/` — then *"paste the same URL you just preflighted"* |
+| `.env.example`, `ORIZON_ENDPOINT_URL` | `https://your-agent.onrender.com/dispatch` |
+| `agent.py:113` default | `http://127.0.0.1:8787/dispatch` |
+
+**Expected** — one URL, used everywhere.
+
+**Actual** — following step 3 literally binds `https://…onrender.com/`. Setting
+`ORIZON_ENDPOINT_URL` from `.env.example` (or `render.yaml`'s prompt, which
+gives no example) as `…/dispatch` makes every dispatch fail verification,
+because the signed message embeds the bound URL byte-for-byte. `.env.example`
+itself calls this *"the single most common setup mistake"*; the README walks the
+reader into it. The agent answers on any path, so the mismatch is invisible
+until the first real dispatch is refused with `401`.
+
+**Resolution path** — pick one (the root URL is simpler, since the agent serves
+any path) and use it in step 1's log, steps 2–3, `.env.example` and the
+`agent.py` default. Step 2 should also say to set `ORIZON_ENDPOINT_URL` and
+`ORIZON_SIGNER` in Render's prompt — it currently never mentions them.
+
+---
+
+## D-048 — README step 1 does not run on Windows as written
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** OS-01 (story 2.04), `Orizon-Agents-Example-Agent-Stellar` at `38a9510`
+
+**Steps to reproduce** — Windows 11, Git Bash, Python 3.14.7 from python.org,
+clean clone:
+
+```
+$ python3 -m venv .venv && . .venv/bin/activate
+Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.
+exit=49
+```
+
+**Expected** — the commands, or a note for Windows.
+
+**Actual** — every `python3` in the README (steps 1 and 5, the smoke curl's
+`DISPATCH_ID` line, the test command) resolves to the Microsoft Store alias on a
+stock Windows install, and `.venv/bin/activate` is `.venv\Scripts\activate` there.
+The README's only environment note covers Debian, Ubuntu, Fedora and Homebrew.
+With `python` and `.venv/Scripts/activate` substituted, step 1 then works exactly
+as documented: `200` from the smoke curl, `37 passed` from the tests.
+
+Also: `.python-version` pins **3.12**; nothing checks it locally, and 3.14.7 ran
+everything without complaint, so the pin binds Render only.
+
+**Resolution path** — one line under step 1: *"On Windows use `python` and
+`.venv\Scripts\activate`."* The chapter-onboarding audience makes Windows
+laptops likely.
+
+---
+
+## D-049 — The reference README says on-chain rating and attestation "work today"; on the deployed service neither happens
+
+- **Severity:** Major
+- **Status:** Open — true of backend `main` for ratings (ADR 0005 D2), not of the deployed build (D-036)
+- **Affects:** OS-01 (story 2.04)
+
+**Failing Given/When/Then (story 6.06)** — *Given a clean clone and no prior
+context, When the README is followed literally, Then each command should do what
+it says.* An outsider plans around the status section; it has to be as true as
+the commands.
+
+**The claim** — README, *Getting paid → Works today, end to end*: *"… executing
+it, and having the result rated on-chain in the reputation ledger … the
+orchestrator records the settlement attempt and seals an attestation against
+it."* And under *The one mistake*: an under-delivering response *"is rated
+**20 out of 100 on-chain**"*.
+
+**Actual, on orizons.xyz** — story 6.05 ran eight workflows through an external
+agent on 2026-09-17: 0 `ReputationLedger` events, reputation `count 0`
+throughout, `proof_tx null` on every task (`evidence/6.05-external-dispatch.md`
+§6–§8, D-038). No rating of any score, and no attestation, was written.
+
+The *Pending* paragraph on payouts is accurate and matches the dashboard's
+escrow note — that part should not change.
+
+**Impact** — an operator reading "works today" expects their reputation to move
+with their delivery and plans around the warning about the 20/100 rating; on
+the live service nothing they do moves it, good or bad.
+
+**Resolution path** — deploy backend `main` and re-check with a 6.05 re-run; or,
+until then, move rating and attestation from *Works today* to *Pending* with a
+pointer to D-038.
+
+---
