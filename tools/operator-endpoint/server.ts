@@ -66,11 +66,36 @@ function validResult(): string {
   });
 }
 
+type Mode = "ok" | "timeout" | "oversize" | "malformed";
+const MODES: readonly Mode[] = ["ok", "timeout", "oversize", "malformed"];
+let mode: Mode = "ok";
+
+// Past the backend's 1 MiB response cap, so the body is cut off unread.
+const OVERSIZE_BYTES = 2 * 1024 * 1024;
+
+function deadlineMs(rawBody: Buffer): number {
+  try {
+    const value = (JSON.parse(rawBody.toString("utf8")) as { deadline_ms?: unknown }).deadline_ms;
+    return typeof value === "number" ? value : 120_000;
+  } catch {
+    return 120_000;
+  }
+}
+
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const rawBody = await readRawBody(req);
   capture(req, rawBody);
+  if (mode === "timeout") {
+    await new Promise((resolve) => setTimeout(resolve, deadlineMs(rawBody) + 15_000));
+  }
   res.writeHead(200, { "content-type": "application/json" });
-  res.end(validResult());
+  if (mode === "oversize") {
+    res.end(JSON.stringify({ summary: "x".repeat(OVERSIZE_BYTES) }));
+  } else if (mode === "malformed") {
+    res.end('{"summary": "unterminated');
+  } else {
+    res.end(validResult());
+  }
 }
 
 createServer((req, res) => {
@@ -80,3 +105,13 @@ createServer((req, res) => {
     res.end();
   });
 }).listen(PORT, () => process.stdout.write(`operator endpoint listening on ${PORT}\n`));
+
+// Failure-mode switch. Loopback only and on its own port, so the tunnel —
+// which forwards PORT alone — never exposes it: POST /mode/<mode>.
+createServer((req, res) => {
+  const requested = req.method === "POST" ? req.url?.replace(/^\/mode\//, "") : undefined;
+  const next = MODES.find((candidate) => candidate === requested);
+  if (next) mode = next;
+  res.writeHead(next ? 200 : 400, { "content-type": "text/plain" });
+  res.end(`mode=${mode}\n`);
+}).listen(Number(process.env.CONTROL_PORT ?? PORT + 1), "127.0.0.1");
