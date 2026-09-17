@@ -41,4 +41,13 @@ test.describe("EX — external agent dispatch (story 6.05)", () => {
       verifyDispatch({ rawBody, signatureBase64: signature, pinnedSigner, boundEndpointUrl: captured.bound_endpoint_url }),
     ).toBe(true);
   });
+
+  test("EX-03 a tampered body fails verification", async ({ request }) => {
+    const pinnedSigner = await publishedSigner(request);
+    const tampered = Buffer.from(rawBody.toString("utf8").replace('"network":"testnet"', '"network":"mainnet"'));
+    expect(tampered.equals(rawBody), "the tamper must actually change the bytes").toBe(false);
+    expect(
+      verifyDispatch({ rawBody: tampered, signatureBase64: signature, pinnedSigner, boundEndpointUrl: captured.bound_endpoint_url }),
+    ).toBe(false);
+  });
 });
