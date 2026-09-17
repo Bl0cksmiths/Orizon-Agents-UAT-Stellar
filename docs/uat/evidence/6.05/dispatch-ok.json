@@ -1,0 +1,46 @@
+{
+  "note": "Story 6.05 - first real dispatch from the deployed service (orizons.xyz) to the bound operator endpoint, recorded by tools/operator-endpoint/server.ts before any parsing. raw_body_base64 is the body byte-for-byte.",
+  "bound_endpoint_url": "https://couples-experimental-saved-job.trycloudflare.com/dispatch",
+  "task_id": "tsk_788c175e9dacb933",
+  "received_at": "2026-09-17T03:16:02.327Z",
+  "method": "POST",
+  "url": "/dispatch",
+  "headers": {
+    "host": "couples-experimental-saved-job.trycloudflare.com",
+    "user-agent": "orizon-orchestrator/1",
+    "content-length": "302",
+    "accept": "*/*",
+    "accept-encoding": "gzip",
+    "cdn-loop": "cloudflare; loops=1; subreqs=1",
+    "cf-connecting-ip": "74.220.52.251",
+    "cf-ew-via": "15",
+    "cf-ipcountry": "SG",
+    "cf-ray": "a3c4f3025e57fdc5-HKG",
+    "cf-visitor": "{\"scheme\":\"https\"}",
+    "cf-warp-tag-id": "97835ca7-c313-46f2-8734-34790c4a0e08",
+    "cf-worker": "trycloudflare.com",
+    "connection": "keep-alive",
+    "content-type": "application/json",
+    "idempotency-key": "5e060fe570aef67c",
+    "x-forwarded-for": "74.220.52.251",
+    "x-forwarded-proto": "https",
+    "x-orizon-signature": "LEr2IkmnRigqgJJvYQWmRvFmYw0QXv0hH/ilHPP/fOlC8quH1AzSeLGjDK31d+b14MLtwqhx4tILiDBG5bdGDg==",
+    "x-orizon-signature-version": "orizon-dispatch:v1",
+    "x-orizon-signer": "GB5MKHDFLJZ6OFPAHM7R4HGBUPFV5PZYL3W27VTIUZZ25JMQSDZBKCMR"
+  },
+  "raw_body_base64": "eyJ2IjoyLCJhZ2VudF9pZCI6InVhdDYwNV9leHRfb3AiLCJpbnRlbnQiOiJXcml0ZSBhIHNob3J0IGhhaWt1IHBvZW0gYWJvdXQgdGhlIFN0ZWxsYXIgdGVzdG5ldCIsInJhdGlvbmFsZSI6IlNwZWNpYWxpemVkIGluIGNyYWZ0aW5nIGhhaWt1IHBvZXRyeS4iLCJjb250ZXh0Ijp7ImtpdCI6bnVsbCwiaW50ZW50IjoiV3JpdGUgYSBzaG9ydCBoYWlrdSBwb2VtIGFib3V0IHRoZSBTdGVsbGFyIHRlc3RuZXQifSwiZGlzcGF0Y2hfaWQiOiI1ZTA2MGZlNTcwYWVmNjdjIiwidHMiOjE3ODk2MTQ5NTUsIm5ldHdvcmsiOiJ0ZXN0bmV0In0=",
+  "signature_verified": true,
+  "body_decoded": {
+    "v": 2,
+    "agent_id": "uat605_ext_op",
+    "intent": "Write a short haiku poem about the Stellar testnet",
+    "rationale": "Specialized in crafting haiku poetry.",
+    "context": {
+      "kit": null,
+      "intent": "Write a short haiku poem about the Stellar testnet"
+    },
+    "dispatch_id": "5e060fe570aef67c",
+    "ts": 1789614955,
+    "network": "testnet"
+  }
+}

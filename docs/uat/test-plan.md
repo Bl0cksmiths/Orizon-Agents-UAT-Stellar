@@ -643,3 +643,163 @@ below the routing floor and the two deciding numbers.
 decomposed, Then it is absent from the planner's `AVAILABLE_AGENTS` block, and
 is absent from the returned plan even if the model names it anyway.
 
+### The boundary is tested exactly
+
+**RF-06** — Given an agent whose Wilson lower bound is exactly
+`REPUTATION_FLOOR_BPS`, When the floor is evaluated, Then it passes. The
+comparison is `>=`; an agent sitting precisely on the line is in, not out.
+
+**RF-07** — Given an agent one basis point above the floor, When the floor is
+evaluated, Then it passes.
+
+**RF-08** — Given an agent one basis point below the floor, When the floor is
+evaluated, Then it fails — and the same agent, tested through a full decompose
+on both paths, is kept out of the plan. A boundary that holds in the arithmetic
+but not in the planner is not a boundary.
+
+### An outage fails open, visibly
+
+**RF-09** — Given Soroban RPC is unreachable for every agent in the batch, When
+a plan is built, Then every agent falls back to the Bayesian prior, each marked
+`degraded: true`, and the decompose still returns a plan rather than an error.
+
+**RF-10** — Given that outage, When the batch degrades, Then **exactly one**
+WARNING is logged for the whole batch — not one per agent — and the line names
+the affected agents, the failure reason, and which way the floor is failing
+with both deciding numbers.
+
+**RF-11** — Given that outage, When the resulting plan reaches the client, Then
+the client can tell the outage apart from a genuine cold start. `source:
+"prior"` reports both states identically, so the degraded signal must survive
+onto the response the plan card reads.
+
+### The backstop is disclosed when it fires
+
+**RF-12** — Given most agents fall below the floor, When a demo-kit plan is
+built, Then the `_MIN_ROUTABLE_AGENTS` backstop re-admits the strongest dropped
+agents, each re-admitted step is flagged, and the response states the floor was
+relaxed and why.
+
+**RF-13** — Given the same registry state, When a free-form plan is built, Then
+the backstop keeps the planner supplied with agents **and** the response
+discloses that the floor was relaxed. A relaxation the buyer cannot see is the
+silent reshuffle story 3.02 exists to prevent.
+
+### What the buyer sees, and what the operator is warned about
+
+**RF-14** — Given a plan whose shape the floor changed, When the plan card
+renders, Then a single frame shows, for every step, the agent's reputation and
+whether it came from the chain or the prior; and, for every floor action, the
+agent named, the action taken, and the reason including the applied floor in
+basis points.
+
+**RF-15** — Given `REPUTATION_FLOOR_BPS` configured above the prior's own lower
+bound, When the backend starts, Then it logs a warning naming both numbers and
+stating the consequence — that no new agent can ever be routed, because a
+cold-start agent scores exactly the prior. Config that silently bricks
+permissionless onboarding must not start quietly.
+
+**RF-16** — Given an agent that completes settled workflows, When ratings are
+submitted for those steps, Then its reputation moves in the direction the
+delivered work justifies: an agent that ships artifacts gains, an agent whose
+steps produce no output loses, and the movement is bounded by the evidence
+weight of the settled value rather than by the number of runs.
+
+**RF-17** — Given a plan showing per-agent reputation alongside an excluded
+sub-floor agent, When the evidence screenshot is captured, Then one frame
+satisfies SOW §6.1 Deliverable 2, and the evidence index records the image, the
+exact intent, the reputation state behind it, and how that state was produced.
+Evidence that does not say how it was made is not evidence.
+
+**RF-16 execution note — verified live as far as it can be, then at the service
+level.** A full workflow was run against the live testnet target on 2026-09-12
+(`calculator web app` → `tsk_9c1d3dbc25edcce8`, 6 agents, 0.168 USDC, status
+`complete`). Reputation did **not** move, and that is correct: `_submit_ratings`
+in `execution_svc.py` runs only when `_settle_onchain` returned a `charge_tx`
+and a `job_id`, which requires a wallet-signed x402 authorization. A simulated
+run settles no money, so it mints no reputation — reputation is a record of
+settled economic history, exactly as `reputation_svc.py` claims.
+
+The consequence for this programme is that the *direction of travel* cannot be
+observed end to end from UAT, for the same structural reason RE-03/RE-04 are
+blocked: it needs a funded wallet and a human at a signing prompt, and the
+suite deliberately holds no key. RF-16 is therefore verified where the decision
+is actually made — `synthetic_rating` and the smoothing/lower-bound chain it
+feeds — and recorded as partially blocked rather than claimed as an end-to-end
+pass.
+
+
+## Acceptance criteria — EX, external agent execution path (story 6.05, verifies 2.01–2.04)
+
+One real external agent, driven from registration through dispatch to a rated
+result, **against the deployed service** — never localhost, and never through
+the stubbed HTTP seam the 2.0x unit tests use. Testnet only.
+
+This is the one section of the plan that needs signing keys, so it does not run
+from CI. The on-chain half is a recorded run with throwaway friendbot-funded
+keys (`docs/uat/evidence/6.05-external-dispatch.md`); what can be re-checked
+without a key — the signature, the binding, routing, the entry route — is
+re-checked live by `tests/external-dispatch.spec.ts`. The operator endpoint is
+`tools/operator-endpoint/server.ts`, which records each request byte-for-byte
+before parsing and can be switched into each failure mode from loopback.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| EX-00 | 6.05's precondition | `GET /api/stellar/settlement/{id}` on the target | `200`, not the framework 404 — the backend carries 2.06 |
+| EX-01 | a wallet you control, funded on testnet | it registers an agent and signs a bind challenge for an HTTPS endpoint you control | the registration tx succeeds, and `GET /api/agents/{id}/binding` reads the binding back with that owner |
+| EX-02 | the bound agent | an intent matching its skills is decomposed | the agent is a step of the plan — offered to the planner, not merely listed — and the captured envelope carries the documented fields |
+| EX-03 | a received dispatch and the signer at `GET /api/stellar/network` | it is verified with the operator guide's recipe | it verifies; a tampered body and the same signature against a different endpoint URL both fail |
+| EX-04 | the endpoint returns a valid result | the run completes | the output appears in the trace and the artifact, and `spent` includes that step |
+| EX-05 | a timeout, a refused connection, an oversize response and malformed JSON | each is triggered | each produces its own failure class in the trace, the workflow continues, and the buyer is not charged for the failed step |
+| EX-06 | an external step that fails | the run finalizes | a rating for the agent reaches `ReputationLedger` and its score moves — non-delivery has a cost (2.03) |
+| EX-07 | a bound agent | the backend restarts | the binding still reads back and the agent is still decomposed onto |
+| EX-08 | the completed run | the evidence is filed | it holds the registration tx, the binding, the raw dispatch, the verification output, the traces and every tx hash, and fills the 2.04 runbook's capture table |
+
+**How the failure modes are produced.** Malformed, oversize and timeout are
+endpoint modes. A refused connection cannot be produced through a tunnel — a
+down origin behind one answers with a proxy 502, a removed tunnel with a
+Cloudflare 530 — so both of those were run *and* a genuine TCP refusal was
+produced by binding to `https://scanme.nmap.org:444/dispatch`, a host published
+for exactly this kind of test traffic.
+
+**What "restart" means here.** Nobody on this programme can restart the Render
+service. The free tier restarts it after ~15 idle minutes; EX-07 is observed
+across one of those, proven by `/api/health` `uptime_seconds` resetting.
+
+## Acceptance criteria — OS, operator surfaces: reference agent, binding flow, dashboard (story 6.06, verifies 2.01 / 2.04 / 2.05 / 2.06)
+
+6.01's treatment applied to the second signature. Registration is a
+transaction (`signTransaction`); binding is a signed message (`signMessage`),
+and wallets differ far more on the second. A wallet that registers but cannot
+bind is a finding, not something to work around.
+
+Three surfaces, three kinds of verification:
+
+- **What a page shows without a wallet prompt** — disclosure copy, endpoint
+  refusals, dashboard states, emulated phone width — is asserted live by
+  `tests/operator-surfaces.spec.ts`, with a wallet *session* stubbed where a
+  connected address is needed (it cannot sign).
+- **What needs a real wallet prompt or a real phone** is run by a person from
+  `docs/uat/checklists/6.06-wallet-and-phone.md`.
+- **The reference agent** is walked from a clean clone on a laptop, literally,
+  and recorded in `evidence/6.06-operator-surfaces.md`.
+
+"No earnings" on the dashboard is expected and is not a defect: zero customer
+payments have ever settled. What is tested is whether the page says so honestly.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| OS-01 | a clean clone of the reference agent and no prior context | its README is followed literally | each command does what it says; each that does not is filed against 2.04 with its output |
+| OS-02 | each wallet named in SOW §3.3 | an endpoint is bound | it succeeds, or the wallet's inability to sign messages is documented and the SOW claim corrected |
+| OS-03 | the registration page | it is read before anything is signed | it already says listing takes two signatures and what the second is for |
+| OS-04 | any wallet, at either prompt | the signature is rejected | every form value survives and the message is neutral, not an error |
+| OS-05 | an agent already bound | it is bound to a different endpoint | the change succeeds and the new endpoint is what reads back, in the API and on the page |
+| OS-06 | a plaintext, private, loopback or unresolvable endpoint | it is submitted | it is refused before anything is signed, with a message naming the rule |
+| OS-07 | no wallet, a wallet owning nothing, a wallet owning several agents | each is opened on `/app/operator` | each states its own situation accurately, and no sentence claims more than the system knows |
+| OS-08 | a real phone | the binding flow and the dashboard are used | every field, message and figure is usable and legible |
+
+**Fixture wallets for OS-07** — never cleaned up, all testnet: no agents
+`GDJHP2I6…PKXJ` (6.05 payer); several unbound `GBI2I3WL…ADBH`
+(`w1_audit_a7x`, `sign_probe_bb5c12`); one bound `GBWMD26I…7BQJ`
+(`uat605_ext_op`). The spec re-derives counts from `/api/agents` and the binding
+reads on every run rather than hard-coding them.

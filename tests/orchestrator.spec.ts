@@ -226,7 +226,7 @@ test.describe("Orchestrator decompose result", () => {
       // before authorizing spend.
       const priceMatch = text.match(/(\d+\.\d{3})\s*·\s*\d+\.\d+s/);
       expect(priceMatch, `step ${i} should render a price · eta`).toBeTruthy();
-      sumOfSteps += parseFloat(priceMatch![1]);
+      sumOfSteps += parseFloat(priceMatch![1]!);
 
       // Rationale: whatever text sits between "→" and the trailing price
       // block must be non-empty — an empty rationale is a silently broken

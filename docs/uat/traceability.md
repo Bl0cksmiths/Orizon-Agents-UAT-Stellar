@@ -176,3 +176,69 @@ RE-03 and RE-04 cannot be automated even after the flip: they need a funded
 external wallet and an unaided human. See also D-022 — following the flip
 runbook exactly would leave `orizon_batch` unregistered on testnet, so the
 settlement half of this journey would fail at charge time.
+
+## RF — reputation floor and routing boundaries (story 6.02)
+
+Backend criteria are verified in the **backend** repo's pytest suite, against
+the real service and both real planners with only the Soroban `rep_state` read
+stubbed (test-plan.md, method B). Browser criteria are verified here.
+
+**Every row names the surface it was verified on, and the two disagree.** The
+backend suite runs against `main`; the browser specs run against the deployed
+orizons.xyz, which is 284 commits behind it (defect D-031). Three defects are
+fixed on one surface and still present on the other, so a row that said only
+"Pass" would be true of one build and false of the other.
+
+| criterion | spec | status |
+| --- | --- | --- |
+| RF-01 | BE `tests/test_floor_boundaries.py` | **Pass** — cold-start agent offered to the free-form planner |
+| RF-02 | BE `tests/test_floor_boundaries.py` | **Pass** — cold-start agent keeps its kit step, not substituted |
+| RF-03 | BE `tests/test_floor_boundaries.py` | **Pass** — named in no notice on either path; routable silently |
+| RF-04 | BE `tests/test_floor_disclosure.py` | **Pass** — kit exclusion notice names the agent and both deciding numbers |
+| RF-05 | BE `tests/test_floor_disclosure.py` | **Partial** (`main`) — absent from the prompt (pass); still hired if the model names it anyway (xfail, D-028 open) |
+| RF-06 | BE `tests/test_floor_boundaries.py` | **Pass** — lower bound exactly on the floor is admitted (`>=`) |
+| RF-07 | BE `tests/test_floor_boundaries.py` | **Pass** — one basis point above the floor is admitted |
+| RF-08 | BE `tests/test_floor_boundaries.py` | **Pass** — one bp below fails `passes_floor` and is kept out of both paths |
+| RF-09 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — outage degrades every agent to the prior and still plans, on both paths |
+| RF-10 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — exactly one warning per batch, naming agents, reason and both numbers |
+| RF-11 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — outage plan reports `reputation_degraded: true`, cold start reports `false`; was D-024, marker removed. Neither field exists on the deployed build (D-031) |
+| RF-12 | BE `tests/test_floor_disclosure.py` | **Pass** — kit backstop flags each step and states why the floor was relaxed |
+| RF-13 | BE `tests/test_floor_disclosure.py` | **Pass** (`main`) — free-form now discloses the relaxation; was D-029, marker removed. Still absent on the deployed build (D-031) |
+| RF-14 | `tests/reputation-floor.spec.ts` | **Partial** (deployed) — per-step reputation and source render in one frame; the floor panel ships collapsed so its actions do not (`test.fail()`, D-034). Below-floor step lacks an accessible name (D-035) |
+| RF-15 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — startup warning added upstream; was D-030, marker removed |
+| RF-16 | BE `tests/test_floor_boundaries.py` | **Partial** — arithmetic and rating direction pass; end-to-end blocked, see test-plan note |
+| RF-17 | `tests/reputation-floor.spec.ts` | **Pass** (deployed) — `docs/evidence/rf-17-reputation-floor-plan.png`, with a provenance note asserted by test, stating the plan was supplied by the test and why the live target cannot produce one |
+
+## EX — external agent execution path (story 6.05)
+
+Recorded run 2026-09-17 on the **deployed** backend, which predates `main`
+(D-036). "Run" is the evidence in `evidence/6.05-external-dispatch.md`; "Spec"
+is re-checked live on every suite run.
+
+| criterion | spec | status |
+| --- | --- | --- |
+| EX-00 | `tests/external-dispatch.spec.ts` — `EX-00 the settlement evidence route is deployed` | **Blocked** — `test.fail()`, D-036 |
+| EX-01 | `tests/external-dispatch.spec.ts` — `EX-01 EX-07 the run's binding still reads back…`; run §1–§2 | **Pass** (deployed) — registration tx `64ad14cd…fa3e` |
+| EX-02 | `tests/external-dispatch.spec.ts` — `EX-02 EX-07 a matching intent is decomposed…`, `EX-02 the captured dispatch envelope carries the documented fields`; run §3–§4 | **Partial** — routed ✔; envelope lacks `deadline_ms` (`test.fail()`, D-040) |
+| EX-03 | `tests/external-dispatch.spec.ts` — three `EX-03` tests; run §5 | **Pass** (deployed) — verifies; tampered and replayed both rejected |
+| EX-04 | run §6 (needs a payer key — not in CI) | **Pass** with D-039 — output in trace, artifact and `spent`; never charged |
+| EX-05 | run §7 (needs a payer key — not in CI) | **Fail** — D-037, all six cases read `failed` with no class; continuation and `spent` exclusion hold |
+| EX-06 | run §8 — ReputationLedger `getEvents`, 0 events | **Fail** — D-038 against 2.03 |
+| EX-07 | `tests/external-dispatch.spec.ts` — the EX-01/EX-02 tests, re-run after the observed restart; run §9 | **Pass** — binding and routing survive; tasks do not (D-041) |
+| EX-08 | `evidence/6.05-external-dispatch.md`, `evidence/6.05/dispatch-ok.json` | **Pass** — 2.04 capture table filled on a local backend branch (backend push is 403, D-027) |
+
+## OS — operator surfaces (story 6.06)
+
+Deployed dApp, 2026-09-17. "Checklist" rows need a person with real wallet
+extensions and a real phone and have **not been run yet**.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| OS-01 | `evidence/6.06-operator-surfaces.md` §1 — clean-clone walk, transcripts | **Fail** — D-042, D-047, D-048, D-049; step 2 not walked (no Render account) |
+| OS-02 | `checklists/6.06-wallet-and-phone.md` B | **Pending** (checklist not run); D-046 from source |
+| OS-03 | `tests/operator-surfaces.spec.ts` — `OS-03 the registration page explains both signatures before anything is clicked` | **Pass** (deployed) |
+| OS-04 | `checklists/6.06-wallet-and-phone.md` A, B | **Pending** (checklist not run) |
+| OS-05 | `tests/operator-surfaces.spec.ts` — `OS-05 an already-bound agent shows the endpoint that reads back…`; 6.05 §2 API rebinds; checklist C | **Partial** — page and API pass; in-browser rebind pending |
+| OS-06 | `tests/operator-surfaces.spec.ts` — three `OS-06 a … endpoint is refused before signing` tests, and `OS-06 an unresolvable endpoint…` | **Partial** — 3 pass; unresolvable `test.fail()`, D-043 |
+| OS-07 | `tests/operator-surfaces.spec.ts` — no-wallet, owns-nothing, several-agents counts, failed-lookup-not-zero (pass); not-online `test.fail()` D-044; not-routable `test.fail()` D-045; escrow note `test.fail()` D-036 | **Partial** |
+| OS-08 | `tests/operator-surfaces.spec.ts` — two `OS-08 … fits the screen width` tests (emulated); checklist D | **Pending** — emulated width passes; real phone not run |
