@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { stubWalletSession } from "./fixtures";
 
 /**
  * OS — story 6.06, the operator's surfaces as an outsider meets them on the
@@ -61,5 +62,16 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
     ).toBeVisible();
     await expect(page.getByText("agents owned", { exact: false })).toHaveCount(0);
     await expect(page.getByText("Settlement", { exact: true })).toHaveCount(0);
+  });
+
+  test("OS-07 a wallet that owns nothing is told so, and why another wallet's agents are absent", async ({ page }) => {
+    test.setTimeout(180_000);
+    // The 6.05 payer: a real testnet account that has never registered an agent.
+    await stubWalletSession(page, { address: "GDJHP2I6NRCWYZTB3ZOXRE74V4M4EGXRYORGNPTGQ6BVNJNSSJO4PKXJ" });
+    await page.goto("/app/operator");
+    await expect(page.getByText("This wallet owns no agents", { exact: true })).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByText("Ownership is read from the chain, not from this browser.", { exact: false })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Register an agent" }).or(page.getByRole("button", { name: "Register an agent" }))).toBeVisible();
+    await expect(page.getByText("agents owned", { exact: false })).toHaveCount(0);
   });
 });
