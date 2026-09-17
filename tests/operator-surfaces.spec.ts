@@ -109,4 +109,16 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
     await expect(card.getByText("unbound", { exact: true })).toBeVisible({ timeout: 90_000 });
     await expect(card.getByText("online", { exact: true })).toHaveCount(0);
   });
+
+  test("OS-07 a card that says its agent is not eligible does not also call it routable", async ({ page }) => {
+    // D-045: the never-rated note under Gate 2 always ends "an agent with no
+    // history is routable from the day it is registered", whatever Gate 1 says.
+    test.fail();
+    test.setTimeout(180_000);
+    await stubWalletSession(page, { address: SEVERAL_AGENTS_OWNER });
+    await page.goto("/app/operator");
+    const card = page.locator("main li").filter({ has: page.getByText("w1_audit_a7x", { exact: true }) }).first();
+    await expect(card.getByText("Not eligible — no endpoint is bound.", { exact: false })).toBeVisible({ timeout: 90_000 });
+    await expect(card).not.toContainText("routable from the day it is registered");
+  });
 });
