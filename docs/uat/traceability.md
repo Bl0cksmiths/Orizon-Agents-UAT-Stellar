@@ -208,3 +208,21 @@ fixed on one surface and still present on the other, so a row that said only
 | RF-15 | BE `tests/test_floor_visibility.py` | **Pass** (`main`) — startup warning added upstream; was D-030, marker removed |
 | RF-16 | BE `tests/test_floor_boundaries.py` | **Partial** — arithmetic and rating direction pass; end-to-end blocked, see test-plan note |
 | RF-17 | `tests/reputation-floor.spec.ts` | **Pass** (deployed) — `docs/evidence/rf-17-reputation-floor-plan.png`, with a provenance note asserted by test, stating the plan was supplied by the test and why the live target cannot produce one |
+
+## EX — external agent execution path (story 6.05)
+
+Recorded run 2026-09-17 on the **deployed** backend, which predates `main`
+(D-036). "Run" is the evidence in `evidence/6.05-external-dispatch.md`; "Spec"
+is re-checked live on every suite run.
+
+| criterion | spec | status |
+| --- | --- | --- |
+| EX-00 | `tests/external-dispatch.spec.ts` — `EX-00 the settlement evidence route is deployed` | **Blocked** — `test.fail()`, D-036 |
+| EX-01 | `tests/external-dispatch.spec.ts` — `EX-01 EX-07 the run's binding still reads back…`; run §1–§2 | **Pass** (deployed) — registration tx `64ad14cd…fa3e` |
+| EX-02 | `tests/external-dispatch.spec.ts` — `EX-02 EX-07 a matching intent is decomposed…`, `EX-02 the captured dispatch envelope carries the documented fields`; run §3–§4 | **Partial** — routed ✔; envelope lacks `deadline_ms` (`test.fail()`, D-040) |
+| EX-03 | `tests/external-dispatch.spec.ts` — three `EX-03` tests; run §5 | **Pass** (deployed) — verifies; tampered and replayed both rejected |
+| EX-04 | run §6 (needs a payer key — not in CI) | **Pass** with D-039 — output in trace, artifact and `spent`; never charged |
+| EX-05 | run §7 (needs a payer key — not in CI) | **Fail** — D-037, all six cases read `failed` with no class; continuation and `spent` exclusion hold |
+| EX-06 | run §8 — ReputationLedger `getEvents`, 0 events | **Fail** — D-038 against 2.03 |
+| EX-07 | `tests/external-dispatch.spec.ts` — the EX-01/EX-02 tests, re-run after the observed restart; run §9 | **Pass** — binding and routing survive; tasks do not (D-041) |
+| EX-08 | `evidence/6.05-external-dispatch.md`, `evidence/6.05/dispatch-ok.json` | **Pass** — 2.04 capture table filled on a local backend branch (backend push is 403, D-027) |
