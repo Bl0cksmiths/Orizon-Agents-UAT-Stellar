@@ -1958,3 +1958,41 @@ sentence when Gate 1 fails.
 
 ---
 
+
+## D-046 — Albedo and Rabet are offered on the bind page but cannot sign the bind message
+
+- **Severity:** Major
+- **Status:** Open — from source; confirmation on a real browser is checklist section B
+- **Affects:** OS-02 (story 2.01; SOW §3.3 wallet claim)
+
+**Failing Given/When/Then (story 6.06)** — *Given each wallet named in SOW §3.3,
+When an endpoint is bound, Then it should succeed — or the wallet's inability to
+sign messages should be documented, with the SOW claim corrected to match.*
+
+**Evidence** — `@creit.tech/stellar-wallets-kit` 2.1.0 (frontend `package.json`
+pins `^2.1.0`; 2.1.0 is what its checkout installs). In
+`esm/sdk/modules/`, Freighter (`freighter.module.js:122`), xBull (`:73`),
+LOBSTR (`:72`) and Hana (`:82`) implement `signMessage`; Albedo
+(`albedo.module.js:80-83`) and Rabet (`rabet.module.js:84-87`) reject with
+`'Albedo does not support the "signMessage" function'` and the Rabet
+equivalent. The deployed bundle's resolved version was not inspected. The frontend
+has no per-wallet capability check: both wallets stay in the picker on
+`/app/bind`, and `classifyError` matches none of its patterns, so the page shows
+
+```
+Transaction failed — Albedo does not support the "signMessage" function
+```
+
+as an error, after the operator has already registered with that wallet (which
+works — registration is a transaction).
+
+**Impact** — an Albedo or Rabet user can list an agent and then cannot make it
+routable, and the message calls it a failed transaction. Until the checklist
+confirms on a real browser, the SOW §3.3 claim for **binding** should name
+Freighter, xBull, LOBSTR and Hana only.
+
+**Resolution path** — hide or disable wallets without `signMessage` on
+`/app/bind` (or say "this wallet can register but not bind" before the prompt),
+and mention it in the register page's two-signature disclosure.
+
+---
