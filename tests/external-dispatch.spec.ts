@@ -50,4 +50,16 @@ test.describe("EX — external agent dispatch (story 6.05)", () => {
       verifyDispatch({ rawBody: tampered, signatureBase64: signature, pinnedSigner, boundEndpointUrl: captured.bound_endpoint_url }),
     ).toBe(false);
   });
+
+  test("EX-03 the same signature replayed against a different endpoint URL fails", async ({ request }) => {
+    const pinnedSigner = await publishedSigner(request);
+    expect(
+      verifyDispatch({
+        rawBody,
+        signatureBase64: signature,
+        pinnedSigner,
+        boundEndpointUrl: "https://another-operator.example/dispatch",
+      }),
+    ).toBe(false);
+  });
 });
