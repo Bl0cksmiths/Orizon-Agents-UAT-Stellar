@@ -728,3 +728,24 @@ is actually made — `synthetic_rating` and the smoothing/lower-bound chain it
 feeds — and recorded as partially blocked rather than claimed as an end-to-end
 pass.
 
+
+## Acceptance criteria — EX, external agent execution path (story 6.05, verifies 2.01–2.04)
+
+One real external agent, driven from registration through dispatch to a rated
+result, **against the deployed service** — never localhost, and never through
+the stubbed HTTP seam the 2.0x unit tests use. Testnet only.
+
+This is the one section of the plan that needs signing keys, so it does not run
+from CI. The on-chain half is a recorded run with throwaway friendbot-funded
+keys (`docs/uat/evidence/6.05-external-dispatch.md`); what can be re-checked
+without a key — the signature, the binding, routing, the entry route — is
+re-checked live by `tests/external-dispatch.spec.ts`. The operator endpoint is
+`tools/operator-endpoint/server.ts`, which records each request byte-for-byte
+before parsing and can be switched into each failure mode from loopback.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| EX-00 | 6.05's precondition | `GET /api/stellar/settlement/{id}` on the target | `200`, not the framework 404 — the backend carries 2.06 |
+| EX-01 | a wallet you control, funded on testnet | it registers an agent and signs a bind challenge for an HTTPS endpoint you control | the registration tx succeeds, and `GET /api/agents/{id}/binding` reads the binding back with that owner |
+| EX-02 | the bound agent | an intent matching its skills is decomposed | the agent is a step of the plan — offered to the planner, not merely listed — and the captured envelope carries the documented fields |
+| EX-03 | a received dispatch and the signer at `GET /api/stellar/network` | it is verified with the operator guide's recipe | it verifies; a tampered body and the same signature against a different endpoint URL both fail |
