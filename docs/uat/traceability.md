@@ -280,3 +280,22 @@ off in it.
 | DP-05 | needs the settler key and a recorded session | **Blocked** — D-050, D-051; no dispute exists to uphold |
 | DP-06 | needs a sealed job id from an attestation | **Blocked** — `proof_tx` is null on every run (D-039) |
 | DP-07 | needs a recorded session on an open dispute | **Blocked** — the receipt panel never renders, `settlement` is null |
+
+## DR — the dispute refusal paths (story 6.03b)
+
+Run 2026-09-24; `evidence/6.03b-dispute-refusals.md`. Criteria inferred from the
+story title — see the scope note in `test-plan.md`.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| DR-01 | `tests/dispute-refusals.spec.ts` — two `DR-01 a dispute challenge with …` tests | **Pass** |
+| DR-02 | same spec — `DR-02 opening a dispute with a forged nonce and signature is refused…` | **Pass** |
+| DR-03 | same spec — three `DR-03 opening a dispute with …` tests | **Pass** |
+| DR-04 | same spec — `DR-04 reading a dispute that does not exist…` | **Pass** |
+| DR-05 | same spec — `DR-05 a settled run refuses a dispute challenge from a wallet that is not its payer` | **Blocked** — `test.fail()`, D-050 ([backend#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67)) |
+| DR-06 | `tests/dispute-path.spec.ts` — `DP-02 an anonymous caller cannot uphold/reject a dispute` | **Pass**, code ambiguous while refunds are off — D-051 ([backend#68](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/68)), D-052 ([backend#69](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/69)) |
+| DR-07 | walk by hand once DR-05 passes | **Blocked** — D-050 |
+| DR-08 | walk by hand once DR-05 passes | **Blocked** — D-050 |
+| DR-09 | walk by hand once DR-05 passes | **Blocked** — D-050, D-051 |
+| DR-10 | walk by hand once DR-05 passes | **Blocked** — D-050 |
+| DR-11 | walk by hand once DR-05 passes | **Blocked** — D-050, D-051 |
