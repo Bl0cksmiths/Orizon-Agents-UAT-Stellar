@@ -52,4 +52,16 @@ test.describe("DP — dispute path (story 6.03a)", () => {
       expect(["invalid_api_key", "dispute_refunds_disabled"]).toContain((await response.json()).error?.code);
     });
   }
+
+  test("DP-01 a paid, delivered run exposes a settlement and a window to dispute against", async ({ request }) => {
+    // D-050: the escrow charge never lands (D-039), so _record_settlement
+    // returns early and no run is disputable. Remove the marker once a run
+    // finishes with a non-null charge_tx.
+    test.fail();
+    const response = await request.get(`/api/tasks/${DP_TASK_ID}/disputes`, { timeout: COLD_START_TIMEOUT });
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.settlement, "a delivered, paid run has a settlement to dispute").not.toBeNull();
+    expect(typeof body.window_closes_at, "and a window that closes").toBe("number");
+  });
 });
