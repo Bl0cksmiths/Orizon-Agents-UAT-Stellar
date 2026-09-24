@@ -36,4 +36,12 @@ test.describe("WC — dispute eligibility (story 6.03c)", () => {
     const body = await response.json();
     expect(body.error?.code).toBe("reason_required");
   });
+
+  test("WC-06 a 500-character reason in multi-byte text passes the cap, which counts characters not bytes", async ({ request }) => {
+    // 500 × "é" is 1000 UTF-8 bytes. Past validation, the next refusal is the
+    // unknown job — so the reason was accepted at full length, not trimmed.
+    const response = await request.post("/api/disputes", { timeout: COLD_START_TIMEOUT, data: { ...OPEN, reason: "é".repeat(500) } });
+    expect(response.status()).toBe(404);
+    expect((await response.json()).error?.code).toBe("unknown_job");
+  });
 });
