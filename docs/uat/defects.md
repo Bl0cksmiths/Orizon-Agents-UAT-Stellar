@@ -1554,7 +1554,7 @@ fails loudly if the label changes.
 ## D-036 — The deployed backend predates story 2.06: the settlement evidence route is missing
 
 - **Severity:** Blocker (for story 6.05's entry criterion)
-- **Status:** Open
+- **Status:** **Resolved 2026-09-24** — the backend was redeployed. `GET /api/stellar/settlement/uat605_ext_op` answers `200` with a `SettlementEvidence` body (`{"agent_id":…,"window_days":7.0,"scanned_ledgers":120959,"entries":[],"total_stroops":0,"unavailable":null}`), and the deployed API now also carries `floor_bps`, `planner_fallback` and `reputation_degraded`, so the split stack of D-031 is gone too. Verified by `EX-00 the settlement evidence route is deployed` (marker removed) and by `OS-07 where the money would be, the dashboard names the escrow defect instead of a zero`, which now renders the escrow note for real. The re-run this unblocked is `evidence/6.05-external-dispatch.md` §13
 - **Affects:** EX-00 (6.05 precondition); every 6.05 result is therefore a result about the *old* build
 
 **Failing Given/When/Then (story 6.05, Preconditions)** — *"A deployed backend
