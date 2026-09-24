@@ -818,3 +818,30 @@ it at all; the epic still needs QA of its own.
 Verified against the run, not in CI: it needs a payer key. On 2026-09-24 it
 **fails** — no settlement is ever recorded because the charge never lands
 (D-050, behind D-039).
+
+## Acceptance criteria — DP, the dispute happy path (story 6.03a, verifies 4.02–4.06)
+
+One real dispute, from a settled payment to both on-chain artifacts. The story
+is deliberately a single sitting with a screen recording running, because the
+proof is the sequence: pay → receipt → dispute → uphold → the receipt flipping
+to "Refunded" without a reload → both transactions resolving on Stellar Expert.
+
+Three things in it are not QA's to do alone: `scripts/uphold_dispute.py` signs
+with the settler secret (Dan's), the recording needs a person, and the evidence
+is a session artifact rather than a test run. What the suite can hold is
+whether the path is reachable at all — which is what DP-01 measures, and why it
+is the first criterion rather than a footnote.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| DP-01 | a paid workflow that delivered | its disputes are read | a settlement and a closing window come back, so a step can be disputed |
+| DP-02 | no adjudicator credentials | uphold or reject is called | it is refused, and nothing is adjudicated |
+| DP-03 | a job that never settled | a dispute challenge is minted for it | it is refused as `unknown_job` |
+| DP-04 | any finished run | `GET /api/tasks/{task_id}/disputes` | it answers with that task's id, a `settlement` field and a `disputes` list |
+| DP-05 | an upheld dispute | its two transactions are opened on Stellar Expert | a transfer of the credited amount to the buyer and a `kind="dispute"` reputation write both resolve, and the credited amount matches the receipt |
+| DP-06 | the dispute rating's transaction | its job id is compared with the sealed job id from the attestation | the first 8 bytes are identical |
+| DP-07 | the trace page open on an open dispute | the dispute is upheld and credited | the receipt shows "Refunded" with both links, without a reload, and the recording shows it happening |
+
+DP-05 to DP-07 need the settler key and a recorded session; DP-01 to DP-04 run
+in `tests/dispute-path.spec.ts` on every suite run. On 2026-09-24 DP-01 fails
+(D-050) and DP-05 to DP-07 are blocked behind it and D-051.
