@@ -76,4 +76,13 @@ test.describe("DR — dispute refusals (story 6.03b)", () => {
       expect(JSON.stringify(body.detail)).toContain(bad.field);
     });
   }
+
+  test("DR-04 reading a dispute that does not exist is refused as unknown_dispute, with no stack trace", async ({ request }) => {
+    const response = await request.get("/api/disputes/dsp_does_not_exist", { timeout: COLD_START_TIMEOUT });
+    expect(response.status()).toBe(404);
+    const body = await response.json();
+    expect(body.error?.code).toBe("unknown_dispute");
+    expect(body.error?.request_id, "every refusal is traceable in the logs").toMatch(/^[0-9a-f]{16}$/);
+    expect(JSON.stringify(body)).not.toContain("Traceback");
+  });
 });
