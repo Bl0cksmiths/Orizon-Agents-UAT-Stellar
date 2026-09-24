@@ -1694,7 +1694,7 @@ tx in the trace and a `ReputationLedger` event for the agent.
 ## D-039 — A buyer is never charged, and the run still reports `complete` with a `spent` that did not happen
 
 - **Severity:** Critical
-- **Status:** Open — known contract defect (`PaymentEscrow.charge` needs the payer's `require_auth()`, which only the settler's signature is present for); verified here, not re-diagnosed
+- **Status:** Open — known contract defect (`PaymentEscrow.charge` needs the payer's `require_auth()`, which only the settler's signature is present for); verified here, not re-diagnosed. **Re-verified 2026-09-24** on the redeployed backend and unchanged: the escrow contract `CBJPTMAP…525PI` has not been redeployed since 2026-09-16, seven fresh workflows produced seven `authd` events and **0** `charged`, every task still finalized `complete` with `charge_tx null`, `spent` set (0.01–0.034) and a trailing `error · on-chain settlement failed`. It is now the only one of the five 6.05 defects still open, and it is what makes D-050 unreachable
 - **Affects:** EX-04, EX-05 (stories 2.02, 2.04)
 
 **Failing Given/When/Then (story 6.05)** — *Given the endpoint returns a valid
