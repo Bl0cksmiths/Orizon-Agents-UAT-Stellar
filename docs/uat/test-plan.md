@@ -927,3 +927,24 @@ On 2026-09-25 only the API side of WC-05 and WC-06 can be reached on the deploy
 `tests/dispute-eligibility.spec.ts`. Everything else needs a settled step
 (D-050) and was verified by running the backend and frontend locally:
 `evidence/6.03c-eligibility.md`.
+
+## Acceptance criteria — DU, durability and the unconfirmed-refund path (story 6.03d, verifies 4.02–4.06)
+
+Durability is tested by restarting, not by reasoning: Render restarts an idle
+free-tier service routinely, and `/health` reports `uptime_seconds`, so a
+restart can be seen from outside. None of this holds without `DATABASE_URL`;
+the store announces itself in the log. A timed-out refund is never retried
+automatically — the dispute keeps its claim and stays `crediting` until a
+person reconciles it, which is correct behaviour, not a defect.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| DU-01 | an open dispute and a backend restart | the trace page is reloaded | the dispute still exists with its status, reason, amounts and the same closing time |
+| DU-02 | a settled workflow and a backend restart | a step is disputed afterwards | the dispute is accepted |
+| DU-03 | a refund submitted but not confirmed | the receipt is viewed | it shows a pending refund and a "Refund in progress" badge, and nowhere says the credit is complete |
+| DU-04 | a dispute left in `crediting` | the reconciliation queue is read and the script is run again | the dispute is in the queue, and the script refuses and tells the operator not to re-run it |
+| DU-05 | the deployed backend | its startup log is read | it names Postgres, not the in-memory fallback |
+
+Also under these IDs: with `TASK_AUTH_REQUIRED` on, a restart loses task tokens
+but never a buyer's ability to raise or read a dispute (DU-01, DU-02); a credit
+reconciled by hand carries its amount and rating confirmation (DU-04).
