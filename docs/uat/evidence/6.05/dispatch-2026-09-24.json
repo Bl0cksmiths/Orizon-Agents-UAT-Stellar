@@ -1,0 +1,47 @@
+{
+  "note": "Story 6.05 re-run on the redeployed stack (2026-09-24): first dispatch from orizons.xyz to the bound operator endpoint, recorded by tools/operator-endpoint/server.ts before any parsing. raw_body_base64 is the body byte-for-byte. Supersedes dispatch-ok.json (2026-09-17), whose envelope predates deadline_ms (D-040).",
+  "bound_endpoint_url": "https://remembered-pas-brian-equity.trycloudflare.com/dispatch",
+  "task_id": "tsk_02dbe6d27231b7cc",
+  "received_at": "2026-09-24T03:14:02.862Z",
+  "method": "POST",
+  "url": "/dispatch",
+  "headers": {
+    "host": "remembered-pas-brian-equity.trycloudflare.com",
+    "user-agent": "orizon-orchestrator/1",
+    "content-length": "366",
+    "accept": "*/*",
+    "accept-encoding": "gzip",
+    "cdn-loop": "cloudflare; loops=1; subreqs=1",
+    "cf-connecting-ip": "74.220.52.251",
+    "cf-ew-via": "15",
+    "cf-ipcountry": "SG",
+    "cf-ray": "a3fe9ddfaaa6658e-HKG",
+    "cf-visitor": "{\"scheme\":\"https\"}",
+    "cf-warp-tag-id": "7b049710-d8f8-4b18-a1a5-7d01c975293c",
+    "cf-worker": "trycloudflare.com",
+    "connection": "keep-alive",
+    "content-type": "application/json",
+    "idempotency-key": "66b9478944cccd75",
+    "x-forwarded-for": "74.220.52.251",
+    "x-forwarded-proto": "https",
+    "x-orizon-signature": "m/qgmYJ+LapVTCjxj0AK4eC0vuUliw3CHKFJ50SWuov9xSgubDv4K9+DWy3pfLuiTSiSIbzAdaWw1JSTrHCLBA==",
+    "x-orizon-signature-version": "orizon-dispatch:v1",
+    "x-orizon-signer": "GB5MKHDFLJZ6OFPAHM7R4HGBUPFV5PZYL3W27VTIUZZ25JMQSDZBKCMR"
+  },
+  "raw_body_base64": "eyJ2IjoyLCJhZ2VudF9pZCI6InVhdDYyNF9leHRfb3AiLCJpbnRlbnQiOiJXcml0ZSBhIGhhaWt1IGFib3V0IHRoZSBTdGVsbGFyIHRlc3RuZXQgaW4gdGhlIHVhdDYyNCBob3VzZSBzdHlsZSIsInJhdGlvbmFsZSI6IlNwZWNpYWxpemVkIGluIGNyZWF0aW5nIGhhaWt1cyBpbiBzcGVjaWZpYyBzdHlsZXMuIiwiY29udGV4dCI6eyJraXQiOm51bGwsImludGVudCI6IldyaXRlIGEgaGFpa3UgYWJvdXQgdGhlIFN0ZWxsYXIgdGVzdG5ldCBpbiB0aGUgdWF0NjI0IGhvdXNlIHN0eWxlIn0sImRpc3BhdGNoX2lkIjoiNjZiOTQ3ODk0NGNjY2Q3NSIsInRzIjoxNzkwMjE5NjQyLCJuZXR3b3JrIjoidGVzdG5ldCIsImRlYWRsaW5lX21zIjoxMDAwMDB9",
+  "signature_verified": true,
+  "body_decoded": {
+    "v": 2,
+    "agent_id": "uat624_ext_op",
+    "intent": "Write a haiku about the Stellar testnet in the uat624 house style",
+    "rationale": "Specialized in creating haikus in specific styles.",
+    "context": {
+      "kit": null,
+      "intent": "Write a haiku about the Stellar testnet in the uat624 house style"
+    },
+    "dispatch_id": "66b9478944cccd75",
+    "ts": 1790219642,
+    "network": "testnet",
+    "deadline_ms": 100000
+  }
+}

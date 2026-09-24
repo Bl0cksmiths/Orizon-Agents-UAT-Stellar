@@ -1554,7 +1554,7 @@ fails loudly if the label changes.
 ## D-036 — The deployed backend predates story 2.06: the settlement evidence route is missing
 
 - **Severity:** Blocker (for story 6.05's entry criterion)
-- **Status:** Open
+- **Status:** **Resolved 2026-09-24** — the backend was redeployed. `GET /api/stellar/settlement/uat605_ext_op` answers `200` with a `SettlementEvidence` body (`{"agent_id":…,"window_days":7.0,"scanned_ledgers":120959,"entries":[],"total_stroops":0,"unavailable":null}`), and the deployed API now also carries `floor_bps`, `planner_fallback` and `reputation_degraded`, so the split stack of D-031 is gone too. Verified by `EX-00 the settlement evidence route is deployed` (marker removed) and by `OS-07 where the money would be, the dashboard names the escrow defect instead of a zero`, which now renders the escrow note for real. The re-run this unblocked is `evidence/6.05-external-dispatch.md` §13
 - **Affects:** EX-00 (6.05 precondition); every 6.05 result is therefore a result about the *old* build
 
 **Failing Given/When/Then (story 6.05, Preconditions)** — *"A deployed backend
@@ -1598,7 +1598,7 @@ by `EX-00 the settlement evidence route is deployed` (`test.fail()` until then).
 ## D-037 — On the deployed build every external failure reads the same: no failure class reaches the trace
 
 - **Severity:** Critical
-- **Status:** Open — fixed on backend `main` (`deb1320`, 2026-09-16), not deployed (D-036)
+- **Status:** **Resolved 2026-09-24** — deployed (D-036) and re-verified. Each class now reaches the buyer's trace, one per failure mode, on plan `pln_5541a1c3` against `uat624_ext_op`: malformed JSON → `external.uat624_ext_op failed (invalid_response)` (`tsk_8a053d47246cf746`); 2 MiB body → `(oversize_response)` (`tsk_e8444f9f49f6576e`); no answer → `(response_timeout)` at 106.345 s (`tsk_ed640b5cbccb5db6`); refused TCP on `scanme.nmap.org:444` → `(no_connection)` (`tsk_2fbab8598729c0cf`); origin down behind a live tunnel (proxy 502) → `(error_status)` (`tsk_3c06e3fe4074019b`). The workflow continued in every case and `spent` excluded the failed step
 - **Affects:** EX-05 (story 2.03)
 
 **Failing Given/When/Then (story 6.05)** — *Given a timeout, a refused
@@ -1647,7 +1647,7 @@ unit level.
 ## D-038 — Non-delivery costs an external agent nothing: no rating reaches the chain, for failure or for success
 
 - **Severity:** Critical
-- **Status:** Open — fixed on backend `main` (ADR 0005 D2, rating no longer behind `if charge_tx and job_id`), not deployed (D-036)
+- **Status:** **Resolved 2026-09-24** — deployed (D-036) and re-verified on chain. Seven workflows against `uat624_ext_op` produced seven `rated` events on `ReputationLedger CDCSOBEV…422ZT` (13 in the window counting `agt_09l5`'s six), with **0** `charged` events on the escrow over the same ledgers — so rating no longer depends on settlement. The trace now carries the line, e.g. `proof reputation → UAT 6.24 haiku operator rated 95/100 · tx 0bc33e0ac9…`, and the score moves in both directions: `count 0 source prior` → 95/100 on delivery (`7002`), then `6997 → 6993 → 6989 → 6985 → 6981` across the five failures, back to `6983` on recovery. Non-delivery now has a cost. Pinned by `EX-06 the re-run agent carries on-chain ratings, not the cold-start prior`
 - **Affects:** EX-06 (story 2.03, whose premise is that non-delivery has a cost)
 
 **Failing Given/When/Then (story 6.05)** — *Given an external step that fails,
@@ -1694,7 +1694,7 @@ tx in the trace and a `ReputationLedger` event for the agent.
 ## D-039 — A buyer is never charged, and the run still reports `complete` with a `spent` that did not happen
 
 - **Severity:** Critical
-- **Status:** Open — known contract defect (`PaymentEscrow.charge` needs the payer's `require_auth()`, which only the settler's signature is present for); verified here, not re-diagnosed
+- **Status:** Open — known contract defect (`PaymentEscrow.charge` needs the payer's `require_auth()`, which only the settler's signature is present for); verified here, not re-diagnosed. **Re-verified 2026-09-24** on the redeployed backend and unchanged: the escrow contract `CBJPTMAP…525PI` has not been redeployed since 2026-09-16, seven fresh workflows produced seven `authd` events and **0** `charged`, every task still finalized `complete` with `charge_tx null`, `spent` set (0.01–0.034) and a trailing `error · on-chain settlement failed`. It is now the only one of the five 6.05 defects still open, and it is what makes D-050 unreachable
 - **Affects:** EX-04, EX-05 (stories 2.02, 2.04)
 
 **Failing Given/When/Then (story 6.05)** — *Given the endpoint returns a valid
@@ -1738,7 +1738,7 @@ distinguishes "delivered, unsettled" from "complete".
 ## D-040 — The deployed dispatch envelope carries no `deadline_ms`, which the operator guide tells operators to read
 
 - **Severity:** Major
-- **Status:** Open — present on backend `main` (`external_http.py:420`), not deployed (D-036)
+- **Status:** **Resolved 2026-09-24** — deployed (D-036) and re-verified from a fresh capture. The envelope now reads `{"v":2,"agent_id":"uat624_ext_op",…,"network":"testnet","deadline_ms":100000}` — see `evidence/6.05/dispatch-2026-09-24.json`, which replaces the 2026-09-17 capture as the spec's fixture. The measured budget (a `response_timeout` at 106.3 s) matches the 100 s the field now advertises. Pinned by `EX-02 the captured dispatch envelope carries the documented fields` (marker removed)
 - **Affects:** EX-02, EX-05 (stories 2.02, 2.03)
 
 **Steps to reproduce** — decode `raw_body_base64` in
@@ -2103,5 +2103,51 @@ the live service nothing they do moves it, good or bad.
 **Resolution path** — deploy backend `main` and re-check with a 6.05 re-run; or,
 until then, move rating and attestation from *Works today* to *Pending* with a
 pointer to D-038.
+
+---
+
+## D-050 — No run can be disputed: the whole Epic 4 dispute path is unreachable behind the escrow defect
+
+- **Severity:** Critical
+- **Status:** Open
+- **Affects:** EX-04 (stories 4.02, 4.05, 4.06); the dispute UI shipped in the frontend on 2026-09-22
+
+**Steps to reproduce** — run any workflow to completion on the deployed
+service, then ask for its disputes (2026-09-24, `tsk_e534ce3029391aee`,
+status `complete`, `spent 0.034`, both steps delivered):
+
+```
+curl -s https://orizons.xyz/api/tasks/tsk_e534ce3029391aee/disputes
+```
+
+**Expected** — a settlement to dispute against, and a window: the backend
+stamps `dispute_window_seconds` (default 86 400) onto the settlement record at
+settle time, and the trace is supposed to announce
+`dispute window open — any delivered step can be disputed until …`.
+
+**Actual**
+
+```json
+{"task_id":"tsk_e534ce3029391aee","window_closes_at":null,"now":1790220636.5,"settlement":null,"disputes":[]}
+```
+
+No trace in the re-run carried a dispute-window line. `_record_settlement`
+returns early when the charge produced no `job_id`
+(`execution_svc.py:1060-1061`), and the charge never lands (D-039) — so no
+settlement row is ever written, and every finished run is silently
+non-disputable. The buyer is not told: the task still reads `complete` with a
+non-zero `spent`.
+
+**Impact** — three merged stories' worth of dispute and refund work
+(`POST /api/disputes`, the adjudicator routes, the refund executor, the
+negative-rating path, and the whole `/app/trace` dispute UI) cannot be reached
+by any buyer on testnet. Nothing in the product says so; it looks like a
+feature that exists.
+
+**Resolution path** — this is D-039's consequence, not a separate bug in the
+dispute code: fix the escrow so a charge lands, then re-check this against a
+run whose `charge_tx` is non-null. Until then the dispute UI should say why it
+is empty rather than showing nothing. Worth a QA story of its own — Epic 4 has
+no acceptance criteria in this plan.
 
 ---

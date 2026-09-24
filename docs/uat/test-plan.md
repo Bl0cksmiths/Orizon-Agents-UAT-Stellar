@@ -803,3 +803,18 @@ payments have ever settled. What is tested is whether the page says so honestly.
 (`w1_audit_a7x`, `sign_probe_bb5c12`); one bound `GBWMD26I…7BQJ`
 (`uat605_ext_op`). The spec re-derives counts from `/api/agents` and the binding
 reads on every run rather than hard-coding them.
+
+### EX-09 — a finished run can be disputed (added 2026-09-24, stories 4.02 / 4.05 / 4.06)
+
+Epic 4 shipped a dispute window, dispute and adjudication endpoints, a refund
+executor and a dispute UI on `/app/trace`, and no criterion in this plan covers
+any of it. This is the smallest criterion that says whether a buyer can reach
+it at all; the epic still needs QA of its own.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| EX-09 | a workflow that finished and delivered | its disputes are read (`GET /api/tasks/{task_id}/disputes`) | a settlement and a closing time come back, the trace announced the window, and a delivered step can be disputed inside it |
+
+Verified against the run, not in CI: it needs a payer key. On 2026-09-24 it
+**fails** — no settlement is ever recorded because the charge never lands
+(D-050, behind D-039).

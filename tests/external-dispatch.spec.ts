@@ -21,7 +21,7 @@ interface CapturedDispatch {
 }
 
 const captured = JSON.parse(
-  readFileSync(join(__dirname, "..", "docs", "uat", "evidence", "6.05", "dispatch-ok.json"), "utf8"),
+  readFileSync(join(__dirname, "..", "docs", "uat", "evidence", "6.05", "dispatch-2026-09-24.json"), "utf8"),
 ) as CapturedDispatch;
 const rawBody = Buffer.from(captured.raw_body_base64, "base64");
 const signature = captured.headers["x-orizon-signature"] ?? "";
@@ -30,6 +30,9 @@ const signature = captured.headers["x-orizon-signature"] ?? "";
 // cleaned up: registration tx 64ad14cd…fa3e.
 const EX_AGENT_ID = "uat605_ext_op";
 const EX_AGENT_OWNER = "GBWMD26IB6CMG3JO3HU7SD7ZJSTF4BIJ5JS77ANMLJ52M6FV6K3J7BQJ";
+// Registered and bound for the 2026-09-24 re-run, by the same owner:
+// registration tx e3f58a12…ce1b. The capture above is its first dispatch.
+const RERUN_AGENT_ID = "uat624_ext_op";
 
 async function publishedSigner(request: import("@playwright/test").APIRequestContext): Promise<string> {
   const response = await request.get("/api/stellar/network", { timeout: COLD_START_TIMEOUT });
@@ -91,21 +94,30 @@ test.describe("EX — external agent dispatch (story 6.05)", () => {
   });
 
   test("EX-00 the settlement evidence route is deployed", async ({ request }) => {
-    // D-036: the deployed backend predates story 2.06. Remove the marker when
-    // the route answers — it is 6.05's entry criterion.
-    test.fail();
+    // 6.05's entry criterion. Was D-036 (route missing on the deployed build);
+    // the backend was redeployed on 2026-09-24 and it answers.
     const response = await request.get(`/api/stellar/settlement/${EX_AGENT_ID}`, { timeout: COLD_START_TIMEOUT });
     expect(response.status()).toBe(200);
   });
 
+  test("EX-06 the re-run agent carries on-chain ratings, not the cold-start prior", async ({ request }) => {
+    // Was D-038: ratings were gated on a settlement that never lands, so a
+    // delivered or failed step changed nothing. The 2026-09-24 re-run put 7
+    // ratings on ReputationLedger for this agent across 7 workflows.
+    const response = await request.get(`/api/stellar/reputation/${RERUN_AGENT_ID}`, { timeout: COLD_START_TIMEOUT });
+    expect(response.status()).toBe(200);
+    const reputation = await response.json();
+    expect(reputation.source, "a rated agent no longer reads from the prior").toBe("onchain");
+    expect(reputation.count, "one rating per finished workflow").toBeGreaterThan(0);
+  });
+
   test("EX-02 the captured dispatch envelope carries the documented fields", () => {
-    // D-040: the deployed envelope has no deadline_ms. Re-capture a dispatch
-    // after the backend redeploys, then remove the marker.
-    test.fail();
+    // Was D-040 (no deadline_ms on the old build). The 2026-09-24 re-run
+    // captured an envelope that carries it, against the re-run's own agent.
     const body = JSON.parse(rawBody.toString("utf8"));
     expect(captured.headers["idempotency-key"]).toBe(body.dispatch_id);
     expect(captured.headers["x-orizon-signature-version"]).toBe("orizon-dispatch:v1");
-    expect(body).toMatchObject({ v: 2, agent_id: EX_AGENT_ID, network: "testnet" });
+    expect(body).toMatchObject({ v: 2, agent_id: RERUN_AGENT_ID, network: "testnet" });
     expect(typeof body.ts).toBe("number");
     expect(typeof body.deadline_ms).toBe("number");
   });
