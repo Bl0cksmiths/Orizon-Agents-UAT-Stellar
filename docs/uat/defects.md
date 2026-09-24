@@ -1647,7 +1647,7 @@ unit level.
 ## D-038 — Non-delivery costs an external agent nothing: no rating reaches the chain, for failure or for success
 
 - **Severity:** Critical
-- **Status:** Open — fixed on backend `main` (ADR 0005 D2, rating no longer behind `if charge_tx and job_id`), not deployed (D-036)
+- **Status:** **Resolved 2026-09-24** — deployed (D-036) and re-verified on chain. Seven workflows against `uat624_ext_op` produced seven `rated` events on `ReputationLedger CDCSOBEV…422ZT` (13 in the window counting `agt_09l5`'s six), with **0** `charged` events on the escrow over the same ledgers — so rating no longer depends on settlement. The trace now carries the line, e.g. `proof reputation → UAT 6.24 haiku operator rated 95/100 · tx 0bc33e0ac9…`, and the score moves in both directions: `count 0 source prior` → 95/100 on delivery (`7002`), then `6997 → 6993 → 6989 → 6985 → 6981` across the five failures, back to `6983` on recovery. Non-delivery now has a cost. Pinned by `EX-06 the re-run agent carries on-chain ratings, not the cold-start prior`
 - **Affects:** EX-06 (story 2.03, whose premise is that non-delivery has a cost)
 
 **Failing Given/When/Then (story 6.05)** — *Given an external step that fails,
