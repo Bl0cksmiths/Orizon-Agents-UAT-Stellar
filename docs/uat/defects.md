@@ -2362,3 +2362,32 @@ less legible than documented, and the closing time is not stated.
 assert it in a test that does not stub the service.
 
 ---
+
+## D-057 — After a 409 whose refetch fails, the step offers Dispute again with no hint it is already disputed
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** IB-02 (story 6.03b)
+
+**Steps to reproduce** — frontend origin/main `e56a07a`, component level:
+`POST /api/disputes` answers `409 duplicate_dispute`, then
+`GET /api/tasks/{id}/disputes` answers `503`.
+
+**Expected** — story 6.03b: "the UI showing that dispute rather than a second
+form".
+
+**Actual** — the dialog closes silently on the 409 and the section refetches
+(`dispute-section.tsx:256-261`). The 409 carries the original dispute, but
+`ApiError` keeps no body (`lib/disputes.ts:336-341`), so the UI can only show it
+from the refetch. When the refetch fails, the step still offers Dispute and the
+only message is a generic "receipt unavailable". Pressing Dispute again costs
+another challenge, another wallet prompt and another 409. The same window
+exists briefly while a successful refetch is in flight.
+
+**Impact** — nothing is recorded twice: the backend refuses every repeat. The
+cost is a confusing loop and extra wallet prompts.
+
+**Resolution path** — keep the dispute carried by the 409 on the error and
+render it straight away, without waiting for the refetch.
+
+---
