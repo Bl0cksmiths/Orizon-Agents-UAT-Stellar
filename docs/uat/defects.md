@@ -2168,6 +2168,8 @@ Every open defect from stories 6.05 and 6.06 is filed as a Bug in the repository
 | D-043 | Major | BE | [#66](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/66) |
 | D-050 | Critical | BE | [#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67) |
 | D-039 | Critical | Smart-Contract | [#3](https://github.com/Bl0cksmiths/Orizon-Agents-Smart-Contract-Stellar/issues/3) |
+| D-051 | Blocker (6.03a) | BE | [#68](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/68) |
+| D-052 | Minor | BE | [#69](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/69) |
 
 D-036, D-037, D-038 and D-040 are not filed: they were resolved by the 2026-09-24 redeploy. D-050 is D-039's consequence and says so in both issues.
 
