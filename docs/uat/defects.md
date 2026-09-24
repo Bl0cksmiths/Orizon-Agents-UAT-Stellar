@@ -2253,3 +2253,28 @@ authorization test ambiguous — `DP-02` has to accept two codes to stay honest.
 so an anonymous caller gets `401` whatever the flag says.
 
 ---
+
+## D-053 — Adjudication concurrency: a money-path defect, held privately
+
+- **Severity:** Critical (story 6.03b: Urgent, stop-the-line)
+- **Status:** Open — details held privately
+- **Affects:** IB-01 (story 6.03b)
+
+Found 2026-09-24 by reading and exercising the backend's adjudication code
+(origin/main `3347090`) with the signer stubbed. The mechanism and the
+reproduction are withheld from this public log on purpose, and have been handed
+to the settler key holder and the backend maintainers directly.
+
+What can be said publicly: under one specific interleaving of adjudication
+calls, the refund guard does not hold. Triggering it needs adjudicator
+credentials, so it is not reachable by a buyer or an anonymous caller, and
+nothing has happened on-chain — refunds are switched off on the deploy (D-051).
+
+**Consequence for D-051** — do not switch `DISPUTE_REFUNDS_ENABLED` on until
+this is fixed, and until then never run two upholds of one dispute at the same
+time, from any mix of the script and the API.
+
+**Reproducing test** — not reachable on the deploy (D-050, D-051); a backend
+regression test is part of the private hand-off.
+
+---
