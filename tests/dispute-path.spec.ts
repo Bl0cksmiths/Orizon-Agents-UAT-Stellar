@@ -37,4 +37,19 @@ test.describe("DP — dispute path (story 6.03a)", () => {
     expect(response.status()).toBe(404);
     expect((await response.json()).error?.code).toBe("unknown_job");
   });
+
+  for (const action of ["uphold", "reject"] as const) {
+    test(`DP-02 an anonymous caller cannot ${action} a dispute`, async ({ request }) => {
+      const response = await request.post(`/api/disputes/dsp_uat_probe/${action}`, {
+        timeout: COLD_START_TIMEOUT,
+        data: {},
+      });
+      // 401 is the adjudicator guard; 503 is the refunds master switch being
+      // off, which the service checks first (D-052). Either way the caller
+      // adjudicates nothing — but never 200, and never a validation error that
+      // implies the body was considered.
+      expect([401, 503], `adjudication must stay closed, got ${response.status()}`).toContain(response.status());
+      expect(["invalid_api_key", "dispute_refunds_disabled"]).toContain((await response.json()).error?.code);
+    });
+  }
 });
