@@ -2174,7 +2174,10 @@ Every open defect from stories 6.05 and 6.06 is filed as a Bug in the repository
 | D-055 | Minor | BE | [#71](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/71) |
 | D-056 | Minor | BE | [#72](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/72) |
 | D-057 | Minor | FE | [#73](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/73) |
-| D-059 | Minor | BE | [#73](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/73) || D-060 | Minor | FE | [#74](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/74) || D-061 | Minor | FE | [#75](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/75) || D-062 | Minor | BE | [#74](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/74) |
+| D-059 | Minor | BE | [#73](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/73) |
+| D-060 | Minor | FE | [#74](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/74) |
+| D-061 | Minor | FE | [#75](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/75) |
+| D-062 | Minor | BE | [#74](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/74) |
 
 D-036, D-037, D-038 and D-040 are not filed: they were resolved by the 2026-09-24 redeploy. D-050 is D-039's consequence and says so in both issues.
 
