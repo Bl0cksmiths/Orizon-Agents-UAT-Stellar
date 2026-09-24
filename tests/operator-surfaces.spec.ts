@@ -137,10 +137,8 @@ test.describe("OS — operator surfaces (story 6.06)", () => {
   });
 
   test("OS-07 where the money would be, the dashboard names the escrow defect instead of a zero", async ({ page }) => {
-    // D-036: the deployed backend has no settlement route, so the panel can
-    // only report a failed lookup and the escrow explanation never renders.
-    // Remove the marker once GET /api/stellar/settlement/{id} answers 200.
-    test.fail();
+    // Was D-036: with no settlement route the panel could only report a failed
+    // lookup. The backend was redeployed on 2026-09-24 and the note renders.
     test.setTimeout(180_000);
     await stubWalletSession(page, { address: SEVERAL_AGENTS_OWNER });
     await page.goto("/app/operator");
