@@ -4,6 +4,9 @@ Every acceptance criterion in `test-plan.md` maps to the test that verifies it.
 No cell is empty: a criterion is Covered, Added (written during this
 programme), Blocked (with a defect id), or Not covered (with a stated reason).
 
+Defect ids below link to the Bug issue filed in the repository that owns the
+code; the full defect → issue table is under "Bug issues" in `defects.md`.
+
 **Verification status of the whole matrix:** every test below was authored and
 statically checked, but **none has been executed** — see defect D-002. "Covered"
 here means "a test exists that would fail if the behaviour broke", not "observed
