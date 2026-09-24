@@ -33,4 +33,24 @@ test.describe("DR — dispute refusals (story 6.03b)", () => {
       expect(JSON.stringify(body.detail), "the refusal names the field that was wrong").toContain(bad.field);
     });
   }
+
+  test("DR-02 opening a dispute with a forged nonce and signature is refused, and says nothing about the signature", async ({ request }) => {
+    const response = await request.post("/api/disputes", {
+      timeout: COLD_START_TIMEOUT,
+      data: {
+        job_id_hex: UNSETTLED_JOB_HEX,
+        step_index: 0,
+        reason: "QA refusal probe: forged challenge",
+        payer: "GDJHP2I6NRCWYZTB3ZOXRE74V4M4EGXRYORGNPTGQ6BVNJNSSJO4PKXJ",
+        nonce: "00000000000000000000000000000000",
+        signature_b64: "AAAA",
+      },
+    });
+    expect(response.status()).toBe(404);
+    const body = await response.json();
+    // The job is checked before the credential, so a forger learns only that
+    // the job is unknown — not whether their signature would have passed.
+    expect(body.error?.code).toBe("unknown_job");
+    expect(JSON.stringify(body).toLowerCase()).not.toContain("signature");
+  });
 });
