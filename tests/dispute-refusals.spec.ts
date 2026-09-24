@@ -85,4 +85,35 @@ test.describe("DR — dispute refusals (story 6.03b)", () => {
     expect(body.error?.request_id, "every refusal is traceable in the logs").toMatch(/^[0-9a-f]{16}$/);
     expect(JSON.stringify(body)).not.toContain("Traceback");
   });
+
+  test("DR-05 a settled run refuses a dispute challenge from a wallet that is not its payer", async ({ request }) => {
+    // Stands for the whole settlement-dependent family: wrong wallet, closed
+    // window, duplicate, second adjudication, refund cap. None can be reached
+    // while no run settles (D-050), so this fails today at its precondition —
+    // the challenge is refused `unknown_job` rather than for the wrong wallet.
+    // When it flips green, re-verify the others from the evidence doc's list.
+    test.fail();
+    const disputes = await request.get("/api/tasks/tsk_7fc5bc5ea95f15fc/disputes", { timeout: COLD_START_TIMEOUT });
+    const settlement = (await disputes.json()).settlement;
+    expect(settlement, "a settled run to challenge against").not.toBeNull();
+
+    const response = await request.post("/api/disputes/challenge", {
+      timeout: COLD_START_TIMEOUT,
+      data: { job_id_hex: settlement.job_id_hex, step_index: 0 },
+    });
+    expect(response.status(), "a challenge exists to sign").toBe(200);
+    const open = await request.post("/api/disputes", {
+      timeout: COLD_START_TIMEOUT,
+      data: {
+        job_id_hex: settlement.job_id_hex,
+        step_index: 0,
+        reason: "QA refusal probe: not the payer",
+        // The 6.05 agent owner, which never paid for this run.
+        payer: "GBWMD26IB6CMG3JO3HU7SD7ZJSTF4BIJ5JS77ANMLJ52M6FV6K3J7BQJ",
+        nonce: (await response.json()).nonce,
+        signature_b64: "AAAA",
+      },
+    });
+    expect([401, 403], "a stranger cannot dispute someone else's payment").toContain(open.status());
+  });
 });
