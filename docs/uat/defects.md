@@ -1738,7 +1738,7 @@ distinguishes "delivered, unsettled" from "complete".
 ## D-040 — The deployed dispatch envelope carries no `deadline_ms`, which the operator guide tells operators to read
 
 - **Severity:** Major
-- **Status:** Open — present on backend `main` (`external_http.py:420`), not deployed (D-036)
+- **Status:** **Resolved 2026-09-24** — deployed (D-036) and re-verified from a fresh capture. The envelope now reads `{"v":2,"agent_id":"uat624_ext_op",…,"network":"testnet","deadline_ms":100000}` — see `evidence/6.05/dispatch-2026-09-24.json`, which replaces the 2026-09-17 capture as the spec's fixture. The measured budget (a `response_timeout` at 106.3 s) matches the 100 s the field now advertises. Pinned by `EX-02 the captured dispatch envelope carries the documented fields` (marker removed)
 - **Affects:** EX-02, EX-05 (stories 2.02, 2.03)
 
 **Steps to reproduce** — decode `raw_body_base64` in
