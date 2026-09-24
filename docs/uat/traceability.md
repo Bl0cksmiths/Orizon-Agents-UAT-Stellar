@@ -234,13 +234,13 @@ extensions and a real phone and have **not been run yet**.
 
 | criterion | verification | status |
 | --- | --- | --- |
-| OS-01 | `evidence/6.06-operator-surfaces.md` §1 — clean-clone walk, transcripts | **Fail** — D-042, D-047, D-048, D-049; step 2 not walked (no Render account) |
-| OS-02 | `checklists/6.06-wallet-and-phone.md` B | **Pending** (checklist not run); D-046 from source |
+| OS-01 | `evidence/6.06-operator-surfaces.md` §1 — clean-clone walk, transcripts | **Fail** — D-042 ([agent#2](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/2)), D-047 ([#3](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/3)), D-048 ([#4](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/4)), D-049 ([#5](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/5)); step 2 not walked (no Render account) |
+| OS-02 | `checklists/6.06-wallet-and-phone.md` B | **Pending** (checklist not run); D-046 ([frontend#72](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/72)) from source |
 | OS-03 | `tests/operator-surfaces.spec.ts` — `OS-03 the registration page explains both signatures before anything is clicked` | **Pass** (deployed) |
 | OS-04 | `checklists/6.06-wallet-and-phone.md` A, B | **Pending** (checklist not run) |
 | OS-05 | `tests/operator-surfaces.spec.ts` — `OS-05 an already-bound agent shows the endpoint that reads back…`; 6.05 §2 API rebinds; checklist C | **Partial** — page and API pass; in-browser rebind pending |
-| OS-06 | `tests/operator-surfaces.spec.ts` — three `OS-06 a … endpoint is refused before signing` tests, and `OS-06 an unresolvable endpoint…` | **Partial** — 3 pass; unresolvable `test.fail()`, D-043 |
-| OS-07 | `tests/operator-surfaces.spec.ts` — no-wallet, owns-nothing, several-agents counts, failed-lookup-not-zero (pass); not-online `test.fail()` D-044; not-routable `test.fail()` D-045; escrow note `test.fail()` D-036 | **Partial** |
+| OS-06 | `tests/operator-surfaces.spec.ts` — three `OS-06 a … endpoint is refused before signing` tests, and `OS-06 an unresolvable endpoint…` | **Partial** — 3 pass; unresolvable `test.fail()`, D-043 ([backend#66](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/66)) |
+| OS-07 | `tests/operator-surfaces.spec.ts` — no-wallet, owns-nothing, several-agents counts, failed-lookup-not-zero (pass); not-online `test.fail()` D-044 ([frontend#70](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/70)); not-routable `test.fail()` D-045 ([#71](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/71)); escrow note now passes (D-036 resolved 2026-09-24) | **Partial** |
 | OS-08 | `tests/operator-surfaces.spec.ts` — two `OS-08 … fits the screen width` tests (emulated); checklist D | **Pending** — emulated width passes; real phone not run |
 
 ## EX — re-judged on the redeployed stack (2026-09-24)
