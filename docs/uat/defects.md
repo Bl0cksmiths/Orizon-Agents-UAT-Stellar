@@ -2391,3 +2391,20 @@ cost is a confusing loop and extra wallet prompts.
 render it straight away, without waiting for the refetch.
 
 ---
+
+## D-058 — In-memory dispute store: a money-path defect, held privately
+
+- **Severity:** Major (only when `DATABASE_URL` is unset)
+- **Status:** Open — details held privately
+- **Affects:** IB-01 (story 6.03b)
+
+Found 2026-09-24 in the backend's in-memory dispute store (origin/main
+`3347090`), by reading the code; not run end to end. Details are handed to the
+backend maintainers directly, with D-053. It does not apply when the service
+runs on Postgres.
+
+**Consequence for D-051** — before refunds are switched on, confirm
+`DATABASE_URL` is set on Render. It cannot be confirmed from outside today:
+`/readiness` does not report which dispute store is in use.
+
+---
