@@ -2217,3 +2217,37 @@ which accept either refusal today and will narrow to `401` once the switch is
 on.
 
 ---
+
+## D-052 — The adjudication routes answer an anonymous caller with their configuration state
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DP-02 (story 4.04)
+
+**Steps to reproduce** — with no credentials at all:
+
+```
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://orizons.xyz/api/disputes/dsp_test/uphold -H 'content-type: application/json' -d '{}'
+```
+
+**Expected** — `401 invalid_api_key`. `require_adjudicator` is documented to
+fail closed, and an unauthenticated caller should learn nothing beyond "not for
+you".
+
+**Actual** — `503 dispute_refunds_disabled`. The refunds master switch is
+checked before the adjudicator guard, so anyone can read a deployment's
+`DISPUTE_REFUNDS_ENABLED` state, for any dispute id, without a key. The same
+call would presumably answer `401` once refunds are on, which is itself the
+signal.
+
+**Impact** — small: the disclosed fact is one boolean about a testnet
+deployment, and nothing is adjudicated either way. It is filed because the
+guard's own docstring says it fails closed, and here a public caller reaches a
+decision the guard was supposed to take first. It also makes a negative
+authorization test ambiguous — `DP-02` has to accept two codes to stay honest.
+
+**Resolution path** — run `require_adjudicator` before the feature-flag check,
+so an anonymous caller gets `401` whatever the flag says.
+
+---
