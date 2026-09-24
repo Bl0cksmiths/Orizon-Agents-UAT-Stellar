@@ -37,6 +37,17 @@ test.describe("WC — dispute eligibility (story 6.03c)", () => {
     expect(body.error?.code).toBe("reason_required");
   });
 
+  for (const [name, reason] of [["a zero-width space", "​"], ["a right-to-left override", "‮"]]) {
+    test(`WC-05 a reason of only ${name} is refused as reason_required`, async ({ request }) => {
+      // D-059: invisible characters pass the reason check today and the request
+      // reaches the job lookup (404 unknown_job) instead of being refused.
+      test.fail();
+      const response = await request.post("/api/disputes", { timeout: COLD_START_TIMEOUT, data: { ...OPEN, reason } });
+      expect(response.status()).toBe(422);
+      expect((await response.json()).error?.code).toBe("reason_required");
+    });
+  }
+
   test("WC-06 a 500-character reason in multi-byte text passes the cap, which counts characters not bytes", async ({ request }) => {
     // 500 × "é" is 1000 UTF-8 bytes. Past validation, the next refusal is the
     // unknown job — so the reason was accepted at full length, not trimmed.
