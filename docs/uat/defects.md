@@ -2452,3 +2452,34 @@ categories Cf, Zs, Cc, and fillers) as empty, and strip C1 controls as
 documented.
 
 ---
+
+## D-060 — A dispute dialog left open when the window closes still asks the wallet to sign
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** WC-02 (story 6.03c)
+
+**Steps to reproduce** — frontend origin/main `e56a07a`, run with the real
+components and a controlled clock (vitest fake timers and Playwright
+`page.clock` agree): open the dispute dialog about five seconds before the
+window closes, type a reason, and let the clock pass the close.
+
+**Expected** — story 6.03c: when the closing time passes, "every dispute action
+should disappear without a reload".
+
+**Actual** — the row buttons do disappear on their own at the close, with no
+refetch (`lib/use-dispute-panel.ts` ticks on the server-corrected clock). The
+open dialog does not: it stays mounted while a target is set
+(`dispute-section.tsx:304-312`), and its `canSubmit`
+(`dispute-dialog.tsx:412-413`) never looks at the window. "Sign and submit"
+stays enabled; pressing it mints a challenge, asks the wallet for a signature,
+and only then is refused `409`, shown as "The dispute window for this workflow
+has closed, so this step can no longer be disputed."
+
+**Impact** — nothing is recorded, but the buyer signs for a dispute that could
+no longer be accepted, with no warning before the signature.
+
+**Resolution path** — have the dialog read the window from the same clock and
+switch to the closed message at the close, before any signature.
+
+---
