@@ -899,3 +899,31 @@ settler on the buyer's account; a UI claim is not evidence.
 On 2026-09-24 none can be run on the deploy (D-050, D-051). They were attacked
 in code instead — `evidence/6.03b-idempotency.md` — and IB-01 fails there
 (D-053, D-058).
+
+## Acceptance criteria — WC, who may dispute and when (story 6.03c, verifies 4.02, 4.05)
+
+A dispute is authorised by the paying wallet's signature over a live
+challenge (ADR 0007 D2), not by the task token: the token proves someone holds
+the link, not that they paid. Both signature encodings real wallets produce —
+raw bytes and SEP-53 — must be accepted. The window's closing time is the one
+stamped at settlement, whatever `DISPUTE_WINDOW_SECONDS` says later. A non-payer
+sees nothing: no disabled control, no hint.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| WC-01 | disputes attempted just inside and just after the closing time | each is submitted | the first is accepted (`open`) and the second refused, naming when the window closed |
+| WC-02 | the trace page open with the window about to close | the closing time passes | every dispute action disappears without a reload |
+| WC-03 | a non-payer's wallet connected to the same trace | they look for and attempt a dispute | no dispute action is present, and a signed attempt from that wallet is refused |
+| WC-04 | a reused nonce and an expired nonce | each is submitted | both are refused, and neither message reads as "wrong wallet" |
+| WC-05 | an empty reason | submission is attempted in the UI and directly against the API | the UI submit stays disabled and the API refuses |
+| WC-06 | a reason longer than 500 characters | it is entered | the field caps it, and whatever is submitted is stored whole |
+
+Also exercised under these IDs: a wallet that is not connected sees the receipt,
+the window and a prompt to connect the paying wallet (WC-03); an undelivered,
+uncharged step has no dispute action and is refused by the API (WC-03).
+
+On 2026-09-25 only the API side of WC-05 and WC-06 can be reached on the deploy
+— the reason is checked before the job — and runs in
+`tests/dispute-eligibility.spec.ts`. Everything else needs a settled step
+(D-050) and was verified by running the backend and frontend locally:
+`evidence/6.03c-eligibility.md`.
