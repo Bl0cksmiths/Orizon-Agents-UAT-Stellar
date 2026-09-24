@@ -2483,3 +2483,33 @@ no longer be accepted, with no warning before the signature.
 switch to the closed message at the close, before any signature.
 
 ---
+
+## D-061 — A reason refused as a validation error is shown as a generic, retryable failure
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** WC-05, WC-06 (story 6.03c)
+
+**Steps to reproduce** — frontend origin/main `e56a07a`, component level:
+`POST /api/disputes` answers `422 validation_error` on `reason` (the answer the
+live service gives an empty or over-long reason).
+
+**Expected** — story 6.03c: every refusal is legible; the buyer is told the
+reason was the problem.
+
+**Actual** — `validation_error` is not among the codes the dialog recognises
+(`lib/disputes.ts:74-85`; `disputes.test.ts:572` asserts it maps to null), so
+it gets "Your dispute couldn't be submitted. Your reason is still here — try
+again." with "Sign and submit again". The field is not marked invalid, and a
+retry fails the same way at the cost of another signature. Relatedly, a
+`reason_required` refusal for an over-long reason is always shown as "Say what
+went wrong with this step, in words, before submitting."
+
+**Impact** — reachable only if the field's own guards are bypassed: in a real
+browser the field caps at 500 and blank reasons keep submit disabled. The copy
+is wrong where it does appear.
+
+**Resolution path** — map a `validation_error` naming `reason` to the reason
+field's own message, and choose the copy from the refusal rather than the code.
+
+---
