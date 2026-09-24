@@ -2308,3 +2308,29 @@ stroops from that same value.
 boot, and refuse a non-finite amount in the cap check itself.
 
 ---
+
+## D-055 — A refund refused at the cap does not tell the caller the amount or the cap
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** IB-05 (story 6.03b)
+
+**Steps to reproduce** — backend origin/main `3347090`: uphold a dispute whose
+computed credit is above `MAX_REFUND_USDC`.
+
+**Expected** — story 6.03b: "the refusal should name the amount and the cap".
+
+**Actual** — the HTTP answer is `{"code":"refund_above_cap","message":"refund
+above cap"}` (`routers/disputes.py:431`, message rebuilt from the code in
+`main.py:411-422`). The amount and the cap reach only `refund_svc`'s ERROR log
+line (`refund_svc.py:102-110`); the second log line, from `dispute_svc.py:1247`,
+prints `amount=-` because no amount is passed to it.
+
+**Impact** — no money moves: the refusal comes before anything is signed. An
+adjudicator who is refused cannot tell by how much, or what the cap is,
+without server log access.
+
+**Resolution path** — carry the amount and the cap in the refusal body, and
+pass the amount to `_refuse_credit`.
+
+---
