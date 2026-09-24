@@ -30,6 +30,9 @@ const signature = captured.headers["x-orizon-signature"] ?? "";
 // cleaned up: registration tx 64ad14cd…fa3e.
 const EX_AGENT_ID = "uat605_ext_op";
 const EX_AGENT_OWNER = "GBWMD26IB6CMG3JO3HU7SD7ZJSTF4BIJ5JS77ANMLJ52M6FV6K3J7BQJ";
+// Registered and bound for the 2026-09-24 re-run, by the same owner:
+// registration tx e3f58a12…ce1b. The capture above is its first dispatch.
+const RERUN_AGENT_ID = "uat624_ext_op";
 
 async function publishedSigner(request: import("@playwright/test").APIRequestContext): Promise<string> {
   const response = await request.get("/api/stellar/network", { timeout: COLD_START_TIMEOUT });
@@ -98,13 +101,12 @@ test.describe("EX — external agent dispatch (story 6.05)", () => {
   });
 
   test("EX-02 the captured dispatch envelope carries the documented fields", () => {
-    // D-040: the deployed envelope has no deadline_ms. Re-capture a dispatch
-    // after the backend redeploys, then remove the marker.
-    test.fail();
+    // Was D-040 (no deadline_ms on the old build). The 2026-09-24 re-run
+    // captured an envelope that carries it, against the re-run's own agent.
     const body = JSON.parse(rawBody.toString("utf8"));
     expect(captured.headers["idempotency-key"]).toBe(body.dispatch_id);
     expect(captured.headers["x-orizon-signature-version"]).toBe("orizon-dispatch:v1");
-    expect(body).toMatchObject({ v: 2, agent_id: EX_AGENT_ID, network: "testnet" });
+    expect(body).toMatchObject({ v: 2, agent_id: RERUN_AGENT_ID, network: "testnet" });
     expect(typeof body.ts).toBe("number");
     expect(typeof body.deadline_ms).toBe("number");
   });
