@@ -2278,3 +2278,33 @@ time, from any mix of the script and the API.
 regression test is part of the private hand-off.
 
 ---
+
+## D-054 — `MAX_REFUND_USDC` is not validated, so a bad value silently removes the refund cap
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** IB-05 (story 6.03b)
+
+**Steps to reproduce** — backend origin/main `3347090`, locally, no network:
+start the service or build `Settings()` with `MAX_REFUND_USDC=nan`, then ask
+`refund_svc.creditable_for` for a 50 USDC step.
+
+**Expected** — the setting is refused at boot, as a missing `API_KEY` is when
+refunds are on. The cap is the last thing between a policy mistake and the
+platform wallet.
+
+**Actual** — `nan` is accepted (`config.py:247`, no validator), and every
+`amount > nan` comparison is false, so both cap checks (`refund_svc.py:227`,
+`:285-293`) pass: the 50 USDC step comes back creditable at `50.0`. `inf`
+disables the cap the same way; a negative value refuses every credit. A NaN
+`settled_usdc` likewise skips the settled-total bound.
+
+**Impact** — only a misconfiguration reaches it, but it fails open, silently,
+on the one guard whose job is to bound a loss. At the default `1.0` the cap
+holds: the amount is rounded to 7 places before the comparison and converted to
+stroops from that same value.
+
+**Resolution path** — validate `MAX_REFUND_USDC` as finite and positive at
+boot, and refuse a non-finite amount in the cap check itself.
+
+---
