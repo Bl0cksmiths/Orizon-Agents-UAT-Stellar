@@ -845,3 +845,34 @@ is the first criterion rather than a footnote.
 DP-05 to DP-07 need the settler key and a recorded session; DP-01 to DP-04 run
 in `tests/dispute-path.spec.ts` on every suite run. On 2026-09-24 DP-01 fails
 (D-050) and DP-05 to DP-07 are blocked behind it and D-051.
+
+## Acceptance criteria — DR, the dispute refusal paths (story 6.03b, verifies 4.02–4.04)
+
+**Scope is inferred.** The story was supplied as a title only, so these criteria
+are QA's reading of "the dispute refusal paths" — every refusal the dispute API
+can produce — and are written against behaviour observed on the deployed
+service (`evidence/6.03b-dispute-refusals.md`). Replace them if the story's own
+criteria differ; the tests assert observed behaviour and will survive a
+renumbering.
+
+A refusal is only tested if it can be reached. DR-01 to DR-04 and DR-06 need
+nothing but a request; the rest need a settled dispute, which no deployment has
+produced yet (D-050), and are pinned rather than assumed.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| DR-01 | a malformed job id or a negative step index | a dispute challenge is requested | it is refused `422`, naming the field that was wrong |
+| DR-02 | a forged nonce and signature | a dispute is opened with them | it is refused, and the answer does not reveal whether the signature was the problem |
+| DR-03 | a reason past the 500-character cap, a payer that is not a G-address, or no reason | a dispute is opened | it is refused `422` before the job is looked up, naming the field |
+| DR-04 | a dispute id that does not exist | it is read | it is refused `404 unknown_dispute`, with a request id and no traceback |
+| DR-05 | a settled run and a wallet that is not its payer | that wallet raises a dispute | it is refused for authorization, not for a missing job |
+| DR-06 | no adjudicator credentials | uphold or reject is called | it is refused and nothing is adjudicated |
+| DR-07 | a dispute window that has closed | a step from that run is disputed | it is refused, and the closing time is stated |
+| DR-08 | a step already disputed | the same step is disputed again | `409`, carrying the existing dispute id |
+| DR-09 | a dispute already upheld or rejected | it is adjudicated again | it is refused and the first outcome stands |
+| DR-10 | a challenge nonce already used | it is replayed | it is refused — one use per nonce |
+| DR-11 | a credit that would exceed `max_refund_usdc` | the dispute is upheld | it is refused as over the cap, and nothing is transferred |
+
+Rate limiting (`429`) is advertised by every dispute route and is deliberately
+not tripped from the functional suite: the deployed limiter is a whole-service
+bucket, so exercising it would throttle the shared target for everyone else.
