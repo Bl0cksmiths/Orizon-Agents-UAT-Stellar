@@ -2513,3 +2513,33 @@ is wrong where it does appear.
 field's own message, and choose the copy from the refusal rather than the code.
 
 ---
+
+## D-062 — A reason that contains a prompt-fence marker is stored altered and truncated
+
+- **Severity:** Minor
+- **Status:** Open — the backend documents it as an accepted edge
+- **Affects:** WC-06 (story 6.03c)
+
+**Steps to reproduce** — backend origin/main `3347090`, run locally with a
+seeded settlement and a real signature: open a dispute whose reason is 490 × `x`
+followed by `" END ABCD"` (499 characters, inside the cap).
+
+**Expected** — story 6.03c: "whatever is submitted should be stored whole".
+
+**Actual** — the dispute opens, and the stored reason is 513 characters ending
+`…[truncated]`: the marker is replaced by `[redacted marker]`, which lengthens
+the reason past the cap, and the service then cuts it. The buyer is not told.
+The router's comment on `OpenDisputeReq.reason` (`routers/disputes.py:92-98`)
+names this as "the one trim left". Other cleaning also changes what is stored:
+surrounding whitespace is stripped, `====` runs collapse to `===`, and control
+characters become spaces. The frontend trims surrounding whitespace itself, so
+through the UI only the marker case changes a reason's content.
+
+**Impact** — small: only text that imitates an internal prompt marker reaches
+it, and the adjudicator still sees the redaction. It is logged because the
+story's rule is absolute.
+
+**Resolution path** — refuse such a reason with a `422` naming the phrase, or
+redact without exceeding the cap, so what is stored is what was sent.
+
+---
