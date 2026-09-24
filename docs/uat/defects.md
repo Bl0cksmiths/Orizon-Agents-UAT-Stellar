@@ -2412,3 +2412,43 @@ runs on Postgres.
 `/readiness` does not report which dispute store is in use.
 
 ---
+
+## D-059 — A dispute reason made only of invisible characters is accepted as a reason
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** WC-05 (story 6.03c)
+
+**Steps to reproduce** — live, no wallet needed:
+
+```
+curl -s -X POST https://orizon-agents-be-stellar.onrender.com/api/disputes \
+  -H 'content-type: application/json' \
+  -d '{"job_id_hex":"7fc5bc5ea95f15fc7fc5bc5ea95f15fc","step_index":0,"reason":"\u200b",
+       "payer":"GDJHP2I6NRCWYZTB3ZOXRE74V4M4EGXRYORGNPTGQ6BVNJNSSJO4PKXJ",
+       "nonce":"00000000000000000000000000000000","signature_b64":"AAAA"}'
+```
+
+**Expected** — `422 reason_required`, as `" \t\n "` gets: the reason is mandatory,
+and a reason nobody can see is not one.
+
+**Actual** — the reason check passes and the request goes on to the job lookup
+(`404 unknown_job`). Run locally against origin/main `3347090` with a seeded
+settlement and a real signature, a reason of only U+200B, U+200C, U+2060,
+U+FEFF, U+00AD, U+202E (right-to-left override) or U+3164 opens the dispute —
+`200`, status `open`, the nonce spent, the stored reason one invisible
+character. C1 controls such as U+009B are stored as-is, although
+`_require_reason` says C1 is stripped. Cause: `sanitize_untrusted` strips only
+`[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]` plus what `.strip()` removes
+(`app/agents/workers/prompt_safety.py`).
+
+**Impact** — only the paying wallet, inside its window, can open such a
+dispute, and nothing is paid without an adjudicator. The adjudicator is handed
+a dispute with no visible reason, and a right-to-left override can reorder how
+a reason displays.
+
+**Resolution path** — treat a reason with no visible character (Unicode
+categories Cf, Zs, Cc, and fillers) as empty, and strip C1 controls as
+documented.
+
+---
