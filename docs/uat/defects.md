@@ -2151,3 +2151,23 @@ is empty rather than showing nothing. Worth a QA story of its own — Epic 4 has
 no acceptance criteria in this plan.
 
 ---
+
+## Bug issues
+
+Every open defect from stories 6.05 and 6.06 is filed as a Bug in the repository that owns the code, each quoting the failing Given/When/Then and linking back here. Filed 2026-09-24.
+
+| defect | severity | repo | issue |
+| --- | --- | --- | --- |
+| D-042 | Critical | Example-Agent | [#2](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/2) |
+| D-047 | Major | Example-Agent | [#3](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/3) |
+| D-048 | Minor | Example-Agent | [#4](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/4) |
+| D-049 | Major | Example-Agent | [#5](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/5) |
+| D-044 | Major | FE | [#70](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/70) |
+| D-045 | Minor | FE | [#71](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/71) |
+| D-046 | Major | FE | [#72](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/72) |
+| D-043 | Major | BE | [#66](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/66) |
+| D-050 | Critical | BE | [#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67) |
+| D-039 | Critical | Smart-Contract | [#3](https://github.com/Bl0cksmiths/Orizon-Agents-Smart-Contract-Stellar/issues/3) |
+
+D-036, D-037, D-038 and D-040 are not filed: they were resolved by the 2026-09-24 redeploy. D-050 is D-039's consequence and says so in both issues.
+
