@@ -2168,6 +2168,88 @@ Every open defect from stories 6.05 and 6.06 is filed as a Bug in the repository
 | D-043 | Major | BE | [#66](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/66) |
 | D-050 | Critical | BE | [#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67) |
 | D-039 | Critical | Smart-Contract | [#3](https://github.com/Bl0cksmiths/Orizon-Agents-Smart-Contract-Stellar/issues/3) |
+| D-051 | Blocker (6.03a) | BE | [#68](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/68) |
+| D-052 | Minor | BE | [#69](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/69) |
 
 D-036, D-037, D-038 and D-040 are not filed: they were resolved by the 2026-09-24 redeploy. D-050 is D-039's consequence and says so in both issues.
 
+
+## D-051 — The deployment has dispute refunds switched off, so no dispute can ever be upheld
+
+- **Severity:** Blocker (for story 6.03a)
+- **Status:** Open — deployment configuration, not code
+- **Affects:** DP-01, DP-02 (stories 4.03, 4.04, 6.03a)
+
+**Failing precondition (story 6.03a)** — *"`DISPUTE_REFUNDS_ENABLED=true` and a
+non-empty `API_KEY` are set in the Render dashboard."*
+
+**Steps to reproduce** (2026-09-24)
+
+```
+curl -s -X POST https://orizons.xyz/api/disputes/dsp_test/uphold \
+  -H 'content-type: application/json' -d '{}'
+```
+
+**Expected** — `401 invalid_api_key`: the adjudicator guard refusing an
+anonymous caller, with the feature itself available to a holder of the key.
+
+**Actual**
+
+```json
+{"detail":"dispute_refunds_disabled",
+ "error":{"code":"dispute_refunds_disabled","message":"dispute refunds disabled","request_id":"e5ae82462de24666"}}
+```
+`503`. `dispute_refunds_enabled` defaults to `False` in `app/config.py:254`, and
+the deployed service is running with the default. Turning it on also makes
+`API_KEY` mandatory at boot, so the two preconditions stand or fall together.
+
+**Impact** — even once a settlement exists (D-050), `scripts/uphold_dispute.py`
+cannot credit anything: the route refuses before it reaches the adjudicator
+guard. Story 6.03a's flow cannot be completed, and Deliverable 3's two on-chain
+artifacts cannot be produced.
+
+**Resolution path** — set `DISPUTE_REFUNDS_ENABLED=true` and a non-empty
+`API_KEY` in the Render dashboard and redeploy, then re-run the 6.03a
+procedure. Worth confirming `DATABASE_URL` in the same pass: it cannot be
+checked from outside, and without it the dispute store is in-memory and every
+window dies at the next restart (`dispute_store.py:1443`).
+
+**Pinned by** `DP-02 an anonymous caller cannot uphold a dispute` / `… reject …`,
+which accept either refusal today and will narrow to `401` once the switch is
+on.
+
+---
+
+## D-052 — The adjudication routes answer an anonymous caller with their configuration state
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DP-02 (story 4.04)
+
+**Steps to reproduce** — with no credentials at all:
+
+```
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://orizons.xyz/api/disputes/dsp_test/uphold -H 'content-type: application/json' -d '{}'
+```
+
+**Expected** — `401 invalid_api_key`. `require_adjudicator` is documented to
+fail closed, and an unauthenticated caller should learn nothing beyond "not for
+you".
+
+**Actual** — `503 dispute_refunds_disabled`. The refunds master switch is
+checked before the adjudicator guard, so anyone can read a deployment's
+`DISPUTE_REFUNDS_ENABLED` state, for any dispute id, without a key. The same
+call would presumably answer `401` once refunds are on, which is itself the
+signal.
+
+**Impact** — small: the disclosed fact is one boolean about a testnet
+deployment, and nothing is adjudicated either way. It is filed because the
+guard's own docstring says it fails closed, and here a public caller reaches a
+decision the guard was supposed to take first. It also makes a negative
+authorization test ambiguous — `DP-02` has to accept two codes to stay honest.
+
+**Resolution path** — run `require_adjudicator` before the feature-flag check,
+so an anonymous caller gets `401` whatever the flag says.
+
+---

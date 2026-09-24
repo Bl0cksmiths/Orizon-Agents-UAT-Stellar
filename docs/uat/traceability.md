@@ -264,3 +264,19 @@ was driven again with a new agent (`uat624_ext_op`); see
 | EX-07 | same spec — binding and routing re-read after a week and several restarts | **Pass** |
 | EX-08 | `evidence/6.05-external-dispatch.md` §13, `evidence/6.05/dispatch-2026-09-24.json` | **Pass** |
 | EX-09 (new) | run §13.5 — `GET /api/tasks/{id}/disputes` returns `settlement: null` for a delivered run | **Fail** — D-050 ([backend#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67)), the Epic 4 dispute path is unreachable |
+
+## DP — the dispute happy path (story 6.03a)
+
+Attempted 2026-09-24; `evidence/6.03a-dispute-path.md`. The story's own flow
+could not start: no payment settles on this deployment, and refunds are switched
+off in it.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| DP-01 | `tests/dispute-path.spec.ts` — `DP-01 a paid, delivered run exposes a settlement and a window to dispute against` | **Fail** — `test.fail()`, D-050 ([backend#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67)), behind D-039 ([contracts#3](https://github.com/Bl0cksmiths/Orizon-Agents-Smart-Contract-Stellar/issues/3)) |
+| DP-02 | same spec — `DP-02 an anonymous caller cannot uphold a dispute` / `… reject …` | **Pass**, with the refusal ambiguous while refunds are off (D-051, D-052) |
+| DP-03 | same spec — `DP-03 a dispute challenge for a job that never settled is refused as unknown_job` | **Pass** |
+| DP-04 | same spec — `DP-04 a finished run answers the dispute endpoint with a task-shaped payload` | **Pass** |
+| DP-05 | needs the settler key and a recorded session | **Blocked** — D-050, D-051; no dispute exists to uphold |
+| DP-06 | needs a sealed job id from an attestation | **Blocked** — `proof_tx` is null on every run (D-039) |
+| DP-07 | needs a recorded session on an open dispute | **Blocked** — the receipt panel never renders, `settlement` is null |
