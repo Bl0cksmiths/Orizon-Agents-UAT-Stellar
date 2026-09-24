@@ -1598,7 +1598,7 @@ by `EX-00 the settlement evidence route is deployed` (`test.fail()` until then).
 ## D-037 — On the deployed build every external failure reads the same: no failure class reaches the trace
 
 - **Severity:** Critical
-- **Status:** Open — fixed on backend `main` (`deb1320`, 2026-09-16), not deployed (D-036)
+- **Status:** **Resolved 2026-09-24** — deployed (D-036) and re-verified. Each class now reaches the buyer's trace, one per failure mode, on plan `pln_5541a1c3` against `uat624_ext_op`: malformed JSON → `external.uat624_ext_op failed (invalid_response)` (`tsk_8a053d47246cf746`); 2 MiB body → `(oversize_response)` (`tsk_e8444f9f49f6576e`); no answer → `(response_timeout)` at 106.345 s (`tsk_ed640b5cbccb5db6`); refused TCP on `scanme.nmap.org:444` → `(no_connection)` (`tsk_2fbab8598729c0cf`); origin down behind a live tunnel (proxy 502) → `(error_status)` (`tsk_3c06e3fe4074019b`). The workflow continued in every case and `spent` excluded the failed step
 - **Affects:** EX-05 (story 2.03)
 
 **Failing Given/When/Then (story 6.05)** — *Given a timeout, a refused
