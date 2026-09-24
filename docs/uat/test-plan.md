@@ -876,3 +876,26 @@ produced yet (D-050), and are pinned rather than assumed.
 Rate limiting (`429`) is advertised by every dispute route and is deliberately
 not tripped from the functional suite: the deployed limiter is a whole-service
 bucket, so exercising it would throttle the shared target for everyone else.
+
+## Acceptance criteria — IB, idempotency on the money path (story 6.03b, verifies 4.03–4.05)
+
+These are the story's own criteria; they arrived after DR was written from the
+title alone. Where they overlap, IB governs: DR-08 is IB-02, DR-10 and DR-11
+are attacks under IB-01 and IB-05, and **DR-09 is superseded for upheld
+disputes** — re-upholding a credited dispute is not refused, it is answered
+with the existing credit and retries the rating only (IB-03).
+
+Every money assertion resolves on Stellar Expert, counting credits from the
+settler on the buyer's account; a UI claim is not evidence.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| IB-01 | all seven attacks run against one dispute where they apply (second dispute on a step, double-click, two tabs, replayed signed body, re-uphold, two concurrent upholds, over-cap uphold) | the buyer's account is examined on Stellar Expert | exactly one credit from the settler exists per upheld dispute |
+| IB-02 | a step that already has a dispute | it is disputed again | `409 duplicate_dispute` carrying the original dispute, and the UI shows that dispute rather than a second form |
+| IB-03 | a credited dispute | the uphold is run again | no transfer is signed, the recorded refund hash is unchanged, and the rating comes back as a replay |
+| IB-04 | two upheld disputes against one agent on two steps of one workflow | both ratings are looked up on Stellar Expert | two distinct `kind="dispute"` writes resolve, neither refused as a replay of the other |
+| IB-05 | a computed credit above `MAX_REFUND_USDC` | the uphold is attempted | nothing reaches the chain, and the refusal names the amount and the cap |
+
+On 2026-09-24 none can be run on the deploy (D-050, D-051). They were attacked
+in code instead — `evidence/6.03b-idempotency.md` — and IB-01 fails there
+(D-053, D-058).
