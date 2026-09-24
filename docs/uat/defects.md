@@ -2105,3 +2105,49 @@ until then, move rating and attestation from *Works today* to *Pending* with a
 pointer to D-038.
 
 ---
+
+## D-050 — No run can be disputed: the whole Epic 4 dispute path is unreachable behind the escrow defect
+
+- **Severity:** Critical
+- **Status:** Open
+- **Affects:** EX-04 (stories 4.02, 4.05, 4.06); the dispute UI shipped in the frontend on 2026-09-22
+
+**Steps to reproduce** — run any workflow to completion on the deployed
+service, then ask for its disputes (2026-09-24, `tsk_e534ce3029391aee`,
+status `complete`, `spent 0.034`, both steps delivered):
+
+```
+curl -s https://orizons.xyz/api/tasks/tsk_e534ce3029391aee/disputes
+```
+
+**Expected** — a settlement to dispute against, and a window: the backend
+stamps `dispute_window_seconds` (default 86 400) onto the settlement record at
+settle time, and the trace is supposed to announce
+`dispute window open — any delivered step can be disputed until …`.
+
+**Actual**
+
+```json
+{"task_id":"tsk_e534ce3029391aee","window_closes_at":null,"now":1790220636.5,"settlement":null,"disputes":[]}
+```
+
+No trace in the re-run carried a dispute-window line. `_record_settlement`
+returns early when the charge produced no `job_id`
+(`execution_svc.py:1060-1061`), and the charge never lands (D-039) — so no
+settlement row is ever written, and every finished run is silently
+non-disputable. The buyer is not told: the task still reads `complete` with a
+non-zero `spent`.
+
+**Impact** — three merged stories' worth of dispute and refund work
+(`POST /api/disputes`, the adjudicator routes, the refund executor, the
+negative-rating path, and the whole `/app/trace` dispute UI) cannot be reached
+by any buyer on testnet. Nothing in the product says so; it looks like a
+feature that exists.
+
+**Resolution path** — this is D-039's consequence, not a separate bug in the
+dispute code: fix the escrow so a charge lands, then re-check this against a
+run whose `charge_tx` is non-null. Until then the dispute UI should say why it
+is empty rather than showing nothing. Worth a QA story of its own — Epic 4 has
+no acceptance criteria in this plan.
+
+---
