@@ -2171,3 +2171,49 @@ Every open defect from stories 6.05 and 6.06 is filed as a Bug in the repository
 
 D-036, D-037, D-038 and D-040 are not filed: they were resolved by the 2026-09-24 redeploy. D-050 is D-039's consequence and says so in both issues.
 
+
+## D-051 — The deployment has dispute refunds switched off, so no dispute can ever be upheld
+
+- **Severity:** Blocker (for story 6.03a)
+- **Status:** Open — deployment configuration, not code
+- **Affects:** DP-01, DP-02 (stories 4.03, 4.04, 6.03a)
+
+**Failing precondition (story 6.03a)** — *"`DISPUTE_REFUNDS_ENABLED=true` and a
+non-empty `API_KEY` are set in the Render dashboard."*
+
+**Steps to reproduce** (2026-09-24)
+
+```
+curl -s -X POST https://orizons.xyz/api/disputes/dsp_test/uphold \
+  -H 'content-type: application/json' -d '{}'
+```
+
+**Expected** — `401 invalid_api_key`: the adjudicator guard refusing an
+anonymous caller, with the feature itself available to a holder of the key.
+
+**Actual**
+
+```json
+{"detail":"dispute_refunds_disabled",
+ "error":{"code":"dispute_refunds_disabled","message":"dispute refunds disabled","request_id":"e5ae82462de24666"}}
+```
+`503`. `dispute_refunds_enabled` defaults to `False` in `app/config.py:254`, and
+the deployed service is running with the default. Turning it on also makes
+`API_KEY` mandatory at boot, so the two preconditions stand or fall together.
+
+**Impact** — even once a settlement exists (D-050), `scripts/uphold_dispute.py`
+cannot credit anything: the route refuses before it reaches the adjudicator
+guard. Story 6.03a's flow cannot be completed, and Deliverable 3's two on-chain
+artifacts cannot be produced.
+
+**Resolution path** — set `DISPUTE_REFUNDS_ENABLED=true` and a non-empty
+`API_KEY` in the Render dashboard and redeploy, then re-run the 6.03a
+procedure. Worth confirming `DATABASE_URL` in the same pass: it cannot be
+checked from outside, and without it the dispute store is in-memory and every
+window dies at the next restart (`dispute_store.py:1443`).
+
+**Pinned by** `DP-02 an anonymous caller cannot uphold a dispute` / `… reject …`,
+which accept either refusal today and will narrow to `401` once the switch is
+on.
+
+---
