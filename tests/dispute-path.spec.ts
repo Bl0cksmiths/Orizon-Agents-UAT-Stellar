@@ -28,4 +28,13 @@ test.describe("DP — dispute path (story 6.03a)", () => {
     expect(body).toHaveProperty("settlement");
     expect(body).toHaveProperty("window_closes_at");
   });
+
+  test("DP-03 a dispute challenge for a job that never settled is refused as unknown_job", async ({ request }) => {
+    const response = await request.post("/api/disputes/challenge", {
+      timeout: COLD_START_TIMEOUT,
+      data: { job_id_hex: "7fc5bc5ea95f15fc7fc5bc5ea95f15fc", step_index: 0 },
+    });
+    expect(response.status()).toBe(404);
+    expect((await response.json()).error?.code).toBe("unknown_job");
+  });
 });
