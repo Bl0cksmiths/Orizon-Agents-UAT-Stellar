@@ -299,3 +299,17 @@ story title — see the scope note in `test-plan.md`.
 | DR-09 | walk by hand once DR-05 passes | **Blocked** — D-050, D-051 |
 | DR-10 | walk by hand once DR-05 passes | **Blocked** — D-050 |
 | DR-11 | walk by hand once DR-05 passes | **Blocked** — D-050, D-051 |
+
+## IB — idempotency on the money path (story 6.03b)
+
+Run 2026-09-24; `evidence/6.03b-idempotency.md`. Nothing could be run on the
+deploy (D-050, D-051), so every row is verified in code only, and none counts as
+a pass until it resolves on Stellar Expert.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| IB-01 | code attack of all seven paths, evidence §2; on-chain count once unblocked | **Fail** — D-053, D-058 (both held privately) |
+| IB-02 | backend `test_dispute_svc.py`, `test_dispute_store.py` race tests; frontend `dispute-dialog.test.tsx`, `e2e/disputes.spec.ts:373`; live once D-050 clears | **Blocked** — D-050; gap D-057 |
+| IB-03 | backend `test_adjudication.py` credited-dispute tests, `test_uphold_script.py`; live once D-050 and D-051 clear | **Blocked** — D-050, D-051 |
+| IB-04 | backend `test_dispute_job_id.py`, `test_dispute_rating_flow.py`; Stellar Expert lookup once unblocked | **Blocked** — D-050, D-051 |
+| IB-05 | backend cap tests in `test_refund_svc.py` and the uphold script tests; live once D-051 clears | **Blocked** — D-051; D-054, D-055 open |
