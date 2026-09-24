@@ -100,6 +100,17 @@ test.describe("EX — external agent dispatch (story 6.05)", () => {
     expect(response.status()).toBe(200);
   });
 
+  test("EX-06 the re-run agent carries on-chain ratings, not the cold-start prior", async ({ request }) => {
+    // Was D-038: ratings were gated on a settlement that never lands, so a
+    // delivered or failed step changed nothing. The 2026-09-24 re-run put 7
+    // ratings on ReputationLedger for this agent across 7 workflows.
+    const response = await request.get(`/api/stellar/reputation/${RERUN_AGENT_ID}`, { timeout: COLD_START_TIMEOUT });
+    expect(response.status()).toBe(200);
+    const reputation = await response.json();
+    expect(reputation.source, "a rated agent no longer reads from the prior").toBe("onchain");
+    expect(reputation.count, "one rating per finished workflow").toBeGreaterThan(0);
+  });
+
   test("EX-02 the captured dispatch envelope carries the documented fields", () => {
     // Was D-040 (no deadline_ms on the old build). The 2026-09-24 re-run
     // captured an envelope that carries it, against the re-run's own agent.
