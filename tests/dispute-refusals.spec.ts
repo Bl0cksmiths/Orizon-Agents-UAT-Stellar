@@ -53,4 +53,27 @@ test.describe("DR — dispute refusals (story 6.03b)", () => {
     expect(body.error?.code).toBe("unknown_job");
     expect(JSON.stringify(body).toLowerCase()).not.toContain("signature");
   });
+
+  const VALID_OPEN = {
+    job_id_hex: UNSETTLED_JOB_HEX,
+    step_index: 0,
+    reason: "QA refusal probe",
+    payer: "GDJHP2I6NRCWYZTB3ZOXRE74V4M4EGXRYORGNPTGQ6BVNJNSSJO4PKXJ",
+    nonce: "00000000000000000000000000000000",
+    signature_b64: "AAAA",
+  };
+
+  for (const bad of [
+    { what: "a reason past the 500-character cap", data: { ...VALID_OPEN, reason: "x".repeat(501) }, field: "reason" },
+    { what: "a payer that is not a G-address", data: { ...VALID_OPEN, payer: "not-a-wallet" }, field: "payer" },
+    { what: "no reason at all", data: { ...VALID_OPEN, reason: undefined }, field: "reason" },
+  ]) {
+    test(`DR-03 opening a dispute with ${bad.what} is refused before the job is looked up`, async ({ request }) => {
+      const response = await request.post("/api/disputes", { timeout: COLD_START_TIMEOUT, data: bad.data });
+      expect(response.status()).toBe(422);
+      const body = await response.json();
+      expect(body.error?.code).toBe("validation_error");
+      expect(JSON.stringify(body.detail)).toContain(bad.field);
+    });
+  }
 });
