@@ -91,9 +91,8 @@ test.describe("EX — external agent dispatch (story 6.05)", () => {
   });
 
   test("EX-00 the settlement evidence route is deployed", async ({ request }) => {
-    // D-036: the deployed backend predates story 2.06. Remove the marker when
-    // the route answers — it is 6.05's entry criterion.
-    test.fail();
+    // 6.05's entry criterion. Was D-036 (route missing on the deployed build);
+    // the backend was redeployed on 2026-09-24 and it answers.
     const response = await request.get(`/api/stellar/settlement/${EX_AGENT_ID}`, { timeout: COLD_START_TIMEOUT });
     expect(response.status()).toBe(200);
   });
