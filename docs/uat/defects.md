@@ -2334,3 +2334,31 @@ without server log access.
 pass the amount to `_refuse_credit`.
 
 ---
+
+## D-056 — Every dispute refusal except the duplicate loses the service's message on the wire
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** IB-02, DR-07 (stories 6.03b, 4.02)
+
+**Steps to reproduce** — backend origin/main `3347090`: replay a captured
+`POST /api/disputes` body after it succeeded, or dispute a step whose window has
+closed.
+
+**Expected** — the service's own message: "…expired or was already used — ask
+for a new one", and "…closed at <ISO time>" (`docs/disputes.md:543`: "the
+response says when it closed").
+
+**Actual** — `routers/disputes.py:431` raises `HTTPException(status, code)` and
+`main.py:412-413` rebuilds the message from the code, so callers get
+`"challenge expired"` and `"dispute window closed"`. Only `duplicate_dispute`
+keeps its message. `test_dispute_api.py` stubs the message as
+`code.replace("_", " ")`, so no test notices.
+
+**Impact** — a replay is still refused, and nothing is paid; the refusal is just
+less legible than documented, and the closing time is not stated.
+
+**Resolution path** — pass the service message through to the envelope, and
+assert it in a test that does not stub the service.
+
+---
