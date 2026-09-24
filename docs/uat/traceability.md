@@ -255,9 +255,9 @@ was driven again with a new agent (`uat624_ext_op`); see
 | EX-01 | same spec — binding read-back; registration tx `e3f58a12…ce1b` | **Pass** |
 | EX-02 | same spec — `EX-02 the captured dispatch envelope carries the documented fields` (marker removed; fixture `6.05/dispatch-2026-09-24.json`) and the routing test | **Pass** — D-040 resolved, `deadline_ms: 100000` |
 | EX-03 | same spec — three `EX-03` tests against the new capture | **Pass** |
-| EX-04 | run §13.3 (needs a payer key — not in CI) | **Pass** with D-039 — output in trace, artifact and `spent`; still never charged |
+| EX-04 | run §13.3 (needs a payer key — not in CI) | **Pass** with D-039 ([contracts#3](https://github.com/Bl0cksmiths/Orizon-Agents-Smart-Contract-Stellar/issues/3)) — output in trace, artifact and `spent`; still never charged |
 | EX-05 | run §13.3 | **Pass** — five distinct classes (`invalid_response`, `oversize_response`, `response_timeout`, `no_connection`, `error_status`); D-037 resolved |
 | EX-06 | `tests/external-dispatch.spec.ts` — `EX-06 the re-run agent carries on-chain ratings…`; run §13.4 | **Pass** — 7 `rated` events, score falls on failure; D-038 resolved |
 | EX-07 | same spec — binding and routing re-read after a week and several restarts | **Pass** |
 | EX-08 | `evidence/6.05-external-dispatch.md` §13, `evidence/6.05/dispatch-2026-09-24.json` | **Pass** |
-| EX-09 (new) | run §13.5 — `GET /api/tasks/{id}/disputes` returns `settlement: null` for a delivered run | **Fail** — D-050, the Epic 4 dispute path is unreachable |
+| EX-09 (new) | run §13.5 — `GET /api/tasks/{id}/disputes` returns `settlement: null` for a delivered run | **Fail** — D-050 ([backend#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67)), the Epic 4 dispute path is unreachable |
