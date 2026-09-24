@@ -21,7 +21,7 @@ interface CapturedDispatch {
 }
 
 const captured = JSON.parse(
-  readFileSync(join(__dirname, "..", "docs", "uat", "evidence", "6.05", "dispatch-ok.json"), "utf8"),
+  readFileSync(join(__dirname, "..", "docs", "uat", "evidence", "6.05", "dispatch-2026-09-24.json"), "utf8"),
 ) as CapturedDispatch;
 const rawBody = Buffer.from(captured.raw_body_base64, "base64");
 const signature = captured.headers["x-orizon-signature"] ?? "";
