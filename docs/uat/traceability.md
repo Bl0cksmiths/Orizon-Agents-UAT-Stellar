@@ -313,3 +313,18 @@ a pass until it resolves on Stellar Expert.
 | IB-03 | backend `test_adjudication.py` credited-dispute tests, `test_uphold_script.py`; live once D-050 and D-051 clear | **Blocked** — D-050, D-051 |
 | IB-04 | backend `test_dispute_job_id.py`, `test_dispute_rating_flow.py`; Stellar Expert lookup once unblocked | **Blocked** — D-050, D-051 |
 | IB-05 | backend cap tests in `test_refund_svc.py` and the uphold script tests; live once D-051 clears | **Blocked** — D-051; D-054, D-055 open |
+
+## WC — who may dispute and when (story 6.03c)
+
+Run 2026-09-24/25; `evidence/6.03c-eligibility.md`. Only the API side of the
+reason rules is reachable on the deploy; the rest was run locally against the
+real backend and frontend and waits on D-050 for a live run.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| WC-01 | backend window tests in `test_dispute_svc.py`, local run §2; live once D-050 clears | **Fail** — D-056; live run blocked by D-050 |
+| WC-02 | frontend `e2e/disputes.spec.ts:565` (no dialog open), local run §3 | **Fail** — D-060; live run blocked by D-050 |
+| WC-03 | frontend `e2e/disputes.spec.ts:283`, `:311`, `:145`; backend `test_a_signature_from_another_wallet_is_refused`; local run | **Blocked** — D-050 (holds locally) |
+| WC-04 | backend `test_an_expired_challenge_is_refused_and_says_to_ask_for_another`, `test_the_buyer_s_signature_verifies_once_and_only_once`; local run | **Blocked** — D-050 (holds locally) |
+| WC-05 | `tests/dispute-eligibility.spec.ts` — `WC-05` empty and whitespace tests (**pass** live), zero-width and right-to-left tests (`test.fail()`, D-059); frontend `e2e/disputes.spec.ts:158` | **Fail** — D-059 |
+| WC-06 | `tests/dispute-eligibility.spec.ts` — `WC-06` multi-byte cap test (**pass** live); `DR-03` 501-character test (**pass** live); frontend `dispute-dialog.test.tsx:388-416` | **Fail** — D-062 |
