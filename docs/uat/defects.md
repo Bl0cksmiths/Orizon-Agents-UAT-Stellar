@@ -2343,7 +2343,7 @@ pass the amount to `_refuse_credit`.
 
 - **Severity:** Minor
 - **Status:** Open
-- **Affects:** IB-02, DR-07 (stories 6.03b, 4.02)
+- **Affects:** IB-02, DR-07, WC-01, WC-04 (stories 6.03b, 6.03c, 4.02) — reconfirmed 2026-09-25 by running the service locally: a dispute after the close is refused `409 dispute_window_closed` with the message `"dispute window closed"`, and the closing time the service built is dropped
 
 **Steps to reproduce** — backend origin/main `3347090`: replay a captured
 `POST /api/disputes` body after it succeeded, or dispute a step whose window has
