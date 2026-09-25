@@ -2582,3 +2582,45 @@ nothing until used), or report it on `/readiness`.
 names the dispute store" (XFAIL, pinned to D-063).
 
 ---
+
+## D-064 — A credit reconciled by the uphold script's own hint is never rated, and the hint says not to re-run
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** DU-04, DU-03 (story 6.03d); stories 4.04, 4.06
+
+**Steps to reproduce** — backend origin/main `3347090` on a real Postgres. Take a
+dispute to `crediting` with a transfer that times out (`scripts/uphold_dispute.py`
+exits 10), then follow the block's "it SUCCEEDED" branch exactly:
+`append_status(<id>, 'credited', refund_tx=<hash>, credited_usdc=<amount>)`.
+Read the dispute and the payer's receipt.
+
+**Expected** — story 6.03d: "when an operator records a credit manually, the
+hints in the script include the amount and the rating confirmation — without
+them the receipt would show the credit as a promise forever."
+
+**Actual** — the hint carries the amount (`credited_usdc`) and nothing about the
+rating. Followed to the letter, it leaves a `credited` dispute with no
+`rating_tx`: the agent is never rated for the upheld dispute, and the payer's
+receipt reads "Done: you received 0.25 USDC; the dispute rating it costs Coder
+is not confirmed yet." with "Dispute rating against Coder — not recorded
+on-chain yet.", with no end to that state. The fix already exists: re-running the script on a
+`credited` dispute writes the rating alone and signs no transfer (exit 12 or 0,
+"the credit will NOT be paid again"). But the hint's last line says the opposite:
+"Re-running this script instead would credit them a second time."
+
+**Impact** — the buyer is paid correctly. The reputational consequence of an
+upheld dispute (4.04) silently never lands for every refund reconciled by hand,
+and the buyer's receipt stays unfinished. Nothing queues the missing rating:
+the claim leaves `list_refund_claims()` the moment the credit is recorded.
+
+**Resolution path** — end the SUCCEEDED branch with the next step: "then run
+this script again for this dispute: it writes the dispute rating only and signs
+no transfer". Keep "do not re-run" for the `crediting` state it belongs to.
+
+**Verified by** — `tools/restart-drill/drill.py du04`, checks "the hand-reconcile
+hint carries the rating" and "the reconciled dispute carries its rating" (both
+XFAIL, pinned to D-064); `tools/restart-drill/browser.spec.ts` "DU-04 …"
+(`test.fail()`, pinned to D-064).
+
+---
