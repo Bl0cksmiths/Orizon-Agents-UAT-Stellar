@@ -59,4 +59,20 @@ test.describe("AD — adjudication door (story 6.03g)", () => {
       }));
     });
   }
+
+  test("AD-06 the buyer's routes never ask for the operator key", async ({ request }) => {
+    // No run settles on the deploy (D-050), so a dispute cannot be accepted here; that half runs
+    // in tools/adjudication-drill/. What holds live: neither route answers invalid_api_key.
+    const job = { job_id_hex: "7fc5bc5ea95f15fc7fc5bc5ea95f15fc", step_index: 0 };
+    const challenge = await request.post("/api/disputes/challenge", { timeout: COLD_START_TIMEOUT, data: job });
+    expect(challenge.status()).toBe(404);
+    expect((await challenge.json()).error?.code).toBe("unknown_job");
+    const raise = await request.post("/api/disputes", {
+      timeout: COLD_START_TIMEOUT,
+      data: { ...job, reason: "UAT 6.03g probe", payer: "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7", nonce: "0".repeat(32), signature_b64: "AAAA" },
+    });
+    expect(raise.status()).toBeLessThan(500);
+    expect([401, 403]).not.toContain(raise.status());
+    expect((await raise.json()).error?.code).not.toBe("invalid_api_key");
+  });
 });
