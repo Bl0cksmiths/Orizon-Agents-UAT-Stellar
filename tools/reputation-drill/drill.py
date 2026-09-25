@@ -146,13 +146,24 @@ def rep() -> dict:
     return {k: body[k] for k in REP_FIELDS}
 
 
-def plan_stamp() -> dict:
-    """What a freshly decomposed plan stamps on the agent's step — the plan card's numbers."""
-    status, body = http("POST", "/api/orchestrator/decompose", {"intent": INTENT})
-    if status != 200:
-        raise RuntimeError(f"decompose answered {status}: {body}")
-    step = next(s for s in body["steps"] if s["agent_id"] == AGENT)
-    return {k: v for k, v in step.items() if k.startswith("rep")}
+def plan_stamp(*, settled: bool = True) -> dict:
+    """What a freshly decomposed plan stamps on the agent's step — the plan card's numbers.
+
+    A plan whose batch reputation read ran out of time is scored on the prior and says so
+    (`rep_degraded`); on a loaded machine that happens whenever the read cache has expired. With
+    `settled`, such a plan is asked for again, up to five times, so a check compares numbers
+    that were actually read from the ledger.
+    """
+    for _ in range(6):
+        status, body = http("POST", "/api/orchestrator/decompose", {"intent": INTENT})
+        if status != 200:
+            raise RuntimeError(f"decompose answered {status}: {body}")
+        step = next(s for s in body["steps"] if s["agent_id"] == AGENT)
+        stamp = {k: v for k, v in step.items() if k.startswith("rep")}
+        if not (settled and stamp["rep_degraded"]):
+            return stamp
+        time.sleep(2)
+    return stamp
 
 
 # The step is quoted at STEP_PRICE and the workflow settles SETTLED_TOTAL, so a rating weighted
@@ -235,12 +246,8 @@ def phase_before(ctx: dict) -> None:
     ctx["record"]["readiness_ratings"] = ratings
     check("the deployment's signer is the ledger's scorer (/readiness ratings.writer)", ratings.get("writer") == "scorer", json.dumps(ratings))
     ctx["r0"] = r0 = rep()
-    cold = plan = plan_stamp()
-    for _ in range(5):  # a cold batch read can time out; the plan then falls back to the prior, flagged
-        if not plan["rep_degraded"]:
-            break
-        time.sleep(2)
-        plan = plan_stamp()
+    cold = plan_stamp(settled=False)
+    plan = plan_stamp()
     ctx["record"]["before"] = {"route": r0, "plan_cold": cold, "plan": plan}
     check("a plan that fell back to the prior says so", not cold["rep_degraded"] or cold["rep_source"] == "prior", json.dumps(cold))
     check("before: the plan card stamps what the reputation route reads",
