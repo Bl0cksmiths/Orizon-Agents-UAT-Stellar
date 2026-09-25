@@ -284,6 +284,7 @@ def phase_script(ctx: dict) -> None:
     keep = {k: v for k, v in os.environ.items() if k.upper() in {"SYSTEMROOT", "PATH", "TEMP", "TMP", "USERPROFILE", "HOME"}}
     done = subprocess.run([PYTHON, "scripts/uphold_dispute.py", "--dispute-id", ctx["disputes"]["script"]], cwd=BACKEND,
                           env={**keep, **ENV}, capture_output=True, text=True, encoding="utf-8", timeout=600)
+    took = time.time() - started
     (LOGS / "uphold-script.stdout.txt").write_text(done.stdout, encoding="utf-8")
     (LOGS / "uphold-script.stderr.txt").write_text(done.stderr, encoding="utf-8")
     plan = plan_stamp()
@@ -293,7 +294,7 @@ def phase_script(ctx: dict) -> None:
     poller.join()
     _, dispute = http("GET", f"/api/disputes/{ctx['disputes']['script']}")
     ctx["dispute_script"] = dispute
-    check("the uphold script exits 0: credit and rating both landed", done.returncode == 0, f"exit {done.returncode} after {time.time() - started:.0f}s")
+    check("the uphold script exits 0: credit and rating both landed", done.returncode == 0, f"exit {done.returncode} after {took:.0f}s")
     landed = decode_rating(dispute["rating_tx"])["ledger_close"]
     first_new = next((t for t, c in polls if c == warm["count"] + 1), None)
     stale = None if first_new is None else round(first_new - landed, 1)
