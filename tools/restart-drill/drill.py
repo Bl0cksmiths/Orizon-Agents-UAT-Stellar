@@ -51,6 +51,20 @@ def check(name: str, ok: bool, detail: str = "", *, defect: str | None = None) -
     return ok
 
 
+def http(method: str, path: str, body: dict | None = None, headers: dict[str, str] | None = None) -> tuple[int, dict]:
+    """One JSON request to the drill's backend; an error status is an answer, not an exception."""
+    data = None if body is None else json.dumps(body).encode()
+    req = urllib.request.Request(BASE + path, data=data, method=method)
+    req.add_header("Content-Type", "application/json")
+    for key, value in (headers or {}).items():
+        req.add_header(key, value)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as res:
+            return res.status, json.loads(res.read() or b"{}")
+    except urllib.error.HTTPError as err:
+        return err.code, json.loads(err.read() or b"{}")
+
+
 SCENARIOS: dict[str, Callable[[], None]] = {}
 
 if __name__ == "__main__":
