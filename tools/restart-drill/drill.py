@@ -385,6 +385,19 @@ def du04() -> None:
     check("the hand-reconcile hint carries the amount", "credited_usdc=<the amount the transfer moved>" in succeeded)
     check("the hand-reconcile hint carries the rating", "rating" in succeeded, "no word on the dispute rating", defect="D-064")
 
+    # The hint's SUCCEEDED branch, followed to the letter.
+    on_store(lambda store: store.append_status(dispute_id, "credited", refund_tx=tx, credited_usdc=0.25))
+    check("recording the credit by hand empties the queue", dispute_id not in reconciliation_queue())
+    api = Backend("du04-reconciled", backend_env(durable=True))
+    _, one = http("GET", f"/api/disputes/{dispute_id}")
+    api.kill()
+    check("the reconciled dispute carries what it paid", one.get("status") == "credited" and one.get("credited_usdc") == 0.25)
+    check("the reconciled dispute carries its rating", one.get("rating_tx") is not None, "never written", defect="D-064")
+
+    code, out = run_uphold(dispute_id, env, calls, secrets.token_hex(32), "du04-run3")
+    check("a later run on the reconciled dispute signs no transfer", transfers_signed(calls) == 1)
+    check("a later run says the credit will not be paid again", "ALREADY CREDITED — the credit will NOT be paid again" in out, f"exit {code}")
+
 
 SCENARIOS: dict[str, Callable[[], None]] = {
     "du01": du01,
