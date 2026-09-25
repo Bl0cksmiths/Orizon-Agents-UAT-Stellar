@@ -2775,3 +2775,43 @@ backend withheld is never drawn as an empty quote" (`test.fail()`, pinned to
 D-068).
 
 ---
+
+## D-069 — The receipt stops polling once the refund confirms, so a rating that lands after it never shows
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** DS-05 (story 6.03f)
+
+**Steps to reproduce** — with `tools/dispute-ui-drill/`: open the payer's trace
+page on a dispute recorded as `credited` with its refund confirmed and no
+rating yet. This is the moment between the two writes one uphold makes: the
+credit first, then the rating seconds later. Then land and record the rating
+(`seed.py rate-gap`), and wait.
+
+**Expected** — story 6.03f: "The receipt must reach 'Refunded' without a
+reload", with both links.
+
+**Actual** — once a poll returns the refund confirmed and no rating,
+`receiptAwaitsChain` finds nothing left to wait for and polling stops. The
+rating landed and the backend served it (`credited`, `rating_confirmed` true),
+but after 90 s the receipt still read "the dispute rating it costs Researcher
+is not confirmed yet" and "Dispute rating against Researcher — not recorded
+on-chain yet". A reload fixes it. A poll lands in that gap whenever an uphold's
+rating is still being written: the rating takes seconds, and the page polls
+every 5 s while a refund is in flight. So a buyer watching the uphold can be
+left on this screen. The same freeze follows a rating that timed out with no
+hash, or one that failed.
+
+**Impact** — the receipt shows a finished refund with the rating "not recorded
+on-chain", which is no longer true. Only one of the two on-chain facts is
+linked, until the payer happens to reload.
+
+**Resolution path** — keep polling while a credited dispute has no confirmed
+rating, bounded as the other chain waits are.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-10 a rating that
+lands after the refund reaches the open receipt without a reload"
+(`test.fail()`, pinned to D-069). FS-09, a full uphold watched live, passed. Its
+poll happened to land after both writes.
+
+---
