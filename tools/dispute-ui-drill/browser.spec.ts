@@ -10,7 +10,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from "@
  * wallet's address — and, as in the tab that ran the task, holds the task's read token.
  */
 
-type State = "open" | "crediting" | "credited" | "rating_pending" | "rejected" | "live" | "gap";
+type State = "open" | "crediting" | "credited" | "rating_pending" | "rejected" | "live" | "gap" | "upheld";
 const seed = JSON.parse(readFileSync(path.join(process.env.DRILL_STATE ?? ".", "ui-seed.json"), "utf8")) as {
   payer: string;
   apiKey: string;
@@ -319,4 +319,17 @@ test("FS-12 the countdown ticks without being announced: no live region changes 
   await expect(countdown).not.toHaveText(before ?? "", { timeout: 70_000 });
   expect(await page.evaluate(() => (window as unknown as { changes: string[] }).changes)).toEqual([]);
   expect(await countdown.evaluate((el) => el.closest('[aria-live]:not([aria-live="off"]), [role="status"]'))).toBeNull();
+});
+
+test("FS-13 upheld with no transfer on record: decided, and nothing claims a transfer is on its way", async ({ page }, info) => {
+  // D-070: the sentence says the transfer "is queued", but nothing queues it — the platform has
+  // to uphold again. Remove the marker once the wording says what the record holds.
+  test.fail();
+  const receipt = await open(page, "upheld");
+  await page.screenshot({ path: info.outputPath("fs13-upheld.png"), fullPage: true });
+  await expect(receipt).toContainText("Upheld");
+  await expect(receipt).toContainText("No transaction on record");
+  await expect(receipt).not.toContainText(/Refunded|Confirmed on Stellar|Done:/);
+  // Upheld outlives a transfer only when one was refused or failed; nothing retries it by itself.
+  await expect(receipt).not.toContainText("queued", { timeout: 10_000 });
 });
