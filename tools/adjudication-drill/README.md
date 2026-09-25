@@ -17,6 +17,7 @@ before and after each batch of refusals and must not move.
 | AD-04 | refunds on, no key | a bad body still gets the guard's 401; reject with malformed JSON is pinned to D-073 |
 | AD-05 | refunds on, key sent | a rejection with no, null, empty, whitespace or control-character note is refused; a real one succeeds |
 | AD-06 | refunds on, key configured | the buyer challenges and opens a dispute with a wallet signature alone |
+| D-074 | refunds off, `API_KEY` empty, a signing key on the mainnet passphrase | `mainnet` refuses to boot; `pubnet` boots and serves (XFAIL, pinned to D-074) |
 
 ## What it needs
 
