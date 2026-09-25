@@ -265,7 +265,50 @@ def phase_open(ctx: dict) -> None:
     check("RC-05 the plan card is unchanged too", plan["rep_count"] == r0["count"] and plan["rep_dispute_rate_bps"] == r0["dispute_rate_bps"], json.dumps(plan))
 
 
-PHASES = [phase_before, phase_open]
+def phase_script(ctx: dict) -> None:
+    """Uphold through scripts/uphold_dispute.py, in its own process, then plan at once (RC-04)."""
+    import threading  # noqa: PLC0415
+
+    warm = rep()
+    polls: list[tuple[float, int]] = []
+    stop = threading.Event()
+
+    def poll() -> None:  # keeps the server's read cache warm, as a busy console does
+        while not stop.is_set():
+            polls.append((time.time(), rep()["count"]))
+            time.sleep(0.5)
+
+    poller = threading.Thread(target=poll, daemon=True)
+    poller.start()
+    started = time.time()
+    keep = {k: v for k, v in os.environ.items() if k.upper() in {"SYSTEMROOT", "PATH", "TEMP", "TMP", "USERPROFILE", "HOME"}}
+    done = subprocess.run([PYTHON, "scripts/uphold_dispute.py", "--dispute-id", ctx["disputes"]["script"]], cwd=BACKEND,
+                          env={**keep, **ENV}, capture_output=True, text=True, encoding="utf-8", timeout=600)
+    (LOGS / "uphold-script.stdout.txt").write_text(done.stdout, encoding="utf-8")
+    (LOGS / "uphold-script.stderr.txt").write_text(done.stderr, encoding="utf-8")
+    plan = plan_stamp()
+    planned_at = time.time()
+    time.sleep(TTL + 1)
+    stop.set()
+    poller.join()
+    _, dispute = http("GET", f"/api/disputes/{ctx['disputes']['script']}")
+    ctx["dispute_script"] = dispute
+    check("the uphold script exits 0: credit and rating both landed", done.returncode == 0, f"exit {done.returncode} after {time.time() - started:.0f}s")
+    landed = decode_rating(dispute["rating_tx"])["ledger_close"]
+    first_new = next((t for t, c in polls if c == warm["count"] + 1), None)
+    stale = None if first_new is None else round(first_new - landed, 1)
+    ctx["record"]["script"] = {"exit": done.returncode, "plan_at_once": plan, "plan_seconds_after_landing": round(planned_at - landed, 1),
+                               "rating_ledger_close": landed, "server_served_old_count_for_s": stale, "dispute": dispute}
+    detail = (f"plan count {plan['rep_count']} (before {warm['count']}) {round(planned_at - landed, 1)}s after the rating landed; "
+              f"the server served the old count for {stale}s at a {TTL:g}s read TTL")
+    if TTL >= 60:
+        check("RC-04 script path: a plan decomposed right after the uphold shows the new score",
+              plan["rep_count"] == warm["count"] + 1, detail, defect="D-066")
+    else:
+        print(f"  [INFO] RC-04 script path at the production TTL — {detail}", flush=True)
+
+
+PHASES = [phase_before, phase_open, phase_script]
 
 
 def run() -> None:
