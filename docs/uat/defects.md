@@ -2745,3 +2745,33 @@ returning without the task's tab still reads why it was rejected"
 (`test.fail()`, pinned to D-067).
 
 ---
+
+## D-068 — A withheld reason is drawn as an empty "Your reason" quote
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-01 (story 6.03f)
+
+**Steps to reproduce** — as for D-067: open any dispute's trace page with the
+payer's wallet connected but without the task token.
+
+**Expected** — a reason the viewer may not read is left out, as it is for other
+viewers.
+
+**Actual** — the backend sends a withheld `reason` as `""` rather than `null`
+(`DisputeResponse.of`). The frontend passes `""` through for the payer
+(`lib/disputes.ts`, `reason: isPayer ? dispute.reason : null`), and the receipt
+draws the quote whenever the reason is not null. The payer sees a "YOUR REASON"
+heading over nothing.
+
+**Impact** — a blank block on an evidence screen, read as though the payer
+gave no reason.
+
+**Resolution path** — treat an empty reason as absent in the frontend, and/or
+send `null` from the backend.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-08 a reason the
+backend withheld is never drawn as an empty quote" (`test.fail()`, pinned to
+D-068).
+
+---
