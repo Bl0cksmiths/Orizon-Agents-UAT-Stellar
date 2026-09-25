@@ -346,3 +346,14 @@ test("FS-14 the dispute dialog states the credit as the receipt does: a ceiling,
   // The receipt says "Up to": the payout is bounded again when it is paid.
   await expect(dialog).toContainText(/up to 0\.25/i, { timeout: 10_000 });
 });
+
+test("FS-15 @phone both Stellar Expert links are at least 24px tall to a thumb", async ({ page }) => {
+  // D-072: each link is its 10px mono text, about 15px tall. WCAG 2.5.8 lets it pass only on its
+  // spacing exception; on a phone it is a small target. Remove the marker once each is 24px or more.
+  test.fail();
+  const receipt = await open(page, "credited");
+  for (const name of [/view refund on stellar\.expert/, /view rating on stellar\.expert/]) {
+    const box = await receipt.getByRole("link", { name }).boundingBox();
+    expect(box?.height ?? 0, `${name}`).toBeGreaterThanOrEqual(24);
+  }
+});
