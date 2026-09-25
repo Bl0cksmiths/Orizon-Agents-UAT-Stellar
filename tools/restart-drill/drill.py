@@ -399,12 +399,47 @@ def du04() -> None:
     check("a later run says the credit will not be paid again", "ALREADY CREDITED — the credit will NOT be paid again" in out, f"exit {code}")
 
 
+def browser_seed() -> None:
+    """The four receipts browser.spec.ts reads, all paid by one wallet, written to browser-seed.json."""
+    from stellar_sdk import StrKey  # noqa: PLC0415
+
+    print("\n== browser-seed: receipts for the browser drill", flush=True)
+    payer = new_payer()
+    run = secrets.token_hex(3)
+    tasks = {name: f"drill-ui-{name}-{run}" for name in ("open", "settled", "crediting", "reconciled")}
+    jobs = {name: seed_settlement(task, payer.public_key) for name, task in tasks.items()}
+    api = Backend("browser-seed", backend_env(durable=True))
+    disputes = {}
+    for name in ("open", "crediting", "reconciled"):
+        status, opened = open_dispute(payer, jobs[name], 1)
+        check(f"{name}: the dispute opens", status == 200, str(status))
+        disputes[name] = opened["id"]
+    api.kill()
+    env = uphold_env()
+    refund_tx = {}
+    for name in ("crediting", "reconciled"):
+        refund_tx[name] = secrets.token_hex(32)
+        code, _ = run_uphold(disputes[name], env, LOGS / f"browser-transfers-{name}.txt", refund_tx[name], f"browser-{name}")
+        check(f"{name}: the transfer times out", code == 10, str(code))
+    # Reconciled by the hint's SUCCEEDED branch: hash and amount, as it says.
+    on_store(lambda store: store.append_status(disputes["reconciled"], "credited", refund_tx=refund_tx["reconciled"], credited_usdc=0.25))
+    seed = {
+        "payer": payer.public_key,
+        "payerSeedHex": StrKey.decode_ed25519_secret_seed(payer.secret).hex(),
+        "tasks": tasks,
+        "disputes": disputes,
+        "refundTx": refund_tx,
+    }
+    (LOGS / "browser-seed.json").write_text(json.dumps(seed, indent=2), encoding="utf-8")
+
+
 SCENARIOS: dict[str, Callable[[], None]] = {
     "du01": du01,
     "du01-control": du01_control,
     "du02": du02,
     "token-gap": token_gap,
     "du04": du04,
+    "browser-seed": browser_seed,
 }
 
 if __name__ == "__main__":
