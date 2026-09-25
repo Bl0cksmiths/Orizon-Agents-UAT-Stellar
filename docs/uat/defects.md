@@ -2624,3 +2624,41 @@ XFAIL, pinned to D-064); `tools/restart-drill/browser.spec.ts` "DU-04 …"
 (`test.fail()`, pinned to D-064).
 
 ---
+
+## D-065 — With TASK_AUTH_REQUIRED on, a backend restart hides the payer's receipt and every dispute action
+
+- **Severity:** Minor (latent: production runs with `TASK_AUTH_REQUIRED` off, confirmed live on 2026-09-25)
+- **Status:** Open
+- **Affects:** DU-01, DU-02 (story 6.03d)
+
+**Steps to reproduce** — backend origin/main `3347090` on a real Postgres with
+`TASK_AUTH_REQUIRED=true`, frontend origin/main `e56a07a`. Open a dispute,
+restart the backend, then reload the trace page as the payer.
+
+**Expected** — story 6.03d: after a restart the per-task listing may answer as
+if the task were unknown, "while the dispute itself survives … Confirm the
+buyer's ability to raise a dispute never depends on that token."
+
+**Actual** — on the API, it does not depend on the token. `POST /api/disputes/challenge`,
+`POST /api/disputes` and `GET /api/disputes/{id}` all work with no token after
+the restart. In the console, it does. `GET /api/tasks/{id}/disputes` answers
+`404 unknown task` because task tokens live in memory, and
+`use-dispute-panel.ts` reads any 404 there as "this backend has no receipt
+route". The whole receipt disappears without a word: settlement, window, the
+open dispute and every Dispute button. The payer cannot see their dispute or
+raise one from the page.
+
+**Impact** — none while enforcement stays off. If it is switched on, every
+restart takes the receipt away from every buyer with a live window, which
+happens on Render's free tier every time the service idles.
+
+**Resolution path** — on the backend, keep task tokens where settlements are
+kept, or let the payer's signature authorise the per-task read. On the
+frontend, a 404 on this read must not be taken to mean the route is missing
+once the backend is known to have it.
+
+**Verified by** — `tools/restart-drill/drill.py token-gap` (API side, passes);
+`tools/restart-drill/browser.spec.ts` "DU-01 with TASK_AUTH_REQUIRED on …"
+(`test.fail()`, pinned to D-065).
+
+---
