@@ -342,3 +342,18 @@ the real frontend). The deploy has no settled step to restart around (D-050).
 | DU-03 | `drill.py du04` (`crediting`, hash, no amount, no rating, through a restart); `browser.spec.ts` "DU-03 …"; frontend `dispute-status-badge.test.tsx`, `dispute-receipt.test.tsx` | **Pass** locally; live blocked by D-050, D-051 |
 | DU-04 | `drill.py du04` (exit 10 then 6, one transfer signed, queue before and after a restart, "DO NOT RE-RUN"; rating checks XFAIL, D-064); `browser.spec.ts` "DU-04 …" (`test.fail()`, D-064) | **Fail** — D-064 |
 | DU-05 | `tests/durability.spec.ts` — uptime and binding-older-than-the-process tests (**pass** live); `drill.py du01` boot-log checks (dispute store XFAIL, D-063) | **Pass** on the deploy by proxy; D-063 |
+
+## RC — the reputation consequence and routing (story 6.03e)
+
+Run 2026-09-25; `evidence/6.03e-reputation-consequence.md`. The upheld path ran
+on testnet with `tools/reputation-drill/`: a real backend on a real Postgres, and
+the drill's own ReputationLedger built from the deployed wasm. The deploy can
+uphold nothing (D-050, D-051).
+
+| criterion | verification | status |
+| --- | --- | --- |
+| RC-01 | `drill.py run` phase_chain: `count` +2, `disputed` +2, `dispute_rate_bps` rose, smoothed score fell, and the average is the weighted mean (0 → 5000 bps and 3333 → 5000 bps, both recorded); `tests/reputation-consequence.spec.ts` "RC-01 …" (`test.fail()`, D-051) | **Pass** on testnet; live blocked by D-050, D-051 |
+| RC-02 | `drill.py run` phase_chain: `kind` `dispute`, rating 10, weight 1 000 000 = the quoted price, not the 3 500 000 settled, all decoded from four transaction envelopes | **Pass** on testnet |
+| RC-03 | `drill.py run` phase_chain: the rating job id's first 8 bytes equal the sealed job's, the rest differs, and the settler's rating is still under the sealed id (4 of 4) | **Pass** on testnet |
+| RC-04 | `drill.py run` phase_api (API path: the plan decomposed at once stamps the new count and rate, **pass**) and phase_script (script path at a 120 s TTL: the old score for 91.9 s, XFAIL, D-066); `tests/reputation-consequence.spec.ts` "RC-04 …" (plan stamp = route, **pass** live); `tools/reputation-drill/browser.spec.ts` badge and plan card (not yet seen green: the run was killed for low memory) | **Fail**: D-066 on the script path; display half unverified |
+| RC-05 | `drill.py run` phase_open: two open disputes; the route at once, the route after the TTL, and a plan are all unchanged | **Pass** on testnet |
