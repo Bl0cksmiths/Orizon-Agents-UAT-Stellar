@@ -257,7 +257,26 @@ def du01_control() -> None:
     check("the log says the store is in memory", any("in-memory (DATABASE_URL is unset)" in l for l in lines))
 
 
-SCENARIOS: dict[str, Callable[[], None]] = {"du01": du01, "du01-control": du01_control}
+def du02() -> None:
+    """DU-02: a settlement recorded before a restart can still be disputed after it."""
+    print("\n== du02: a settlement survives a restart and stays disputable", flush=True)
+    payer = new_payer()
+    task = f"drill-du02-{secrets.token_hex(4)}"
+    job = seed_settlement(task, payer.public_key)
+    first = Backend("du02-before", backend_env(durable=True))
+    _, before = http("GET", f"/api/tasks/{task}/disputes")
+    first.kill()
+    second = Backend("du02-after", backend_env(durable=True))
+    _, after = http("GET", f"/api/tasks/{task}/disputes")
+    status, opened = open_dispute(payer, job, 0)
+    second.kill()
+    check("the settlement is identical after the restart", after["settlement"] is not None and after["settlement"] == before["settlement"])
+    check("the closing time is the same", after["window_closes_at"] == before["window_closes_at"])
+    check("a dispute raised after the restart is accepted", status == 200 and opened.get("status") == "open", f"{status} {opened.get('status') or opened.get('detail')}")
+    check("its amounts come from the pre-restart settlement", opened.get("charged_usdc") == 0.1, str(opened.get("charged_usdc")))
+
+
+SCENARIOS: dict[str, Callable[[], None]] = {"du01": du01, "du01-control": du01_control, "du02": du02}
 
 if __name__ == "__main__":
     for name in sys.argv[1:] or list(SCENARIOS):
