@@ -2707,3 +2707,41 @@ check "RC-04 script path: a plan decomposed right after the uphold shows the
 new score" (XFAIL, pinned to D-066).
 
 ---
+
+## D-067 — The payer loses both reasons unless they are in the tab that ran the task
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** DS-01, DS-04 (story 6.03f)
+
+**Steps to reproduce** — backend `08efeda`, frontend `5105a8b`, with
+`tools/dispute-ui-drill/`: reject a dispute with a reason, then open the trace
+page with the payer's wallet connected, in a tab that does not hold the task's
+read token. That is any tab other than the one that ran the task, any other
+device, or any session after the backend has restarted.
+
+**Expected** — story 6.03f: "The rejection reason is shown to the payer only",
+and "rejected says why".
+
+**Actual** — the receipt reads "Rejected" and "The platform did not uphold
+this dispute: no credit was issued, Researcher's reputation is unchanged."
+There is no reason, and there is an empty "Your reason" label (D-068). The
+backend sends `reason` and `rejection_reason` only to a caller holding the task
+token or the operator key (`TaskReadProof.proves`, `DisputeResponse.of`). The
+payer's wallet is never considered. The token lives in the backend's memory,
+which is lost on restart and evicted after 200 tasks, and in the sessionStorage
+of the tab that ran the task. Adjudication is manual and can take up to 24 h,
+so by the time a verdict exists the token is almost always gone.
+
+**Impact** — the one reader the reason is written for does not see it. The
+privacy rule itself holds: nobody else sees it either.
+
+**Resolution path** — let the payer prove who they are to read the free text,
+for example with the same signed challenge that opens a dispute. Keep
+withholding it from everyone else.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-07 the payer
+returning without the task's tab still reads why it was rejected"
+(`test.fail()`, pinned to D-067).
+
+---
