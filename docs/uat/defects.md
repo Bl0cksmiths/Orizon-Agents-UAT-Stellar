@@ -2815,3 +2815,36 @@ lands after the refund reaches the open receipt without a reload"
 poll happened to land after both writes.
 
 ---
+
+## D-070 — An upheld dispute with no transfer says the transfer "is queued", under a success tick
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-01 (story 6.03f)
+
+**Steps to reproduce** — with `tools/dispute-ui-drill/`: open the payer's
+receipt for a dispute left `upheld` with no transfer on record. That is where a
+refused or failed transfer leaves it once the claim is released.
+
+**Expected** — story 6.03f: "If a sentence is true but misleading, file it."
+Nothing may read as further along than the record.
+
+**Actual** — "The platform upheld this dispute; the credit has not been sent
+yet — the transfer to your wallet is queued, and there is no transaction to
+look up until the platform submits it." Nothing queues it. In the backend,
+`upheld` outlasts an uphold only after a transfer was refused, failed or not
+configured, and a person has to uphold it again. The badge reads "✓ Upheld" in
+cyan, the same glyph and colour as "✓ Confirmed on Stellar", on a record where
+no money has moved. The refund row correctly says "No transaction on record".
+
+**Impact** — the buyer is told their money is in a queue that does not exist,
+and may wait for it instead of asking.
+
+**Resolution path** — say that the credit was not sent and that the platform
+has to send it, with no time implied. Consider a non-success glyph for a
+decision with no money moved.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-13 upheld with no
+transfer on record …" (`test.fail()`, pinned to D-070).
+
+---
