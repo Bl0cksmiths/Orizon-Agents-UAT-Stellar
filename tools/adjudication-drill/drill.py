@@ -173,6 +173,26 @@ def ad02_boot_refusal() -> None:
         refused_boot(f"{name}, API_KEY empty, no signing key", mainnet_env(name))
 
 
+def d074_mainnet_signer() -> None:
+    """D-074 a signer on the mainnet passphrase needs API_KEY, whatever the network is called."""
+    for name in ("mainnet", "pubnet"):
+        env = backend_env(refunds=False, api_key="")
+        env.update(STELLAR_NETWORK=name, STELLAR_NETWORK_PASSPHRASE=MAINNET_PASSPHRASE, STELLAR_RPC_URL="https://mainnet.sorobanrpc.com")
+        proc, log = launch(env, f"boot-signer-{name}")
+        served = False
+        deadline = time.time() + 600
+        while proc.poll() is None and not served and time.time() < deadline:
+            try:
+                served = http("GET", "/health", timeout=5)[0] == 200
+            except OSError:
+                time.sleep(0.5)
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=30)
+        check(f"D-074 {name}: a mainnet signer with no API_KEY is refused at boot", not served,
+              "it booted and served /health" if served else f"refused, exit {proc.returncode}", defect="D-074" if name == "pubnet" else None)
+
+
 class Server:
     """A backend that booted: /health answered 200 before the constructor returned."""
 
@@ -420,6 +440,7 @@ REFUNDS_ON = ("refunds-on", backend_env(refunds=True, api_key=API_KEY))
 # (server, scenario): consecutive scenarios with the same server share one boot; None boots none.
 SCENARIOS = [
     (None, ad02_boot_refusal),
+    (None, d074_mainnet_signer),
     (REFUNDS_OFF, ad01_switch_closes_the_route),
     (REFUNDS_ON, ad06_buyer_needs_no_key),
     (REFUNDS_ON, ad03_bad_keys),
