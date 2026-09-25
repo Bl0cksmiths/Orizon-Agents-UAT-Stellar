@@ -172,14 +172,132 @@ def ad02_boot_refusal() -> None:
         refused_boot(f"{name}, API_KEY empty, no signing key", mainnet_env(name))
 
 
-SCENARIOS = [ad02_boot_refusal]
+class Server:
+    """A backend that booted: /health answered 200 before the constructor returned."""
+
+    def __init__(self, label: str, env: dict[str, str]) -> None:
+        self.proc, self.log = launch(env, label)
+        deadline = time.time() + 600
+        while time.time() < deadline:
+            if self.proc.poll() is not None:
+                raise RuntimeError(f"the {label} backend exited {self.proc.returncode}; see {self.log}")
+            try:
+                if http("GET", "/health", timeout=5)[0] == 200:
+                    return
+            except OSError:
+                time.sleep(0.5)
+        self.stop()
+        raise RuntimeError(f"the {label} backend did not come up in 10 minutes; see {self.log}")
+
+    def stop(self) -> None:
+        self.proc.kill()
+        self.proc.wait(timeout=30)
+
+
+def on_store(use):
+    """Run `use(store)` against the Postgres dispute store, as a separate process would."""
+    import asyncio
+
+    from app.services import dispute_store
+
+    async def run():
+        store = dispute_store.PostgresDisputeStore(DSN)
+        try:
+            return await use(store)
+        finally:
+            await store.close()
+
+    return asyncio.run(run())
+
+
+def stored_status(dispute_id: str) -> str | None:
+    record = on_store(lambda store: store.get_dispute(dispute_id))
+    return None if record is None else record.status
+
+
+AGENT = "agt_09l5"
+STEP_PRICE = 0.1
+SETTLED_TOTAL = 0.35
+
+
+def open_dispute(label: str) -> str:
+    """A settled two-step workflow paid by the drill's buyer, recorded as the settlement path
+    records it, and step 0 disputed as the buyer disputes it: challenge, sign the exact message,
+    open — with the wallet signature and nothing else, never an X-API-Key. Returns the id."""
+    import base64
+
+    from app.services import dispute_store as ds
+    from stellar_sdk import Keypair
+
+    buyer = Keypair.from_secret(FIX["buyer"]["secret"])
+    job, now = secrets.token_hex(16), time.time()
+    settlement = ds.SettlementRecord(
+        task_id=f"ad-{secrets.token_hex(4)}",
+        payer=buyer.public_key,
+        auth_id_hex=secrets.token_hex(16),
+        job_id_hex=job,
+        charge_tx=secrets.token_hex(32),
+        proof_tx=secrets.token_hex(32),
+        settled_usdc=SETTLED_TOTAL,
+        steps=(
+            ds.SettlementStep(0, AGENT, "Researcher", STEP_PRICE, True, "Found three sources"),
+            ds.SettlementStep(1, "agt_05x7", "SEO brief", SETTLED_TOTAL - STEP_PRICE, True, "Wrote the brief"),
+        ),
+        settled_at=now,
+        window_closes_at=now + 86_400.0,
+    )
+    on_store(lambda store: store.record_settlement(settlement))
+    status, challenge = http("POST", "/api/disputes/challenge", {"job_id_hex": job, "step_index": 0})
+    check(f"{label}: the buyer's challenge is issued without a key", status == 200 and "message" in challenge, str(status))
+    signature = base64.b64encode(buyer.sign(challenge["message"].encode("utf-8"))).decode("ascii")
+    status, dispute = http(
+        "POST",
+        "/api/disputes",
+        {
+            "job_id_hex": job,
+            "step_index": 0,
+            "reason": "Story 6.03g: the research step returned nothing usable.",
+            "payer": buyer.public_key,
+            "nonce": challenge["nonce"],
+            "signature_b64": signature,
+        },
+    )
+    if not check(
+        f"{label}: the dispute opens on the payer's signature alone",
+        status == 200 and dispute.get("status") == "open",
+        f"{status} {dispute.get('status') or dispute.get('error')}",
+    ):
+        raise RuntimeError(f"{label}: no open dispute to adjudicate")
+    return dispute["id"]
+
+
+def ad06_buyer_needs_no_key() -> None:
+    """AD-06 refunds on, a key configured: the buyer's path asks for no key."""
+    dispute_id = open_dispute("AD-06")
+    check("AD-06 the store holds the dispute open", stored_status(dispute_id) == "open", str(stored_status(dispute_id)))
+
+
+REFUNDS_ON = ("refunds-on", backend_env(refunds=True, api_key=API_KEY))
+# (server, scenario): consecutive scenarios with the same server share one boot; None boots none.
+SCENARIOS = [(None, ad02_boot_refusal), (REFUNDS_ON, ad06_buyer_needs_no_key)]
 
 
 def main() -> None:
+    """Every scenario, or only those whose names start with an argument (`drill.py ad03 ad05`)."""
     LOGS.mkdir(parents=True, exist_ok=True)
-    for scenario in SCENARIOS:
-        print(f"\n{scenario.__doc__.splitlines()[0]}", flush=True)
-        scenario()
+    chosen = [(srv, fn) for srv, fn in SCENARIOS if not sys.argv[1:] or fn.__name__.startswith(tuple(sys.argv[1:]))]
+    server, booted = None, None
+    try:
+        for config, scenario in chosen:
+            if config is not booted:
+                if server is not None:
+                    server.stop()
+                server, booted = None if config is None else Server(*config), config
+            print(f"\n{scenario.__doc__.splitlines()[0]}", flush=True)
+            scenario()
+    finally:
+        if server is not None:
+            server.stop()
     failed = [r for r in results if r[1] in {"FAIL", "XPASS"}]
     expected = [r for r in results if r[1] == "XFAIL"]
     print(f"\n{len(results) - len(failed) - len(expected)} passed, {len(expected)} expected failures, {len(failed)} failed")
