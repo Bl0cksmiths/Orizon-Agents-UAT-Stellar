@@ -18,7 +18,9 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -87,6 +89,34 @@ def http(method: str, path: str, body: dict | None = None, headers: dict | None 
             return res.status, json.loads(res.read() or b"{}")
     except urllib.error.HTTPError as err:
         return err.code, json.loads(err.read() or b"{}")
+
+
+class Server:
+    """The backend as its own process, as a deployment runs it — separate from the uphold script's."""
+
+    def __init__(self) -> None:
+        LOGS.mkdir(parents=True, exist_ok=True)
+        self._log = (LOGS / "server.log").open("w", encoding="utf-8")
+        keep = {k: v for k, v in os.environ.items() if k.upper() in {"SYSTEMROOT", "PATH", "TEMP", "TMP", "USERPROFILE", "HOME"}}
+        self.proc = subprocess.Popen(
+            [PYTHON, "-m", "uvicorn", "app.main:app", "--port", str(PORT), "--workers", "1"],
+            cwd=BACKEND, env={**keep, **ENV}, stdout=self._log, stderr=subprocess.STDOUT,
+        )
+        deadline = time.time() + 420
+        while time.time() < deadline:
+            try:
+                if http("GET", "/health")[0] == 200:
+                    return
+            except OSError:
+                pass
+            time.sleep(0.5)
+        self.stop()
+        raise RuntimeError(f"the backend did not come up; see {LOGS / 'server.log'}")
+
+    def stop(self) -> None:
+        self.proc.kill()
+        self.proc.wait(timeout=30)
+        self._log.close()
 
 
 def serve() -> None:
