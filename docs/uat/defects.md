@@ -2547,3 +2547,38 @@ story's rule is absolute.
 redact without exceeding the cap, so what is stored is what was sent.
 
 ---
+
+## D-063 — The startup log does not name the dispute store; it is named only at first use
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DU-05 (story 6.03d)
+
+**Steps to reproduce** — backend origin/main `3347090`, `DATABASE_URL` set to a
+real Postgres: start `uvicorn app.main:app` and read the log up to
+`Application startup complete.`, then make any request that touches a
+settlement or a dispute (`GET /api/disputes/{id}` will do).
+
+**Expected** — story 6.03d: "Check the startup log names Postgres, not the
+in-memory fallback", for the store that holds settlements and disputes.
+
+**Actual** — the boot names the binding store
+(`binding store: postgres (DATABASE_URL is set) — bindings survive a restart`)
+and nothing about disputes. `dispute store: postgres (DATABASE_URL is set) —
+settlements and disputes survive a restart` appears only inside the first
+request that uses the store, carrying that request's id. `get_dispute_store()`
+is resolved lazily by design and `lifespan` never calls it. `/readiness` does
+not report the store either.
+
+**Impact** — small, because the two stores are chosen from the same
+`DATABASE_URL`, so the binding line is a working proxy. But an operator who
+checks for the dispute store's own line after a restart finds nothing until
+someone has used a dispute, and on a quiet free-tier instance that can be never.
+
+**Resolution path** — resolve the dispute store once in `lifespan` (it dials
+nothing until used), or report it on `/readiness`.
+
+**Verified by** — `tools/restart-drill/drill.py du01`, check "DU-05 the boot log
+names the dispute store" (XFAIL, pinned to D-063).
+
+---
