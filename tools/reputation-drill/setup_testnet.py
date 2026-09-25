@@ -65,3 +65,21 @@ def soroban_tx(source: Keypair, build) -> tuple[str, object]:
             return sent.hash, got
         time.sleep(2)
     raise RuntimeError(f"{sent.hash}: never confirmed")
+
+
+def deployed_wasm_hash() -> bytes:
+    """The wasm the deployed ledger runs, read off its instance entry.
+
+    Built as an explicit LedgerKey: SorobanServer.get_contract_data returned nothing for this
+    contract's instance on stellar_sdk 13.2.1.
+    """
+    key = xdr.LedgerKey(
+        type=xdr.LedgerEntryType.CONTRACT_DATA,
+        contract_data=xdr.LedgerKeyContractData(
+            contract=Address(DEPLOYED_LEDGER).to_xdr_sc_address(),
+            key=xdr.SCVal(xdr.SCValType.SCV_LEDGER_KEY_CONTRACT_INSTANCE),
+            durability=xdr.ContractDataDurability.PERSISTENT,
+        ),
+    )
+    entry = soroban.get_ledger_entries([key]).entries[0]
+    return xdr.LedgerEntryData.from_xdr(entry.xdr).contract_data.val.instance.executable.wasm_hash.hash
