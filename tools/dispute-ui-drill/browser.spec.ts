@@ -138,3 +138,17 @@ test("FS-03 credited: the amount with its funder on one line, and both links to 
   expect(rating.bytes[0]?.slice(0, 16), "the rating is filed under this dispute's job").toBe(seed.jobs.credited.slice(0, 16));
   await page.screenshot({ path: info.outputPath("fs03-credited.png"), fullPage: true });
 });
+
+test("FS-04 credited with the rating unconfirmed: the rating reads pending, not confirmed", async ({ page }, info) => {
+  const receipt = await open(page, "rating_pending");
+  const rating = seed.tx.rating_pending?.rating ?? "";
+  expect(rating).toMatch(/^[0-9a-f]{64}$/);
+  await expect(receipt).toContainText("the dispute rating it costs Researcher is not confirmed yet");
+  const row = receipt.locator("div", { has: page.getByText(/^Dispute rating against/) }).last();
+  await expect(row).toContainText("what it will cost the agent");
+  await expect(row).toContainText("Submitted, waiting for confirmation");
+  await expect(row).not.toContainText(/Confirmed on Stellar|what it cost the agent/);
+  await expect(row.getByRole("link", { name: /view rating on stellar\.expert/ })).toHaveAttribute("href", expert(rating));
+  await expect(receipt).not.toContainText("and it cost Researcher a dispute rating");
+  await page.screenshot({ path: info.outputPath("fs04-rating-pending.png"), fullPage: true });
+});
