@@ -119,6 +119,42 @@ class Server:
         self._log.close()
 
 
+def on_store(use):
+    """Run `use(store)` against the Postgres dispute store, as a separate process would."""
+    import asyncio  # noqa: PLC0415
+
+    from app.services import dispute_store  # noqa: PLC0415
+
+    async def run():
+        store = dispute_store.PostgresDisputeStore(DSN)
+        try:
+            return await use(store)
+        finally:
+            await store.close()
+
+    return asyncio.run(run())
+
+
+REP_FIELDS = ("smoothed_bps", "avg_bps", "count", "disputed", "dispute_rate_bps", "weight", "source", "degraded")
+
+
+def rep() -> dict:
+    """The agent's reputation as GET /api/stellar/reputation/{agent_id} answers it."""
+    status, body = http("GET", f"/api/stellar/reputation/{AGENT}")
+    if status != 200:
+        raise RuntimeError(f"reputation read answered {status}: {body}")
+    return {k: body[k] for k in REP_FIELDS}
+
+
+def plan_stamp() -> dict:
+    """What a freshly decomposed plan stamps on the agent's step — the plan card's numbers."""
+    status, body = http("POST", "/api/orchestrator/decompose", {"intent": INTENT})
+    if status != 200:
+        raise RuntimeError(f"decompose answered {status}: {body}")
+    step = next(s for s in body["steps"] if s["agent_id"] == AGENT)
+    return {k: v for k, v in step.items() if k.startswith("rep")}
+
+
 def serve() -> None:
     """The backend alone, in this process, on the drill's ledger and asset."""
     import uvicorn  # noqa: PLC0415
