@@ -328,3 +328,17 @@ real backend and frontend and waits on D-050 for a live run.
 | WC-04 | backend `test_an_expired_challenge_is_refused_and_says_to_ask_for_another`, `test_the_buyer_s_signature_verifies_once_and_only_once`; local run | **Blocked** — D-050 (holds locally) |
 | WC-05 | `tests/dispute-eligibility.spec.ts` — `WC-05` empty and whitespace tests (**pass** live), zero-width and right-to-left tests (`test.fail()`, D-059); frontend `e2e/disputes.spec.ts:158` | **Fail** — D-059 |
 | WC-06 | `tests/dispute-eligibility.spec.ts` — `WC-06` multi-byte cap test (**pass** live); `DR-03` 501-character test (**pass** live); frontend `dispute-dialog.test.tsx:388-416` | **Fail** — D-062 |
+
+## DU — durability and the unconfirmed-refund path (story 6.03d)
+
+Run 2026-09-25; `evidence/6.03d-durability.md`. The restarts were run locally
+with `tools/restart-drill/` (a real backend on a real Postgres, hard-killed, and
+the real frontend). The deploy has no settled step to restart around (D-050).
+
+| criterion | verification | status |
+| --- | --- | --- |
+| DU-01 | `drill.py du01` (15 checks) and `du01-control`; `browser.spec.ts` "DU-01 an open dispute reads the same after a backend restart"; with task auth on: `drill.py token-gap`, `browser.spec.ts` "DU-01 with TASK_AUTH_REQUIRED on …" (`test.fail()`, D-065) | **Pass** locally; live blocked by D-050; D-065 latent |
+| DU-02 | `drill.py du02`, `drill.py token-gap`; `browser.spec.ts` "DU-02 …" (a dispute signed and raised through the dialog after a restart) | **Pass** locally; live blocked by D-050 |
+| DU-03 | `drill.py du04` (`crediting`, hash, no amount, no rating, through a restart); `browser.spec.ts` "DU-03 …"; frontend `dispute-status-badge.test.tsx`, `dispute-receipt.test.tsx` | **Pass** locally; live blocked by D-050, D-051 |
+| DU-04 | `drill.py du04` (exit 10 then 6, one transfer signed, queue before and after a restart, "DO NOT RE-RUN"; rating checks XFAIL, D-064); `browser.spec.ts` "DU-04 …" (`test.fail()`, D-064) | **Fail** — D-064 |
+| DU-05 | `tests/durability.spec.ts` — uptime and binding-older-than-the-process tests (**pass** live); `drill.py du01` boot-log checks (dispute store XFAIL, D-063) | **Pass** on the deploy by proxy; D-063 |
