@@ -10,7 +10,8 @@ export default defineConfig({
   testDir: ".",
   testMatch: "browser.spec.ts",
   timeout: 600_000,
-  expect: { timeout: 60_000 },
+  // The first receipt read on a freshly started backend has taken over a minute locally.
+  expect: { timeout: 180_000 },
   workers: 1,
   reporter: [["list"]],
   outputDir: `${process.env.DRILL_LOGS ?? "logs"}/browser-results`,
