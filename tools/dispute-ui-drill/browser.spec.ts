@@ -333,3 +333,16 @@ test("FS-13 upheld with no transfer on record: decided, and nothing claims a tra
   // Upheld outlives a transfer only when one was refused or failed; nothing retries it by itself.
   await expect(receipt).not.toContainText("queued", { timeout: 10_000 });
 });
+
+test("FS-14 the dispute dialog states the credit as the receipt does: a ceiling, not a promise", async ({ page }, info) => {
+  // D-071: the dialog promises "Credited if upheld 0.25 USDC" flat; the receipt, rightly, says
+  // "Up to". Remove the marker once the dialog states the same ceiling.
+  test.fail();
+  await open(page, "open");
+  await page.getByRole("button", { name: /^Dispute step 2,/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("0.25");
+  await page.screenshot({ path: info.outputPath("fs14-dialog.png"), fullPage: true });
+  // The receipt says "Up to": the payout is bounded again when it is paid.
+  await expect(dialog).toContainText(/up to 0\.25/i, { timeout: 10_000 });
+});
