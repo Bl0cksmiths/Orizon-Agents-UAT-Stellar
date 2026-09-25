@@ -198,3 +198,20 @@ test("DU-04 a credit reconciled by the script's own hint ends with a complete re
   expect(receipt).toMatch(/0\.25\d* USDC credited to/);
   expect(receipt).toContain("it cost Coder a dispute rating on its reputation");
 });
+
+test("DU-01 with TASK_AUTH_REQUIRED on, the payer still sees their dispute after a restart", async ({ page }, info) => {
+  // D-065: the per-task read 404s once the in-memory token is gone, and the
+  // console treats that 404 as "no receipt route": the panel and every dispute
+  // action vanish, with nothing said, while GET /api/disputes/{id} still answers.
+  test.fail();
+  await killBackend();
+  await startBackend(true);
+  await connectPayer(page);
+  const read = page.waitForResponse((r) => r.url().includes(`/tasks/${seed.tasks.open}/disputes`));
+  await page.goto(`/app/trace?task=${encodeURIComponent(seed.tasks.open)}`);
+  expect((await read).status()).toBe(404);
+  const direct = (await (await fetch(`http://127.0.0.1:8765/api/disputes/${seed.disputes.open}`)).json()) as { status: string };
+  expect(direct.status).toBe("open");
+  await page.screenshot({ path: info.outputPath("token-gap.png"), fullPage: true });
+  await expect(page.getByText("Under review")).toBeVisible({ timeout: 15_000 });
+});
