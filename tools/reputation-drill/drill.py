@@ -309,7 +309,21 @@ def phase_script(ctx: dict) -> None:
         print(f"  [INFO] RC-04 script path at the production TTL — {detail}", flush=True)
 
 
-PHASES = [phase_before, phase_open, phase_script]
+def phase_api(ctx: dict) -> None:
+    """Uphold through POST /api/disputes/{id}/uphold, inside the server, then plan at once (RC-04)."""
+    warm = rep()
+    status, dispute = http("POST", f"/api/disputes/{ctx['disputes']['api']}/uphold", headers={"X-API-Key": API_KEY})
+    plan = plan_stamp()
+    ctx["dispute_api"] = dispute
+    ctx["record"]["api"] = {"status": status, "plan_at_once": plan, "dispute": dispute}
+    check("the adjudication route credits and rates", status == 200 and dispute.get("status") == "credited" and dispute.get("rating_confirmed") is True,
+          f"{status} {dispute.get('status')} rating_confirmed={dispute.get('rating_confirmed')}")
+    check("RC-04 API path: a plan decomposed right after the uphold shows the new score",
+          plan["rep_count"] == warm["count"] + 1 and plan["rep_dispute_rate_bps"] > warm["dispute_rate_bps"],
+          f"plan count {plan['rep_count']} dispute rate {plan['rep_dispute_rate_bps']} (before {warm['count']}, {warm['dispute_rate_bps']})")
+
+
+PHASES = [phase_before, phase_open, phase_script, phase_api]
 
 
 def run() -> None:
