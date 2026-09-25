@@ -71,3 +71,17 @@ test("FS-01 open: under review, when it was raised, what happens next, and no li
   await expect(receipt).not.toContainText(/Refunded|Confirmed|Done/);
   await page.screenshot({ path: info.outputPath("fs01-open.png"), fullPage: true });
 });
+
+test("FS-02 crediting: the refund is submitted and waiting, with its hash — never refunded or confirmed", async ({ page }, info) => {
+  const receipt = await open(page, "crediting");
+  const refund = seed.tx.crediting?.refund ?? "";
+  expect(refund, "seed.py records the submitted transfer's hash").toMatch(/^[0-9a-f]{64}$/);
+  await expect(receipt).toContainText("Refund in progress");
+  await expect(receipt).toContainText("Submitted, waiting for confirmation");
+  await expect(receipt).toContainText(refund);
+  await expect(receipt).toContainText("The refund was submitted and is waiting for confirmation on Stellar");
+  await expect(receipt).not.toContainText(/Refunded|Confirmed on Stellar|Done:|what you received/);
+  await expect(receipt).toContainText("Up to 0.1");
+  await expect(receipt).toContainText("to be credited to your wallet");
+  await page.screenshot({ path: info.outputPath("fs02-crediting.png"), fullPage: true });
+});
