@@ -247,7 +247,25 @@ def phase_before(ctx: dict) -> None:
           not plan["rep_degraded"] and plan["rep_count"] == r0["count"] and plan["rep_dispute_rate_bps"] == r0["dispute_rate_bps"], f"route {r0} plan {plan}")
 
 
-PHASES = [phase_before]
+MOVED_BY_A_RATING = ("count", "disputed", "dispute_rate_bps", "avg_bps")
+
+
+def phase_open(ctx: dict) -> None:
+    """RC-05: two disputes opened and not adjudicated cost the agent nothing."""
+    r0 = ctx["r0"]
+    ctx["disputes"] = {label: open_dispute(ctx["buyer"], job)["id"] for label, job in ctx["jobs"].items()}
+    at_once = rep()
+    time.sleep(TTL + 1)  # past the read TTL: this second read comes from the ledger, not the cache
+    after_ttl = rep()
+    plan = plan_stamp()
+    ctx["record"]["open"] = {"disputes": ctx["disputes"], "route_at_once": at_once, "route_after_ttl": after_ttl, "plan": plan}
+    for name, now in (("at once", at_once), ("after the read TTL", after_ttl)):
+        check(f"RC-05 two open disputes move nothing ({name})",
+              {k: now[k] for k in MOVED_BY_A_RATING} == {k: r0[k] for k in MOVED_BY_A_RATING}, json.dumps(now))
+    check("RC-05 the plan card is unchanged too", plan["rep_count"] == r0["count"] and plan["rep_dispute_rate_bps"] == r0["dispute_rate_bps"], json.dumps(plan))
+
+
+PHASES = [phase_before, phase_open]
 
 
 def run() -> None:
