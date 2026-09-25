@@ -10,6 +10,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from "@
 const API = "http://127.0.0.1:8766";
 const AGENT = "agt_09l5";
 const AGENT_NAME = "research.pro";
+const INTENT = "Build me a calculator app";
 
 type Rep = { count: number; dispute_rate_bps: number; source: string; degraded: boolean };
 
@@ -56,3 +57,19 @@ test("RC display: the marketplace badge shows the dispute rate the route reads",
   await page.screenshot({ path: info.outputPath("marketplace.png"), fullPage: true });
 });
 
+test("RC-04 display: a new plan's card shows the dispute rate the route reads", async ({ page, request }, info) => {
+  // Read through the route first: it fills the same cache the decompose snapshot reads, so the
+  // plan is judged on the ledger's numbers rather than on a prior served while a cold read runs.
+  const rep = await routeRep(request);
+  expect(rep.source, "run drill.py run first: the agent needs on-chain ratings").toBe("onchain");
+  expect(rep.dispute_rate_bps, "the drill's upheld disputes must have moved the rate off 0").toBeGreaterThan(0);
+  const step = page.getByRole("listitem").filter({ hasText: AGENT_NAME });
+  await openSettled(page, async () => {
+    await page.goto("/app/orchestrator");
+    await page.getByLabel("▸ intent").fill(INTENT);
+    await page.getByRole("button", { name: "Decompose ▸" }).click();
+  }, step);
+  await expect(step.getByLabel(expectedLabel(rep))).toBeVisible();
+  await expect(step).toContainText(`⚑ ${(rep.dispute_rate_bps / 100).toFixed(1)}%`);
+  await page.screenshot({ path: info.outputPath("plan-card.png"), fullPage: true });
+});
