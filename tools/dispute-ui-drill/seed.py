@@ -164,6 +164,16 @@ def rating_pending(state: str) -> None:
     rc.on_store(lambda store: store.append_status(dispute_id, "credited", rating_tx=rating, rating_confirmed=False))
 
 
+def rate_gap() -> None:
+    """`python seed.py rate-gap`: land the "gap" dispute's rating and record it as uphold's SUCCESS
+    does, while browser.spec.ts watches a receipt that last saw the refund alone."""
+    seed.update(json.loads((rc.STATE / "ui-seed.json").read_text(encoding="utf-8")))
+    rating = dispute_rating("gap")
+    dispute_id = seed["disputes"]["gap"]
+    rc.on_store(lambda store: store.append_status(dispute_id, "credited", rating_tx=rating, rating_confirmed=True))
+    (rc.STATE / "ui-seed.json").write_text(json.dumps(seed, indent=2), encoding="utf-8")
+
+
 def main() -> None:
     server = rc.Server()
     try:
@@ -174,6 +184,8 @@ def main() -> None:
         rating_pending("rating_pending")
         # Left open for browser.spec.ts to uphold while the payer watches the receipt.
         open_dispute("live", settle("live"))
+        # Refunded with the rating still to come; `rate-gap` lands it while the page is open.
+        paid("gap")
     finally:
         server.stop()
     seed["payer"] = rc.FIX["buyer"]["public"]
@@ -186,4 +198,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    {"seed": main, "rate-gap": rate_gap}[sys.argv[1] if len(sys.argv) > 1 else "seed"]()
