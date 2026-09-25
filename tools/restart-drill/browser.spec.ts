@@ -184,3 +184,17 @@ test("DU-03 a submitted, unconfirmed refund reads as pending everywhere", async 
   expect(receipt).not.toContain("Confirmed on Stellar");
   expect(receipt).not.toMatch(/Done:|received \d|\d USDC credited to/);
 });
+
+test("DU-04 a credit reconciled by the script's own hint ends with a complete receipt", async ({ page }, info) => {
+  // D-064: the hint records hash and amount but never the dispute rating, so the
+  // receipt says "the dispute rating it costs Coder is not confirmed yet" forever.
+  test.fail();
+  if (!backend) await startBackend();
+  await connectPayer(page);
+  await openAsPayer(page, seed.tasks.reconciled);
+  await expect(page.getByText("Refunded")).toBeVisible();
+  await page.screenshot({ path: info.outputPath("du04-reconciled.png"), fullPage: true });
+  const receipt = await receiptText(page);
+  expect(receipt).toMatch(/0\.25\d* USDC credited to/);
+  expect(receipt).toContain("it cost Coder a dispute rating on its reputation");
+});
