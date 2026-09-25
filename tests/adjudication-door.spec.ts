@@ -26,4 +26,20 @@ test.describe("AD — adjudication door (story 6.03g)", () => {
       await expectSwitchedOff(await request.post(`${PROBE}/${action}`, { timeout: COLD_START_TIMEOUT }));
     });
   }
+
+  // Header values travel as bytes: the UTF-8 key is sent as its raw bytes, as a client that does
+  // not encode would send it. This path has produced a 500 in this codebase before.
+  const BAD_KEYS = {
+    wrong: "uat-wrong-key-0000",
+    short: "uat-wrong-key-000",
+    "latin-1": "kéy-ñ",
+    "raw UTF-8": Buffer.from("kéy✓—🔑", "utf8").toString("latin1"),
+  };
+  for (const [label, key] of Object.entries(BAD_KEYS)) {
+    for (const action of ["uphold", "reject"] as const) {
+      test(`AD-03 a ${label} key on ${action} is the switch's 503, never a 500`, async ({ request }) => {
+        await expectSwitchedOff(await request.post(`${PROBE}/${action}`, { timeout: COLD_START_TIMEOUT, headers: { "X-API-Key": key } }));
+      });
+    }
+  }
 });
