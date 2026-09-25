@@ -203,3 +203,12 @@ test("FS-07 the payer returning without the task's tab still reads why it was re
   await expect(receipt).toContainText("Rejected");
   await expect(receipt).toContainText(REJECTION, { timeout: 10_000 });
 });
+
+test("FS-08 a reason the backend withheld is never drawn as an empty quote", async ({ page }) => {
+  // D-068: a withheld reason arrives as "" rather than null, and the payer's receipt draws the
+  // "Your reason" label over an empty quote. Remove the marker once it is left out.
+  test.fail();
+  const receipt = await open(page, "open", { wallet: seed.payer, token: false });
+  await expect(receipt).toContainText("Under review");
+  await expect(receipt.getByText("Your reason")).toHaveCount(0, { timeout: 10_000 });
+});
