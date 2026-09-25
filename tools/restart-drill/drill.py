@@ -337,11 +337,52 @@ def transfers_signed(calls: Path) -> int:
     return len(calls.read_text(encoding="utf-8").splitlines()) if calls.exists() else 0
 
 
+def reconciliation_queue() -> list[str]:
+    """The store's list_refund_claims(): every payout still in flight, oldest first."""
+    return [claim.dispute_id for claim in on_store(lambda store: store.list_refund_claims())]
+
+
+def du04() -> None:
+    """DU-03 and DU-04: a transfer that times out, read through a restart and re-run."""
+    print("\n== du04: a timed-out refund", flush=True)
+    payer = new_payer()
+    task = f"drill-du04-{secrets.token_hex(4)}"
+    job = seed_settlement(task, payer.public_key)
+    api = Backend("du04-open", backend_env(durable=True))
+    _, opened = open_dispute(payer, job, 1)
+    api.kill()
+    dispute_id = opened["id"]
+    calls = LOGS / f"du04-transfers-{dispute_id}.txt"
+    tx = secrets.token_hex(32)
+    env = uphold_env()
+
+    code, out = run_uphold(dispute_id, env, calls, tx, "du04-run1")
+    check("run 1 exits 10, the timeout code", code == 10, str(code))
+    check("run 1 signed exactly one transfer", transfers_signed(calls) == 1)
+    check("run 1 says the transfer timed out and may still land", "THE TRANSFER TIMED OUT — IT MAY STILL LAND." in out)
+    check("run 1 says DO NOT RE-RUN THIS SCRIPT FOR THIS DISPUTE", "DO NOT RE-RUN THIS SCRIPT FOR THIS DISPUTE." in out)
+    check("run 1 prints the in-flight hash", tx in out)
+    check("run 1 never calls it a refusal", "REFUSED" not in out and "nothing was signed" not in out)
+    check("the claim is in the reconciliation queue", dispute_id in reconciliation_queue())
+
+    api = Backend("du04-after-restart", backend_env(durable=True))
+    _, one = http("GET", f"/api/disputes/{dispute_id}")
+    _, listing = http("GET", f"/api/tasks/{task}/disputes")
+    api.kill()
+    check("after a restart the dispute is still crediting", one.get("status") == "crediting", str(one.get("status")))
+    check("the in-flight hash is on the record", one.get("refund_tx") == tx)
+    check("no credited amount is reported", one.get("credited_usdc") is None, repr(one.get("credited_usdc")))
+    check("no rating is reported", one.get("rating_tx") is None and one.get("rating_confirmed") is None)
+    check("the task listing agrees", [d["status"] for d in listing["disputes"]] == ["crediting"])
+    check("the claim is still queued after the restart", dispute_id in reconciliation_queue())
+
+
 SCENARIOS: dict[str, Callable[[], None]] = {
     "du01": du01,
     "du01-control": du01_control,
     "du02": du02,
     "token-gap": token_gap,
+    "du04": du04,
 }
 
 if __name__ == "__main__":
