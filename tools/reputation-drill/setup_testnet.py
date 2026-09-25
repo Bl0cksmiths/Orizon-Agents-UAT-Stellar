@@ -47,3 +47,21 @@ def classic(source: Keypair, build) -> str:
     tx = tb.set_timeout(120).build()
     tx.sign(source)
     return horizon.submit_transaction(tx)["hash"]
+
+
+def soroban_tx(source: Keypair, build) -> tuple[str, object]:
+    """One Soroban transaction from `source`: simulated, signed, sent, and waited on until it lands."""
+    account = soroban.load_account(source.public_key)
+    tb = TransactionBuilder(account, PASSPHRASE, base_fee=100_000)
+    build(tb)
+    tx = soroban.prepare_transaction(tb.set_timeout(120).build())
+    tx.sign(source)
+    sent = soroban.send_transaction(tx)
+    for _ in range(60):
+        got = soroban.get_transaction(sent.hash)
+        if got.status.value != "NOT_FOUND":
+            if got.status.value != "SUCCESS":
+                raise RuntimeError(f"{sent.hash}: {got.status}")
+            return sent.hash, got
+        time.sleep(2)
+    raise RuntimeError(f"{sent.hash}: never confirmed")
