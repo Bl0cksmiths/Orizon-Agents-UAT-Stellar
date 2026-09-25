@@ -87,11 +87,28 @@ def uphold(state: str) -> dict:
     return dispute
 
 
+def reject(state: str) -> dict:
+    """Reject through the adjudication route, after proving it will not reject without a reason."""
+    dispute_id = open_dispute(state, settle(state))
+    path, key = f"/api/disputes/{dispute_id}/reject", {"X-API-Key": rc.API_KEY}
+    for label, body, code in (("no reason", {}, "validation_error"), ("a blank reason", {"note": " \t\n "}, "rejection_reason_required")):
+        status, refused = rc.http("POST", path, body, headers=key)
+        rc.check(f"{state}: a rejection with {label} is refused", status == 422 and refused.get("error", {}).get("code") == code,
+                 f"{status} {refused.get('error', {}).get('code')}")
+    status, still = rc.http("GET", f"/api/disputes/{dispute_id}")
+    rc.check(f"{state}: the refused rejections left the dispute open", still.get("status") == "open", str(still.get("status")))
+    status, dispute = rc.http("POST", path, {"note": REJECTION}, headers=key)
+    rc.check(f"{state}: rejected with its reason", status == 200 and dispute.get("status") == "rejected"
+             and dispute.get("rejection_reason") == REJECTION, f"{status} {dispute.get('status')}")
+    return dispute
+
+
 def main() -> None:
     server = rc.Server()
     try:
         open_dispute("open", settle("open"))
         uphold("credited")
+        reject("rejected")
     finally:
         server.stop()
     seed["payer"] = rc.FIX["buyer"]["public"]
