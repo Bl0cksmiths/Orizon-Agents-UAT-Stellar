@@ -23,4 +23,19 @@ test.describe("DU — durability (story 6.03d)", () => {
     expect(typeof health.uptime_seconds).toBe("number");
     expect(health.uptime_seconds).toBeGreaterThanOrEqual(0);
   });
+
+  test("DU-05 a binding written before this process started is still served, so DATABASE_URL is set", async ({ request }) => {
+    // The startup log cannot be read from outside. The binding store and the
+    // dispute store are both chosen from DATABASE_URL, and a binding outlives
+    // a restart only in Postgres — so the 6.05 agent's binding, older than the
+    // running process, is the deploy's own proof of the store it uses.
+    const health = (await (await request.get("/api/health", { timeout: COLD_START_TIMEOUT })).json()) as Health;
+    const clock = (await (await request.get("/api/tasks/uat-603d-clock/disputes")).json()) as { now: number };
+    const startedAt = clock.now - health.uptime_seconds;
+    const response = await request.get("/api/agents/uat624_ext_op/binding");
+    expect(response.status()).toBe(200);
+    const binding = (await response.json()) as { agent_id: string; bound_at: number };
+    expect(binding.agent_id).toBe("uat624_ext_op");
+    expect(binding.bound_at, "the binding must predate the running process").toBeLessThan(startedAt);
+  });
 });
