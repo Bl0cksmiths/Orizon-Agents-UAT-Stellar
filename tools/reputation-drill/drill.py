@@ -155,6 +155,38 @@ def plan_stamp() -> dict:
     return {k: v for k, v in step.items() if k.startswith("rep")}
 
 
+# The step is quoted at STEP_PRICE and the workflow settles SETTLED_TOTAL, so a rating weighted
+# by the settled total instead of the step's quoted price shows up as a different number.
+STEP_PRICE = 0.1
+SETTLED_TOTAL = 0.35
+
+
+def seed_workflow(label: str, payer: str, record: dict) -> str:
+    """A settled two-step workflow whose step 0 is AGENT's, and the settler's own rating of that
+    step on-chain (kind "auto", as the settlement path writes it). Returns the sealed job id."""
+    from app.services import dispute_store as ds  # noqa: PLC0415
+    from app.services import reputation_svc  # noqa: PLC0415
+    from app.stellar import client as sc  # noqa: PLC0415
+
+    job = secrets.token_bytes(16)
+    weight = reputation_svc.rating_weight_stroops(STEP_PRICE)
+    raw = sc.submit_rating(AGENT, job, 90, weight, payer, "auto")
+    check(f"{label}: the settler's own rating of the step lands", raw.get("status") == "SUCCESS", raw.get("hash", ""))
+    record.setdefault("settler_ratings", {})[label] = {"tx": raw.get("hash"), "job_id": job.hex(), "rating": 90, "weight": weight}
+    now = time.time()
+    settlement = ds.SettlementRecord(
+        task_id=f"rc-{label}-{secrets.token_hex(3)}", payer=payer, auth_id_hex=secrets.token_hex(16), job_id_hex=job.hex(),
+        charge_tx=secrets.token_hex(32), proof_tx=secrets.token_hex(32), settled_usdc=SETTLED_TOTAL,
+        steps=(
+            ds.SettlementStep(0, AGENT, "Researcher", STEP_PRICE, True, "Found three sources"),
+            ds.SettlementStep(1, "agt_05x7", "SEO brief", SETTLED_TOTAL - STEP_PRICE, True, "Wrote the brief"),
+        ),
+        settled_at=now, window_closes_at=now + 86_400.0,
+    )
+    on_store(lambda store: store.record_settlement(settlement))
+    return job.hex()
+
+
 def serve() -> None:
     """The backend alone, in this process, on the drill's ledger and asset."""
     import uvicorn  # noqa: PLC0415
