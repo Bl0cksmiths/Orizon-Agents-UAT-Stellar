@@ -271,15 +271,59 @@ def open_dispute(label: str) -> str:
     return dispute["id"]
 
 
+def settler_sequence() -> int:
+    """The settler's sequence number as testnet Horizon reports it. Every transaction the settler
+    signs and submits moves it, so an unchanged number means nothing was signed in between."""
+    from stellar_sdk import Server as Horizon
+
+    return int(Horizon("https://horizon-testnet.stellar.org").accounts().account_id(FIX["settler"]["public"]).call()["sequence"])
+
+
+def error_code(body: dict) -> str | None:
+    return (body.get("error") or {}).get("code")
+
+
+def untouched(tag: str, dispute_id: str, before: int) -> None:
+    """After a batch of refusals: the settler signed nothing and the dispute is still open."""
+    time.sleep(6)  # one ledger: a transaction signed during the refusals would be on Horizon by now
+    after = settler_sequence()
+    check(f"{tag} the settler signed nothing (Horizon sequence unchanged)", after == before, f"{before} -> {after}")
+    _, read = http("GET", f"/api/disputes/{dispute_id}")
+    store = stored_status(dispute_id)
+    check(
+        f"{tag} the dispute is still open, read through the API and the store",
+        read.get("status") == store == "open",
+        f"API {read.get('status')}, store {store}",
+    )
+
+
+REASON = "Story 6.03g: the step delivered three cited sources, so the brief was met."
+
+
+def ad01_switch_closes_the_route() -> None:
+    """AD-01 refunds off, the right key configured and sent: both decisions refused, nothing signed."""
+    dispute_id = open_dispute("AD-01")
+    before = settler_sequence()
+    for route, body in (("uphold", None), ("reject", {"note": REASON})):
+        status, answer = http("POST", f"/api/disputes/{dispute_id}/{route}", body, headers={"X-API-Key": API_KEY})
+        check(
+            f"AD-01 {route} with the right key: 503 dispute_refunds_disabled",
+            status == 503 and error_code(answer) == "dispute_refunds_disabled",
+            f"{status} {error_code(answer)}",
+        )
+    untouched("AD-01", dispute_id, before)
+
+
 def ad06_buyer_needs_no_key() -> None:
     """AD-06 refunds on, a key configured: the buyer's path asks for no key."""
     dispute_id = open_dispute("AD-06")
     check("AD-06 the store holds the dispute open", stored_status(dispute_id) == "open", str(stored_status(dispute_id)))
 
 
+REFUNDS_OFF = ("refunds-off", backend_env(refunds=False, api_key=API_KEY))
 REFUNDS_ON = ("refunds-on", backend_env(refunds=True, api_key=API_KEY))
 # (server, scenario): consecutive scenarios with the same server share one boot; None boots none.
-SCENARIOS = [(None, ad02_boot_refusal), (REFUNDS_ON, ad06_buyer_needs_no_key)]
+SCENARIOS = [(None, ad02_boot_refusal), (REFUNDS_OFF, ad01_switch_closes_the_route), (REFUNDS_ON, ad06_buyer_needs_no_key)]
 
 
 def main() -> None:
