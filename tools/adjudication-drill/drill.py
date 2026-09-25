@@ -431,6 +431,8 @@ def main() -> None:
     """Every scenario, or only those whose names start with an argument (`drill.py ad03 ad05`)."""
     LOGS.mkdir(parents=True, exist_ok=True)
     chosen = [(srv, fn) for srv, fn in SCENARIOS if not sys.argv[1:] or fn.__name__.startswith(tuple(sys.argv[1:]))]
+    if not chosen:
+        sys.exit(f"no scenario is named {sys.argv[1:]}; they are {[fn.__name__ for _, fn in SCENARIOS]}")
     server, booted = None, None
     try:
         for config, scenario in chosen:
