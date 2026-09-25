@@ -164,3 +164,31 @@ test("FS-05 rejected: the payer reads Rejected and why", async ({ page }, info) 
   await expect(receipt).not.toContainText(/credit ·|Refunded/);
   await page.screenshot({ path: info.outputPath("fs05-rejected.png"), fullPage: true });
 });
+
+// A valid testnet address that is not the payer's.
+const STRANGER = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7";
+
+for (const [who, viewer] of [["another wallet", { wallet: STRANGER, token: false }], ["no wallet", { wallet: null, token: false }]] as const) {
+  test(`FS-06 privacy: with ${who}, neither reason is on screen, in the page source, or in any response`, async ({ browser, request }, info) => {
+    for (const state of ["credited", "rejected"] as const) {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const bodies: string[] = [];
+      page.on("response", async (response) => {
+        bodies.push(await response.text().catch(() => ""));
+      });
+      const receipt = await open(page, state, viewer);
+      await expect(receipt).toContainText(state === "credited" ? "Refunded" : "Rejected");
+      if (state === "credited") await expect(receipt).toContainText("credited to the payer's wallet");
+      await expect(receipt).not.toContainText(/your wallet|Your reason|Why it was rejected/);
+      const source = await (await request.get(`http://127.0.0.1:3100/app/trace?task=${seed.tasks[state]}`)).text();
+      for (const words of [REASON, REJECTION]) {
+        expect(await page.content(), `${state}: the rendered page`).not.toContain(words);
+        expect(source, `${state}: the page source`).not.toContain(words);
+        expect(bodies.filter((body) => body.includes(words)), `${state}: the responses`).toEqual([]);
+      }
+      await page.screenshot({ path: info.outputPath(`fs06-${state}-${viewer.wallet ? "stranger" : "anonymous"}.png`), fullPage: true });
+      await context.close();
+    }
+  });
+}
