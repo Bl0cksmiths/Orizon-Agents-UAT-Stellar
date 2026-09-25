@@ -186,6 +186,10 @@ def main() -> None:
         open_dispute("live", settle("live"))
         # Refunded with the rating still to come; `rate-gap` lands it while the page is open.
         paid("gap")
+        # Decided for the payer with no transfer on record: where a refused or failed transfer
+        # leaves a dispute, the claim released and the status back at `upheld`.
+        upheld = open_dispute("upheld", settle("upheld"))
+        rc.on_store(lambda store: store.append_status(upheld, "upheld", expected_status="open"))
     finally:
         server.stop()
     seed["payer"] = rc.FIX["buyer"]["public"]
