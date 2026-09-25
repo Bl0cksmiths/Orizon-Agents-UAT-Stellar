@@ -172,9 +172,14 @@ def main() -> None:
         reject("rejected")
         crediting("crediting")
         rating_pending("rating_pending")
+        # Left open for browser.spec.ts to uphold while the payer watches the receipt.
+        open_dispute("live", settle("live"))
     finally:
         server.stop()
     seed["payer"] = rc.FIX["buyer"]["public"]
+    # The drill backend's operator key, random per seed and local only: serve.py runs with it,
+    # so browser.spec.ts can adjudicate as the operator does.
+    seed["apiKey"] = rc.API_KEY
     (rc.STATE / "ui-seed.json").write_text(json.dumps(seed, indent=2), encoding="utf-8")
     failed = [r for r in rc.results if r[1] != "PASS"]
     sys.exit(1 if failed else 0)
