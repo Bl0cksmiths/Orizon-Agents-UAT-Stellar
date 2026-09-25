@@ -65,6 +65,60 @@ def http(method: str, path: str, body: dict | None = None, headers: dict[str, st
         return err.code, json.loads(err.read() or b"{}")
 
 
+def backend_env(*, durable: bool, task_auth: bool = False) -> dict[str, str]:
+    """A clean environment: nothing from the operator's shell or a .env reaches the backend."""
+    keep = {"SYSTEMROOT", "PATH", "TEMP", "TMP", "USERPROFILE", "HOME"}
+    env = {k: v for k, v in os.environ.items() if k.upper() in keep}
+    env.update(
+        {
+            "DATABASE_URL": DSN if durable else "",
+            "TASK_AUTH_REQUIRED": "true" if task_auth else "false",
+            "STELLAR_AGENT_REGISTRY": "",
+            "REPUTATION_ENABLED": "false",
+            "PYTHONIOENCODING": "utf-8",
+        }
+    )
+    return env
+
+
+class Backend:
+    """One backend process, from start to a hard kill."""
+
+    def __init__(self, label: str, env: dict[str, str]) -> None:
+        LOGS.mkdir(parents=True, exist_ok=True)
+        self.log_path = LOGS / f"{label}.log"
+        self._log = self.log_path.open("w", encoding="utf-8")
+        self.proc = subprocess.Popen(
+            [PYTHON, "-m", "uvicorn", "app.main:app", "--port", str(PORT), "--workers", "1"],
+            cwd=BACKEND,
+            env=env,
+            stdout=self._log,
+            stderr=subprocess.STDOUT,
+        )
+        # A cold first import on this machine has taken over a minute.
+        deadline = time.time() + 180
+        while time.time() < deadline:
+            try:
+                if http("GET", "/health")[0] == 200:
+                    return
+            except OSError:
+                pass
+            time.sleep(0.3)
+        self.kill()
+        raise RuntimeError(f"backend {label} did not come up; see {self.log_path}")
+
+    def kill(self) -> None:
+        """What a spun-down instance gets: no shutdown hook, nothing flushed on the way out."""
+        self.proc.kill()
+        self.proc.wait(timeout=30)
+        self._log.close()
+
+    def log(self) -> str:
+        if not self._log.closed:
+            self._log.flush()
+        return self.log_path.read_text(encoding="utf-8", errors="replace")
+
+
 SCENARIOS: dict[str, Callable[[], None]] = {}
 
 if __name__ == "__main__":
