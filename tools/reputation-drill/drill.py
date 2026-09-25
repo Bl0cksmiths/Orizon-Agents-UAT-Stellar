@@ -187,6 +187,23 @@ def seed_workflow(label: str, payer: str, record: dict) -> str:
     return job.hex()
 
 
+def open_dispute(buyer, job: str) -> dict:
+    """Dispute step 0 as the buyer: challenge, sign the exact message, open."""
+    import base64  # noqa: PLC0415
+
+    status, challenge = http("POST", "/api/disputes/challenge", {"job_id_hex": job, "step_index": 0})
+    if status != 200:
+        raise RuntimeError(f"challenge answered {status}: {challenge}")
+    signature = base64.b64encode(buyer.sign(challenge["message"].encode("utf-8"))).decode("ascii")
+    status, dispute = http("POST", "/api/disputes", {
+        "job_id_hex": job, "step_index": 0, "reason": "The research step returned nothing usable.",
+        "payer": buyer.public_key, "nonce": challenge["nonce"], "signature_b64": signature,
+    })
+    if status != 200:
+        raise RuntimeError(f"opening the dispute answered {status}: {dispute}")
+    return dispute
+
+
 def serve() -> None:
     """The backend alone, in this process, on the drill's ledger and asset."""
     import uvicorn  # noqa: PLC0415
