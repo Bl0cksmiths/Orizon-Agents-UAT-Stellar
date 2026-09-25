@@ -2665,3 +2665,44 @@ once the backend is known to have it.
 (`test.fail()`, pinned to D-065).
 
 ---
+
+## D-066 — A dispute upheld with the uphold script leaves the running server on the pre-dispute score
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** RC-04 (story 6.03e)
+
+**Steps to reproduce** — backend origin/main `08efeda`, run on testnet with
+`tools/reputation-drill/`: start the backend, keep the agent's score cached by
+reading `GET /api/stellar/reputation/agt_09l5`, uphold a dispute on that
+agent's step with `scripts/uphold_dispute.py` (its own process, as an operator
+runs it), then decompose a plan that routes to the agent.
+
+**Expected** — story 6.03e: "A cached score is invalidated when a rating lands,
+so the next plan should see the new number rather than waiting out the read
+TTL".
+
+**Actual** — the script calls `reputation_svc.invalidate_rep`, but in its own
+process. The server's cache is never told. With `REPUTATION_READ_TTL_SECONDS=120`
+the server served the old count for 91.9 s after the rating landed. A plan
+decomposed 4.3 s after it stamped count 6 and 3333 bps. At that moment the
+script had just printed the dispute rate as 4285 bps (3 of 7). At the default
+15 s TTL the same window is up to 15 s, which is inside the story's "within a
+few seconds". Upholding through `POST /api/disputes/{id}/uphold` does not have
+this problem: the plan decomposed right after it showed the new count.
+
+**Impact** — for up to one read TTL after a script uphold, plans are routed and
+stamped on the score the dispute was meant to change. During that time the
+operator's own screen shows the new rate while the API shows the old one. It
+is bounded and self-healing, and no money is involved.
+
+**Resolution path** — make the script invalidate the server's entry, for
+example through an authenticated invalidate route or a shared cache. Or have
+the script say that a running server keeps the old score for up to
+`REPUTATION_READ_TTL_SECONDS`.
+
+**Verified by** — `tools/reputation-drill/drill.py run` with `DRILL_TTL=120`,
+check "RC-04 script path: a plan decomposed right after the uphold shows the
+new score" (XFAIL, pinned to D-066).
+
+---
