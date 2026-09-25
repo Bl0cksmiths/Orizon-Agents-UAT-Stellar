@@ -196,7 +196,47 @@ def open_dispute(payer, job: str, step: int, reason: str = REASON) -> tuple[int,
     )
 
 
-SCENARIOS: dict[str, Callable[[], None]] = {}
+def store_lines(log: str) -> list[str]:
+    return [line for line in log.splitlines() if "store:" in line]
+
+
+def du01() -> None:
+    """DU-01 and DU-05: an open dispute, a hard restart, every field compared across it."""
+    print("\n== du01: an open dispute survives a restart", flush=True)
+    payer = new_payer()
+    task = f"drill-du01-{secrets.token_hex(4)}"
+    job = seed_settlement(task, payer.public_key)
+    first = Backend("du01-before", backend_env(durable=True))
+    status, opened = open_dispute(payer, job, 1)
+    check("the dispute opens before the restart", status == 200 and opened.get("status") == "open", str(status))
+    _, one_before = http("GET", f"/api/disputes/{opened['id']}")
+    _, task_before = http("GET", f"/api/tasks/{task}/disputes")
+    first.kill()
+
+    second = Backend("du01-after", backend_env(durable=True))
+    at_boot = store_lines(second.log())
+    _, health = http("GET", "/health")
+    check("the second process is a new one", health.get("uptime_seconds", 99) < 30, f"uptime {health.get('uptime_seconds')}s")
+    status, one_after = http("GET", f"/api/disputes/{opened['id']}")
+    _, task_after = http("GET", f"/api/tasks/{task}/disputes")
+    after_first_read = store_lines(second.log())
+    second.kill()
+
+    check("GET /api/disputes/{id} answers 200 after the restart", status == 200, str(status))
+    changed = {k: (one_before.get(k), one_after.get(k)) for k in one_before if one_before.get(k) != one_after.get(k)}
+    check("the dispute is field-for-field identical", not changed, json.dumps(changed))
+    for field in ("status", "reason", "charged_usdc", "creditable_usdc", "opened_at"):
+        check(f"  {field} unchanged", one_after.get(field) == one_before.get(field), repr(one_after.get(field)))
+    check("the reason survives byte for byte", one_after.get("reason") == REASON)
+    check("the task listing's disputes are identical", task_after["disputes"] == task_before["disputes"])
+    check("the closing time is the same", task_after["window_closes_at"] == task_before["window_closes_at"], str(task_after["window_closes_at"]))
+    check("the settlement is identical", task_after["settlement"] == task_before["settlement"])
+    check("DU-05 the boot log names the binding store as postgres", any("binding store: postgres" in l for l in at_boot))
+    check("DU-05 the boot log names the dispute store", any("dispute store:" in l for l in at_boot), "logged only at first use", defect="D-063")
+    check("DU-05 the dispute store names postgres by the first read", any("dispute store: postgres" in l for l in after_first_read))
+
+
+SCENARIOS: dict[str, Callable[[], None]] = {"du01": du01}
 
 if __name__ == "__main__":
     for name in sys.argv[1:] or list(SCENARIOS):
