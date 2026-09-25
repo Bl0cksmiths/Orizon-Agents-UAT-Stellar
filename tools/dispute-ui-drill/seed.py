@@ -103,12 +103,40 @@ def reject(state: str) -> dict:
     return dispute
 
 
+def transfer() -> str:
+    """A real refund transfer, settler to payer, as `refund_svc.execute_refund` signs it."""
+    import asyncio  # noqa: PLC0415
+
+    from app.services import refund_svc  # noqa: PLC0415
+
+    raw = asyncio.run(refund_svc.execute_refund(rc.FIX["buyer"]["public"], STEP_PRICE))
+    if raw.get("status") != "SUCCESS":
+        raise RuntimeError(f"the refund transfer did not land: {raw}")
+    return raw["hash"]
+
+
+def crediting(state: str) -> None:
+    """A refund submitted and not yet confirmed: the record a transfer TIMEOUT leaves.
+
+    The claim is taken as uphold takes it, the transfer is real, and the record is written as
+    `dispute_svc.uphold` writes a TIMEOUT answer — `crediting`, with the hash.
+    """
+    dispute_id = open_dispute(state, settle(state))
+    rc.on_store(lambda store: store.append_status(dispute_id, "upheld", expected_status="open"))
+    claimed = rc.on_store(lambda store: store.claim_refund(dispute_id))
+    rc.check(f"{state}: the refund is claimed", claimed is not None and claimed.status == "crediting")
+    refund = transfer()
+    rc.on_store(lambda store: store.append_status(dispute_id, "crediting", refund_tx=refund))
+    seed["tx"][state] = {"refund": refund}
+
+
 def main() -> None:
     server = rc.Server()
     try:
         open_dispute("open", settle("open"))
         uphold("credited")
         reject("rejected")
+        crediting("crediting")
     finally:
         server.stop()
     seed["payer"] = rc.FIX["buyer"]["public"]
