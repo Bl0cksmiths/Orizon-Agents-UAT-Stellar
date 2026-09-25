@@ -956,7 +956,7 @@ with `tools/restart-drill/`: a real backend hard-killed on a real Postgres, the
 real uphold script, and the real frontend as the payer.
 `evidence/6.03d-durability.md` has the results.
 
-## Acceptance criteria — RC, the reputation consequence and routing (story 6.03e, verifies 2.x / 4.04)
+## Acceptance criteria — RC, the reputation consequence and routing (story 6.03e, verifies 3.02 / 4.04)
 
 An upheld dispute is more than a refund: the settler writes a second rating
 (kind `dispute`, 10/100) beside its own, never replacing it, so the agent's
