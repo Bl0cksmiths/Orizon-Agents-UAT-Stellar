@@ -42,4 +42,21 @@ test.describe("AD — adjudication door (story 6.03g)", () => {
       });
     }
   }
+
+  for (const action of ["uphold", "reject"] as const) {
+    test(`AD-04 no key and a wrong-shaped body on ${action}: the door answers, not the validator`, async ({ request }) => {
+      await expectSwitchedOff(await request.post(`${PROBE}/${action}`, { timeout: COLD_START_TIMEOUT, data: { note: 5, extra: [] } }));
+    });
+    test(`AD-04 no key and malformed JSON on ${action}: the door answers, not the parser`, async ({ request }) => {
+      // D-073: FastAPI parses a JSON body before it runs the route's dependencies, so on reject
+      // (the one of the two with a body) malformed JSON is answered 422 json_invalid ahead of
+      // the guard. Remove the marker once the guard answers first.
+      if (action === "reject") test.fail();
+      await expectSwitchedOff(await request.post(`${PROBE}/${action}`, {
+        timeout: COLD_START_TIMEOUT,
+        headers: { "Content-Type": "application/json" },
+        data: Buffer.from("{not json"),
+      }));
+    });
+  }
 });
