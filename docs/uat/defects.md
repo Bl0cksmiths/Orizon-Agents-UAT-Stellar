@@ -2848,3 +2848,30 @@ decision with no money moved.
 transfer on record …" (`test.fail()`, pinned to D-070).
 
 ---
+
+## D-071 — The dispute dialog states the credit as exact; the receipt says "Up to"
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-01 (story 6.03f)
+
+**Steps to reproduce** — open a settled task's trace page as the payer and
+press Dispute on a step charged 0.25 USDC.
+
+**Expected** — the dialog and the receipt state the same thing about the same
+number.
+
+**Actual** — the dialog reads "Credited if upheld 0.25 USDC", with no
+qualifier. The receipt of the same dispute reads "Up to 0.25 USDC would be
+credited … if upheld", correctly: the backend bounds the payout again when it
+pays, by the fraction in force then and by what the charge moved.
+
+**Impact** — a promise made in the dialog that the receipt then walks back.
+
+**Resolution path** — say "Up to" in the dialog too.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-14 the dispute
+dialog states the credit as the receipt does …" (`test.fail()`, pinned to
+D-071).
+
+---
