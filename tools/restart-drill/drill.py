@@ -119,6 +119,53 @@ class Backend:
         return self.log_path.read_text(encoding="utf-8", errors="replace")
 
 
+def dispute_store():
+    """The backend's own store module, imported with the drill's DATABASE_URL in force."""
+    os.environ["DATABASE_URL"] = DSN
+    if str(BACKEND) not in sys.path:
+        sys.path.insert(0, str(BACKEND))
+    from app.services import dispute_store as module  # noqa: PLC0415
+
+    return module
+
+
+def on_store(use):
+    """Run `use(store)` against a Postgres store of its own, as a separate process would."""
+
+    async def _run():
+        store = dispute_store().PostgresDisputeStore(DSN)
+        try:
+            return await use(store)
+        finally:
+            await store.close()
+
+    return asyncio.run(_run())
+
+
+def seed_settlement(task_id: str, payer: str) -> str:
+    """Record one settled two-step workflow the way the settlement path does; returns its job id."""
+    ds = dispute_store()
+    job = secrets.token_hex(16)
+    now = time.time()
+    record = ds.SettlementRecord(
+        task_id=task_id,
+        payer=payer,
+        auth_id_hex=secrets.token_hex(16),
+        job_id_hex=job,
+        charge_tx=secrets.token_hex(32),
+        proof_tx=secrets.token_hex(32),
+        settled_usdc=0.35,
+        steps=(
+            ds.SettlementStep(0, "research-agent", "Researcher", 0.1, True, "Found three sources"),
+            ds.SettlementStep(1, "code-agent", "Coder", 0.25, True, "Built a landing page"),
+        ),
+        settled_at=now,
+        window_closes_at=now + 86_400.0,
+    )
+    on_store(lambda store: store.record_settlement(record))
+    return job
+
+
 SCENARIOS: dict[str, Callable[[], None]] = {}
 
 if __name__ == "__main__":
