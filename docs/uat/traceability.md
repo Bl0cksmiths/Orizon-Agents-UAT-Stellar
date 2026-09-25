@@ -357,3 +357,22 @@ uphold nothing (D-050, D-051).
 | RC-03 | `drill.py run` phase_chain: the rating job id's first 8 bytes equal the sealed job's, the rest differs, and the settler's rating is still under the sealed id (4 of 4) | **Pass** on testnet |
 | RC-04 | `drill.py run` phase_api (API path: the plan decomposed at once stamps the new count and rate, **pass**) and phase_script (script path at a 120 s TTL: the old score for 91.9 s, XFAIL, D-066); `tests/reputation-consequence.spec.ts` "RC-04 …" (plan stamp = route, **pass** live); `tools/reputation-drill/browser.spec.ts` badge and plan card (**pass** at a 120 s TTL: ★ 3.44 · 8 ⚑ 50.0% on both) | **Fail**: D-066 on the script path; the display half passes |
 | RC-05 | `drill.py run` phase_open: two open disputes; the route at once, the route after the TTL, and a plan are all unchanged | **Pass** on testnet |
+
+## DS — the dispute UI and receipt in every state (story 6.03f)
+
+Run 2026-09-25/26; `evidence/6.03f-dispute-ui.md`. Read on the real trace page
+(frontend `5105a8b`, backend `08efeda`) with `tools/dispute-ui-drill/`: real
+disputes and real testnet transactions on the 6.03e drill's ledger. The deploy
+can hold no dispute (D-050, D-051). The live, real-phone and screen-reader
+steps are in `checklists/6.03f-phone-and-screen-reader.md`, with nothing
+recorded yet.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| DS-01 | `browser.spec.ts` FS-01 open, FS-02 crediting, FS-03 credited, FS-04 rating unconfirmed, FS-05 rejected (**pass**); FS-13 upheld with no transfer (`test.fail()`, D-070); FS-14 dialog amount (`test.fail()`, D-071); FS-08 empty quote (`test.fail()`, D-068) | **Fail**: D-068, D-070, D-071; no premature success found; live pending |
+| DS-02 | FS-03: both hrefs equal that dispute's `refund_tx` / `rating_tx` on testnet Stellar Expert, and both read back from Horizon (a `transfer` crediting the payer 0.1; a `submit` of kind `dispute` under this job's first 8 bytes) | **Pass** in the drill; live pending |
+| DS-03 | FS-03: the amount and "funded by the platform, not clawed back from the agent" in one `<p>` | **Pass** in the drill; live pending |
+| DS-04 | `seed.py` reject refusals (no note → 422 `validation_error`, blank → 422 `rejection_reason_required`, still `open`); FS-05 payer with token (**pass**); FS-06 another wallet and no wallet: not on screen, in the source or in any response (**pass**); FS-07 payer without token (`test.fail()`, D-067) | **Fail**: D-067 |
+| DS-05 | FS-09 uphold watched live: Refunded, both links, no reload (**pass**); FS-10 rating landing after the refund (`test.fail()`, D-069) | **Fail**: D-069 |
+| DS-06 | FS-11 @phone 360px: nothing past the edge, both hashes whole, both links tap through (**pass**); FS-15 @phone target height (`test.fail()`, D-072); real phone per checklist | **Pass** in the drill with D-072; real phone pending |
+| DS-07 | FS-12: 70 s of countdown with no live-region change (**pass**); FS-09: each status sentence announced once (**pass**); NVDA/VoiceOver per checklist | **Pass** by markup; real screen reader pending |

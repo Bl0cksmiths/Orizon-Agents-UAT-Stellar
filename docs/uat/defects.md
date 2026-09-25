@@ -2707,3 +2707,198 @@ check "RC-04 script path: a plan decomposed right after the uphold shows the
 new score" (XFAIL, pinned to D-066).
 
 ---
+
+## D-067 — The payer loses both reasons unless they are in the tab that ran the task
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** DS-01, DS-04 (story 6.03f)
+
+**Steps to reproduce** — backend `08efeda`, frontend `5105a8b`, with
+`tools/dispute-ui-drill/`: reject a dispute with a reason, then open the trace
+page with the payer's wallet connected, in a tab that does not hold the task's
+read token. That is any tab other than the one that ran the task, any other
+device, or any session after the backend has restarted.
+
+**Expected** — story 6.03f: "The rejection reason is shown to the payer only",
+and "rejected says why".
+
+**Actual** — the receipt reads "Rejected" and "The platform did not uphold
+this dispute: no credit was issued, Researcher's reputation is unchanged."
+There is no reason, and there is an empty "Your reason" label (D-068). The
+backend sends `reason` and `rejection_reason` only to a caller holding the task
+token or the operator key (`TaskReadProof.proves`, `DisputeResponse.of`). The
+payer's wallet is never considered. The token lives in the backend's memory,
+which is lost on restart and evicted after 200 tasks, and in the sessionStorage
+of the tab that ran the task. Adjudication is manual and can take up to 24 h,
+so by the time a verdict exists the token is almost always gone.
+
+**Impact** — the one reader the reason is written for does not see it. The
+privacy rule itself holds: nobody else sees it either.
+
+**Resolution path** — let the payer prove who they are to read the free text,
+for example with the same signed challenge that opens a dispute. Keep
+withholding it from everyone else.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-07 the payer
+returning without the task's tab still reads why it was rejected"
+(`test.fail()`, pinned to D-067).
+
+---
+
+## D-068 — A withheld reason is drawn as an empty "Your reason" quote
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-01 (story 6.03f)
+
+**Steps to reproduce** — as for D-067: open any dispute's trace page with the
+payer's wallet connected but without the task token.
+
+**Expected** — a reason the viewer may not read is left out, as it is for other
+viewers.
+
+**Actual** — the backend sends a withheld `reason` as `""` rather than `null`
+(`DisputeResponse.of`). The frontend passes `""` through for the payer
+(`lib/disputes.ts`, `reason: isPayer ? dispute.reason : null`), and the receipt
+draws the quote whenever the reason is not null. The payer sees a "YOUR REASON"
+heading over nothing.
+
+**Impact** — a blank block on an evidence screen, read as though the payer
+gave no reason.
+
+**Resolution path** — treat an empty reason as absent in the frontend, and/or
+send `null` from the backend.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-08 a reason the
+backend withheld is never drawn as an empty quote" (`test.fail()`, pinned to
+D-068).
+
+---
+
+## D-069 — The receipt stops polling once the refund confirms, so a rating that lands after it never shows
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** DS-05 (story 6.03f)
+
+**Steps to reproduce** — with `tools/dispute-ui-drill/`: open the payer's trace
+page on a dispute recorded as `credited` with its refund confirmed and no
+rating yet. This is the moment between the two writes one uphold makes: the
+credit first, then the rating seconds later. Then land and record the rating
+(`seed.py rate-gap`), and wait.
+
+**Expected** — story 6.03f: "The receipt must reach 'Refunded' without a
+reload", with both links.
+
+**Actual** — once a poll returns the refund confirmed and no rating,
+`receiptAwaitsChain` finds nothing left to wait for and polling stops. The
+rating landed and the backend served it (`credited`, `rating_confirmed` true),
+but after 90 s the receipt still read "the dispute rating it costs Researcher
+is not confirmed yet" and "Dispute rating against Researcher — not recorded
+on-chain yet". A reload fixes it. A poll lands in that gap whenever an uphold's
+rating is still being written: the rating takes seconds, and the page polls
+every 5 s while a refund is in flight. So a buyer watching the uphold can be
+left on this screen. The same freeze follows a rating that timed out with no
+hash, or one that failed.
+
+**Impact** — the receipt shows a finished refund with the rating "not recorded
+on-chain", which is no longer true. Only one of the two on-chain facts is
+linked, until the payer happens to reload.
+
+**Resolution path** — keep polling while a credited dispute has no confirmed
+rating, bounded as the other chain waits are.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-10 a rating that
+lands after the refund reaches the open receipt without a reload"
+(`test.fail()`, pinned to D-069). FS-09, a full uphold watched live, passed. Its
+poll happened to land after both writes.
+
+---
+
+## D-070 — An upheld dispute with no transfer says the transfer "is queued", under a success tick
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-01 (story 6.03f)
+
+**Steps to reproduce** — with `tools/dispute-ui-drill/`: open the payer's
+receipt for a dispute left `upheld` with no transfer on record. That is where a
+refused or failed transfer leaves it once the claim is released.
+
+**Expected** — story 6.03f: "If a sentence is true but misleading, file it."
+Nothing may read as further along than the record.
+
+**Actual** — "The platform upheld this dispute; the credit has not been sent
+yet — the transfer to your wallet is queued, and there is no transaction to
+look up until the platform submits it." Nothing queues it. In the backend,
+`upheld` outlasts an uphold only after a transfer was refused, failed or not
+configured, and a person has to uphold it again. The badge reads "✓ Upheld" in
+cyan, the same glyph and colour as "✓ Confirmed on Stellar", on a record where
+no money has moved. The refund row correctly says "No transaction on record".
+
+**Impact** — the buyer is told their money is in a queue that does not exist,
+and may wait for it instead of asking.
+
+**Resolution path** — say that the credit was not sent and that the platform
+has to send it, with no time implied. Consider a non-success glyph for a
+decision with no money moved.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-13 upheld with no
+transfer on record …" (`test.fail()`, pinned to D-070).
+
+---
+
+## D-071 — The dispute dialog states the credit as exact; the receipt says "Up to"
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-01 (story 6.03f)
+
+**Steps to reproduce** — open a settled task's trace page as the payer and
+press Dispute on a step charged 0.25 USDC.
+
+**Expected** — the dialog and the receipt state the same thing about the same
+number.
+
+**Actual** — the dialog reads "Credited if upheld 0.25 USDC", with no
+qualifier. The receipt of the same dispute reads "Up to 0.25 USDC would be
+credited … if upheld", correctly: the backend bounds the payout again when it
+pays, by the fraction in force then and by what the charge moved.
+
+**Impact** — a promise made in the dialog that the receipt then walks back.
+
+**Resolution path** — say "Up to" in the dialog too.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-14 the dispute
+dialog states the credit as the receipt does …" (`test.fail()`, pinned to
+D-071).
+
+---
+
+## D-072 — The two Stellar Expert links on a receipt are 15px tall on a phone
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-06 (story 6.03f)
+
+**Steps to reproduce** — open a credited receipt at 360px width with touch.
+
+**Expected** — story 6.03f: "both links must be tappable."
+
+**Actual** — both links are tappable, and each opens the right transaction
+(FS-11). Each is its 10px mono text, measured at 217×15px. That passes WCAG
+2.5.8 only through its spacing exception, since the links are more than 24px
+apart. It is a small target for a thumb.
+
+**Impact** — mis-taps on the two links a reviewer is most likely to follow.
+
+**Resolution path** — pad each link to at least 24px of height, or 44px, the
+usual touch guidance.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-15 @phone both
+Stellar Expert links are at least 24px tall to a thumb" (`test.fail()`, pinned
+to D-072). To be confirmed on a real phone:
+`checklists/6.03f-phone-and-screen-reader.md`.
+
+---
