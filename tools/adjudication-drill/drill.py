@@ -343,6 +343,41 @@ def ad03_bad_keys() -> None:
     untouched("AD-03", dispute_id, before)
 
 
+def answered(status: int, body: dict) -> str:
+    """Status, code and, for a validation error, the first failure's type — what a report quotes."""
+    detail = body.get("detail")
+    kind = detail[0].get("type") if isinstance(detail, list) and detail and isinstance(detail[0], dict) else None
+    return f"{status} {error_code(body)}{f' ({kind})' if kind else ''}"
+
+
+# (route, what is wrong with the body, the raw body); none of them carries a key.
+BAD_BODIES = [
+    ("uphold", "a well-formed body of the wrong shape", b'{"note": 5}'),
+    ("uphold", "malformed JSON", b"{not json"),
+    ("reject", "no body", b""),
+    ("reject", "a body with no note", b"{}"),
+    ("reject", "a well-formed body of the wrong shape", b'{"note": 5}'),
+]
+
+
+def ad04_guard_before_body() -> None:
+    """AD-04 refunds on, no key: the guard answers before the body is read."""
+    dispute_id = open_dispute("AD-04")
+    before = settler_sequence()
+    for route, label, raw in BAD_BODIES:
+        status, body = http("POST", f"/api/disputes/{dispute_id}/{route}", raw=raw)
+        check(f"AD-04 {route}, no key, {label}: the guard's 401, not 422", status == 401 and error_code(body) == "invalid_api_key", answered(status, body))
+    status, body = http("POST", f"/api/disputes/{dispute_id}/reject", raw=b"{not json")
+    check("AD-04 reject, no key, malformed JSON: never a 500", status < 500, answered(status, body))
+    check(
+        "AD-04 reject, no key, malformed JSON: the guard's 401, not 422",
+        status == 401 and error_code(body) == "invalid_api_key",
+        f"answered {answered(status, body)} before the guard",
+        defect="D-073",
+    )
+    untouched("AD-04", dispute_id, before)
+
+
 def ad06_buyer_needs_no_key() -> None:
     """AD-06 refunds on, a key configured: the buyer's path asks for no key."""
     dispute_id = open_dispute("AD-06")
@@ -352,7 +387,13 @@ def ad06_buyer_needs_no_key() -> None:
 REFUNDS_OFF = ("refunds-off", backend_env(refunds=False, api_key=API_KEY))
 REFUNDS_ON = ("refunds-on", backend_env(refunds=True, api_key=API_KEY))
 # (server, scenario): consecutive scenarios with the same server share one boot; None boots none.
-SCENARIOS = [(None, ad02_boot_refusal), (REFUNDS_OFF, ad01_switch_closes_the_route), (REFUNDS_ON, ad06_buyer_needs_no_key), (REFUNDS_ON, ad03_bad_keys)]
+SCENARIOS = [
+    (None, ad02_boot_refusal),
+    (REFUNDS_OFF, ad01_switch_closes_the_route),
+    (REFUNDS_ON, ad06_buyer_needs_no_key),
+    (REFUNDS_ON, ad03_bad_keys),
+    (REFUNDS_ON, ad04_guard_before_body),
+]
 
 
 def main() -> None:
