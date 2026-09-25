@@ -2949,3 +2949,39 @@ decide: change the rule for this one case, or change the route.
 JSON on reject …" (`test.fail()`, pinned to D-073).
 
 ---
+
+## D-074 — `STELLAR_NETWORK=pubnet` is not recognised as mainnet by the boot guards
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** AD-02 (story 6.03g), found beside it; the refund door itself holds
+
+**Steps to reproduce** — backend `08efeda`, loading the settings only
+(`import app.config`), with the mainnet passphrase, a signing key set, refunds
+off and `API_KEY` empty:
+- `STELLAR_NETWORK=mainnet`: refused, "API_KEY is required because
+  STELLAR_SIGNING_KEY is set on mainnet …".
+- `STELLAR_NETWORK=pubnet`: loads, with `API_KEY` empty.
+
+**Expected** — a deployment that signs on the mainnet passphrase is held to the
+mainnet rules, whatever it names the network.
+
+**Actual** — `app/config.py` treats only `{"mainnet", "public"}` as mainnet
+(lines 320 and 396), and `app/stellar/client.py:75` passes any other name
+through. `pubnet`, the name CAIP-2 uses (`stellar:pubnet`) and the one the Stellar
+x402 tooling uses, is not one of them. So the "a mainnet signer needs an
+operator key" boot rule does not fire. With refunds on, `pubnet` is still
+refused, because that rule reads the refund switch alone (AD-02, checked on
+`pubnet`). No current deployment is affected: the deploy runs on testnet.
+
+**Impact** — a mainnet deployment configured with a common network name would
+boot without the operator key that its money-moving routes depend on.
+
+**Resolution path** — decide mainnet by the network passphrase, not the label,
+or accept `pubnet` wherever `mainnet` and `public` are accepted.
+
+**Verified by** — reproduced with the backend's own `app.config`, both names
+side by side (evidence §2). Not yet pinned in a test: the check needs the
+backend's settings class, not a running service.
+
+---
