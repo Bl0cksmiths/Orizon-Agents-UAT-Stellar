@@ -973,3 +973,12 @@ dispute moves nothing. Prerequisite: `/readiness` `ratings.writer` is `scorer`.
 | RC-03 | the rating's job id and the sealed job id | they are compared | the first 8 bytes are identical |
 | RC-04 | a dispute rating that has just landed | a new intent is decomposed within seconds | the plan, and the marketplace badge, show the updated score, not the pre-dispute one |
 | RC-05 | a dispute that has not been adjudicated | the agent's reputation is read | it is unchanged |
+
+On 2026-09-25 no dispute could be upheld on the deploy (D-050, D-051). There,
+`tests/reputation-consequence.spec.ts` checks the scorer prerequisite and that a
+plan stamps what the reputation route reads. RC-01 stays pinned as an expected
+failure. The upheld path ran on testnet with `tools/reputation-drill/`: a real
+backend and Postgres, the drill's own ReputationLedger built from the deployed
+wasm, and both ways to uphold (the adjudication route, and
+`scripts/uphold_dispute.py` in its own process). `evidence/6.03e-reputation-consequence.md`
+has the before and after numbers and every transaction.
