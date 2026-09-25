@@ -83,3 +83,47 @@ def deployed_wasm_hash() -> bytes:
     )
     entry = soroban.get_ledger_entries([key]).entries[0]
     return xdr.LedgerEntryData.from_xdr(entry.xdr).contract_data.val.instance.executable.wasm_hash.hash
+
+
+def main() -> None:
+    settler, issuer, buyer = Keypair.random(), Keypair.random(), Keypair.random()
+    for kp in (settler, issuer, buyer):
+        fund(kp)
+
+    wasm_hash = deployed_wasm_hash()
+    ledger_tx, got = soroban_tx(
+        settler,
+        lambda tb: tb.append_create_contract_op(
+            wasm_id=wasm_hash,
+            address=settler.public_key,
+            constructor_args=[scval.to_address(settler.public_key), scval.to_address(settler.public_key)],
+            salt=Keypair.random().raw_public_key(),
+        ),
+    )
+    meta = xdr.TransactionMeta.from_xdr(got.result_meta_xdr)
+    ledger_id = scval.from_address((meta.v4 or meta.v3).soroban_meta.return_value).address
+
+    asset = Asset("UATUSD", issuer.public_key)
+    classic(settler, lambda tb: tb.append_change_trust_op(asset))
+    classic(buyer, lambda tb: tb.append_change_trust_op(asset))
+    classic(issuer, lambda tb: tb.append_payment_op(settler.public_key, asset, "100"))
+    sac_tx, _ = soroban_tx(settler, lambda tb: tb.append_create_stellar_asset_contract_from_asset_op(asset))
+
+    state = {
+        "settler": {"public": settler.public_key, "secret": settler.secret},
+        "issuer": {"public": issuer.public_key, "secret": issuer.secret},
+        "buyer": {"public": buyer.public_key, "secret": buyer.secret},
+        "wasm_hash": wasm_hash.hex(),
+        "reputation_ledger": ledger_id,
+        "ledger_create_tx": ledger_tx,
+        "asset": f"UATUSD:{issuer.public_key}",
+        "asset_sac": asset.contract_id(PASSPHRASE),
+        "sac_create_tx": sac_tx,
+    }
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(json.dumps(state, indent=2))
+    print(json.dumps({k: v for k, v in state.items() if not isinstance(v, dict)}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
