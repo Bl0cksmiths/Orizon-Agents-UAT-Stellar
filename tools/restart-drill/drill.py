@@ -95,8 +95,10 @@ class Backend:
             stdout=self._log,
             stderr=subprocess.STDOUT,
         )
-        # A cold first import on this machine has taken over a minute.
-        deadline = time.time() + 180
+        # Importing the backend alone has taken from 5 s to nearly a minute on a
+        # loaded laptop, and a first boot longer; a restart must not be mistaken
+        # for a failure to come up.
+        deadline = time.time() + 420
         while time.time() < deadline:
             try:
                 if http("GET", "/health")[0] == 200:
