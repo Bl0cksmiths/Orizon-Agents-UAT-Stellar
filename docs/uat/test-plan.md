@@ -948,3 +948,10 @@ person reconciles it, which is correct behaviour, not a defect.
 Also under these IDs: with `TASK_AUTH_REQUIRED` on, a restart loses task tokens
 but never a buyer's ability to raise or read a dispute (DU-01, DU-02); a credit
 reconciled by hand carries its amount and rating confirmation (DU-04).
+
+On 2026-09-25 only DU-05 could be checked on the deploy, and by proxy rather
+than from the log: a binding older than the running process is still served
+(`tests/durability.spec.ts`). The restarts behind DU-01 – DU-04 were run locally
+with `tools/restart-drill/`: a real backend hard-killed on a real Postgres, the
+real uphold script, and the real frontend as the payer.
+`evidence/6.03d-durability.md` has the results.
