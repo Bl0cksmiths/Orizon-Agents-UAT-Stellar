@@ -955,3 +955,21 @@ than from the log: a binding older than the running process is still served
 with `tools/restart-drill/`: a real backend hard-killed on a real Postgres, the
 real uphold script, and the real frontend as the payer.
 `evidence/6.03d-durability.md` has the results.
+
+## Acceptance criteria — RC, the reputation consequence and routing (story 6.03e, verifies 2.x / 4.04)
+
+An upheld dispute is more than a refund: the settler writes a second rating
+(kind `dispute`, 10/100) beside its own, never replacing it, so the agent's
+`dispute_rate_bps` rises and its score falls. The rating is weighted by the
+step's quoted price and filed under a job id derived from the sealed one, whose
+first 8 bytes are the sealed job's. A landed rating invalidates the cached score,
+so the next plan sees it without waiting out the 15 s read TTL. An unadjudicated
+dispute moves nothing. Prerequisite: `/readiness` `ratings.writer` is `scorer`.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| RC-01 | the agent's reputation before an upheld dispute | it is read again afterwards | `dispute_rate_bps` has risen, `count` is one higher, and both numbers are recorded |
+| RC-02 | the dispute rating on Stellar Expert | its arguments are inspected | `kind` is `dispute` and the weight is the step's quoted price, not the settled total |
+| RC-03 | the rating's job id and the sealed job id | they are compared | the first 8 bytes are identical |
+| RC-04 | a dispute rating that has just landed | a new intent is decomposed within seconds | the plan, and the marketplace badge, show the updated score, not the pre-dispute one |
+| RC-05 | a dispute that has not been adjudicated | the agent's reputation is read | it is unchanged |
