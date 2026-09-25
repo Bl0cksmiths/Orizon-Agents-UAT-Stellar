@@ -378,6 +378,36 @@ def ad04_guard_before_body() -> None:
     untouched("AD-04", dispute_id, before)
 
 
+# (what the rejection says, its body, the code it must be refused with). The model refuses the
+# shape; what is left after cleaning is the service's call, so whitespace passes the model and
+# is refused there.
+EMPTY_REASONS = [
+    ("no note field", {}, "validation_error"),
+    ("a null note", {"note": None}, "validation_error"),
+    ("an empty note", {"note": ""}, "validation_error"),
+    ("a note of whitespace", {"note": "   \t\n"}, "rejection_reason_required"),
+    ("a note of control characters", {"note": "\x00\x1b\x7f"}, "rejection_reason_required"),
+]
+
+
+def ad05_rejection_needs_a_reason() -> None:
+    """AD-05 refunds on, the right key: a rejection must tell the buyer why."""
+    dispute_id = open_dispute("AD-05")
+    before = settler_sequence()
+    key = {"X-API-Key": API_KEY}
+    for label, body, code in EMPTY_REASONS:
+        status, answer = http("POST", f"/api/disputes/{dispute_id}/reject", body, headers=key)
+        check(f"AD-05 a rejection with {label} is refused: 422 {code}", status == 422 and error_code(answer) == code, answered(status, answer))
+    untouched("AD-05", dispute_id, before)
+    status, answer = http("POST", f"/api/disputes/{dispute_id}/reject", {"note": REASON}, headers=key)
+    check(
+        "AD-05 a rejection with a reason succeeds, so the refusals were not a broken route",
+        status == 200 and answer.get("status") == "rejected" and answer.get("rejection_reason") == REASON,
+        f"{status} {answer.get('status')}",
+    )
+    check("AD-05 the store holds the rejection", stored_status(dispute_id) == "rejected", str(stored_status(dispute_id)))
+
+
 def ad06_buyer_needs_no_key() -> None:
     """AD-06 refunds on, a key configured: the buyer's path asks for no key."""
     dispute_id = open_dispute("AD-06")
@@ -393,6 +423,7 @@ SCENARIOS = [
     (REFUNDS_ON, ad06_buyer_needs_no_key),
     (REFUNDS_ON, ad03_bad_keys),
     (REFUNDS_ON, ad04_guard_before_body),
+    (REFUNDS_ON, ad05_rejection_needs_a_reason),
 ]
 
 
