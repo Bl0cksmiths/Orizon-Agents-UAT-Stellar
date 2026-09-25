@@ -77,10 +77,21 @@ def open_dispute(state: str, job: str) -> str:
     return dispute["id"]
 
 
+def uphold(state: str) -> dict:
+    """Uphold through the adjudication route, as the operator does: a real refund, a real rating."""
+    dispute_id = open_dispute(state, settle(state))
+    status, dispute = rc.http("POST", f"/api/disputes/{dispute_id}/uphold", headers={"X-API-Key": rc.API_KEY})
+    rc.check(f"{state}: upheld, credited and rated", status == 200 and dispute.get("status") == "credited"
+             and dispute.get("rating_confirmed") is True, f"{status} {dispute.get('status')}")
+    seed["tx"][state] = {"refund": dispute["refund_tx"], "rating": dispute["rating_tx"], "credited_usdc": dispute["credited_usdc"]}
+    return dispute
+
+
 def main() -> None:
     server = rc.Server()
     try:
         open_dispute("open", settle("open"))
+        uphold("credited")
     finally:
         server.stop()
     seed["payer"] = rc.FIX["buyer"]["public"]
