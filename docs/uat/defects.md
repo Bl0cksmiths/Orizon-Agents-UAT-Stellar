@@ -2980,8 +2980,8 @@ boot without the operator key that its money-moving routes depend on.
 **Resolution path** — decide mainnet by the network passphrase, not the label,
 or accept `pubnet` wherever `mainnet` and `public` are accepted.
 
-**Verified by** — reproduced with the backend's own `app.config`, both names
-side by side (evidence §2). Not yet pinned in a test: the check needs the
-backend's settings class, not a running service.
+**Verified by** — `tools/adjudication-drill/drill.py d074`: a real uvicorn boot
+under each name. `mainnet` exits 1; `pubnet` boots and serves `/health`
+(XFAIL, pinned to D-074).
 
 ---
