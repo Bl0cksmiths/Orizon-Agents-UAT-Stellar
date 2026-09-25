@@ -204,6 +204,31 @@ def open_dispute(buyer, job: str) -> dict:
     return dispute
 
 
+def decode_rating(tx_hash: str) -> dict:
+    """A rating transaction's submit arguments read back off the chain — what Stellar Expert shows.
+
+    `ReputationLedger.submit(caller, agent_id, job_id, rating_0_to_100, weight, payer, kind)`.
+    """
+    from stellar_sdk import SorobanServer, scval, xdr  # noqa: PLC0415
+
+    got = SorobanServer(ENV["STELLAR_RPC_URL"]).get_transaction(tx_hash)
+    call = xdr.TransactionEnvelope.from_xdr(got.envelope_xdr).v1.tx.operations[0].body.invoke_host_function_op.host_function.invoke_contract
+    caller, agent, job, rating, weight, payer, kind = call.args
+    return {
+        "status": got.status.value,
+        "ledger_close": got.create_at,
+        "function": call.function_name.sc_symbol.decode(),
+        "caller": scval.from_address(caller).address,
+        "agent_id": scval.from_symbol(agent),
+        "job_id": scval.from_bytes(job).hex(),
+        "rating": scval.from_uint32(rating),
+        "weight": scval.from_int128(weight),
+        "payer": scval.from_address(payer).address,
+        "kind": scval.from_symbol(kind),
+        "explorer": f"https://stellar.expert/explorer/testnet/tx/{tx_hash}",
+    }
+
+
 def serve() -> None:
     """The backend alone, in this process, on the drill's ledger and asset."""
     import uvicorn  # noqa: PLC0415
