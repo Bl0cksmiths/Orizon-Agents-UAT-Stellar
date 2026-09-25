@@ -2906,7 +2906,7 @@ to D-072). To be confirmed on a real phone:
 ## D-073 — Malformed JSON on the reject route is answered 422 before the adjudication guard
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** Open, contested: the backend documents this as a deliberate trade-off (see below)
 - **Affects:** AD-04 (story 6.03g)
 
 **Steps to reproduce** — on the deploy, with no key:
@@ -2936,6 +2936,14 @@ its fields. But the door's own rule is that it answers first, and it does not.
 **Resolution path** — run the guard ahead of body parsing for the adjudication
 routes. For example, take the body as a raw `Request` and validate it inside the
 handler after the guard, or check the key in a router-level middleware.
+
+**The backend's position** — `reject_dispute`'s docstring (`app/routers/disputes.py`) says
+"ONE ANSWER HERE PRECEDES THE GUARD, deliberately". It argues that the 422
+reveals only that the route parses JSON, since its existence is already shown
+by the guarded 503. It argues that closing the gap would cost the declared request
+model, and `tests/test_money_route_auth.py` pins the 422. The observed impact
+agrees with that. The story's product rule does not, so the product owner has to
+decide: change the rule for this one case, or change the route.
 
 **Verified by** — `tests/adjudication-door.spec.ts` "AD-04 no key and malformed
 JSON on reject …" (`test.fail()`, pinned to D-073).
