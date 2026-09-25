@@ -323,7 +323,36 @@ def phase_api(ctx: dict) -> None:
           f"plan count {plan['rep_count']} dispute rate {plan['rep_dispute_rate_bps']} (before {warm['count']}, {warm['dispute_rate_bps']})")
 
 
-PHASES = [phase_before, phase_open, phase_script, phase_api]
+def phase_chain(ctx: dict) -> None:
+    """RC-01 to RC-03: the numbers before and after, and each dispute rating read off the chain."""
+    from app.services import reputation_svc  # noqa: PLC0415
+
+    r0 = ctx["r0"]
+    after = rep()
+    ctx["record"]["after"] = after
+    check("RC-01 count is one higher per upheld dispute", after["count"] == r0["count"] + 2, f"{r0['count']} -> {after['count']}")
+    check("RC-01 disputed rose by one per upheld dispute", after["disputed"] == r0["disputed"] + 2, f"{r0['disputed']} -> {after['disputed']}")
+    check("RC-01 dispute_rate_bps rose", after["dispute_rate_bps"] > r0["dispute_rate_bps"], f"{r0['dispute_rate_bps']} -> {after['dispute_rate_bps']}")
+    check("RC-01 the smoothed score fell", after["smoothed_bps"] < r0["smoothed_bps"], f"{r0['smoothed_bps']} -> {after['smoothed_bps']}")
+    quoted = reputation_svc.rating_weight_stroops(STEP_PRICE)
+    for label in ("script", "api"):
+        dispute = ctx[f"dispute_{label}"]
+        job = ctx["jobs"][label]
+        args = decode_rating(dispute["rating_tx"])
+        settler = ctx["record"]["settler_ratings"][label]
+        ctx["record"].setdefault("dispute_ratings", {})[label] = args
+        check(f"RC-02 {label}: kind is dispute, from the scorer to the agent", args["kind"] == "dispute" and args["agent_id"] == AGENT
+              and args["caller"] == FIX["settler"]["public"], f"{args['kind']} {args['agent_id']}")
+        check(f"RC-02 {label}: the rating value is 10", args["rating"] == 10, str(args["rating"]))
+        check(f"RC-02 {label}: the weight is the step's quoted price, not the settled total",
+              args["weight"] == quoted != reputation_svc.rating_weight_stroops(SETTLED_TOTAL), f"{args['weight']} stroops")
+        check(f"RC-03 {label}: the rating's job id shares the sealed job's first 8 bytes, and is not the job's own",
+              args["job_id"][:16] == job[:16] and args["job_id"] != job, f"{args['job_id']} vs {job}")
+        check(f"RC-03 {label}: the settler's own rating of the step is still under the job's own id",
+              settler["job_id"] == job and settler["tx"] != dispute["rating_tx"], settler["tx"])
+
+
+PHASES = [phase_before, phase_open, phase_script, phase_api, phase_chain]
 
 
 def run() -> None:
