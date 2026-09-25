@@ -57,7 +57,8 @@ async function startBackend(taskAuth = false): Promise<void> {
     },
     stdio: ["ignore", log, log],
   });
-  const deadline = Date.now() + 180_000;
+  // Matches drill.py: a loaded laptop has taken close to a minute just to import the backend.
+  const deadline = Date.now() + 420_000;
   while (Date.now() < deadline) {
     const up = await fetch("http://127.0.0.1:8765/health").then((r) => r.ok, () => false);
     if (up) return;
