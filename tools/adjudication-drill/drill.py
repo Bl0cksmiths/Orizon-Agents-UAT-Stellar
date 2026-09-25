@@ -323,7 +323,7 @@ BAD_KEYS: list[tuple[str, str | bytes | None]] = [
     ("a non-ASCII key as UTF-8 bytes", ("kéy✓-" + API_KEY).encode("utf-8")),
     ("a non-ASCII key as latin-1 bytes", ("kéy-" + API_KEY).encode("latin-1")),
     # U+00A0 is whitespace to str.strip() and not to bytes.strip(); the guard must use the latter.
-    ("the right key with a trailing latin-1 no-break space", (API_KEY + " ").encode("latin-1")),
+    ("the right key with a trailing latin-1 no-break space", (API_KEY + "\xa0").encode("latin-1")),
 ]
 
 
