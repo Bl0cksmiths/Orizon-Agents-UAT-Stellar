@@ -2875,3 +2875,30 @@ dialog states the credit as the receipt does …" (`test.fail()`, pinned to
 D-071).
 
 ---
+
+## D-072 — The two Stellar Expert links on a receipt are 15px tall on a phone
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-06 (story 6.03f)
+
+**Steps to reproduce** — open a credited receipt at 360px width with touch.
+
+**Expected** — story 6.03f: "both links must be tappable."
+
+**Actual** — both links are tappable, and each opens the right transaction
+(FS-11). Each is its 10px mono text, measured at 217×15px. That passes WCAG
+2.5.8 only through its spacing exception, since the links are more than 24px
+apart. It is a small target for a thumb.
+
+**Impact** — mis-taps on the two links a reviewer is most likely to follow.
+
+**Resolution path** — pad each link to at least 24px of height, or 44px, the
+usual touch guidance.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-15 @phone both
+Stellar Expert links are at least 24px tall to a thumb" (`test.fail()`, pinned
+to D-072). To be confirmed on a real phone:
+`checklists/6.03f-phone-and-screen-reader.md`.
+
+---
