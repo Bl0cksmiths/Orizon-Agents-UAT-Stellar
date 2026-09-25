@@ -301,3 +301,22 @@ test("FS-11 @phone a credited receipt at 360px: nothing past the edge, both hash
   }
   await page.screenshot({ path: info.outputPath("fs11-phone-credited.png"), fullPage: true });
 });
+
+test("FS-12 the countdown ticks without being announced: no live region changes while nothing happens", async ({ page }) => {
+  const receipt = await open(page, "open");
+  await expect(receipt).toContainText("Under review");
+  const live = '[aria-live]:not([aria-live="off"]), [role="status"], [role="alert"], [role="timer"]:not([aria-live="off"])';
+  await page.evaluate((selector) => {
+    const changes: string[] = [];
+    (window as unknown as { changes: string[] }).changes = changes;
+    for (const region of document.querySelectorAll(selector)) {
+      new MutationObserver(() => changes.push(region.textContent ?? "")).observe(region, { childList: true, characterData: true, subtree: true });
+    }
+  }, live);
+  const countdown = page.getByText(/\d+h \d+m left/);
+  const before = await countdown.textContent();
+  // Long enough for a per-second or per-minute countdown to tick at least once.
+  await expect(countdown).not.toHaveText(before ?? "", { timeout: 70_000 });
+  expect(await page.evaluate(() => (window as unknown as { changes: string[] }).changes)).toEqual([]);
+  expect(await countdown.evaluate((el) => el.closest('[aria-live]:not([aria-live="off"]), [role="status"]'))).toBeNull();
+});
