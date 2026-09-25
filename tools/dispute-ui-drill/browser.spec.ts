@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
@@ -248,4 +249,21 @@ test("FS-09 upheld while the payer watches: Refunded with both links, no reload,
   expect(heard.at(-1)).toBe("Your dispute against Researcher was refunded.");
   expect(new Set(heard).size, `each change announced once: ${JSON.stringify(heard)}`).toBe(heard.length);
   await page.screenshot({ path: info.outputPath("fs09-live-refunded.png"), fullPage: true });
+});
+
+test("FS-10 a rating that lands after the refund reaches the open receipt without a reload", async ({ page }, info) => {
+  // D-069: once a poll sees the refund confirmed and no rating yet, nothing is left for the
+  // receipt to wait on, so polling stops and the rating that lands seconds later never shows.
+  // Remove the marker once the receipt keeps polling until the rating is recorded.
+  test.fail();
+  const receipt = await open(page, "gap");
+  await expect(receipt).toContainText("Done: you received 0.1 USDC; the dispute rating it costs Researcher is not confirmed yet.");
+  await expect(receipt).toContainText("not recorded on-chain yet");
+  await page.screenshot({ path: info.outputPath("fs10-before-rating.png"), fullPage: true });
+  execFileSync(process.env.DRILL_PYTHON ?? "python", ["seed.py", "rate-gap"], { cwd: path.dirname(info.file), stdio: "inherit", timeout: 300_000 });
+  const rated = JSON.parse(readFileSync(path.join(process.env.DRILL_STATE ?? ".", "ui-seed.json"), "utf8")) as typeof seed;
+  const rating = rated.tx.gap?.rating ?? "";
+  expect(rating).toMatch(/^[0-9a-f]{64}$/);
+  await expect(receipt.getByRole("link", { name: /view rating on stellar\.expert/ })).toHaveAttribute("href", expert(rating), { timeout: 90_000 });
+  await expect(receipt).toContainText("and it cost Researcher a dispute rating");
 });
