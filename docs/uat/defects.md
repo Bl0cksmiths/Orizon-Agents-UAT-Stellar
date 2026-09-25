@@ -2902,3 +2902,42 @@ to D-072). To be confirmed on a real phone:
 `checklists/6.03f-phone-and-screen-reader.md`.
 
 ---
+
+## D-073 — Malformed JSON on the reject route is answered 422 before the adjudication guard
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** AD-04 (story 6.03g)
+
+**Steps to reproduce** — on the deploy, with no key:
+
+```
+POST https://orizons.xyz/api/disputes/dsp_uat_probe/reject
+Content-Type: application/json
+
+{not json
+```
+
+**Expected** — story 6.03g: "the guard answers before the body is validated".
+With refunds off, 503 `dispute_refunds_disabled`; with them on, 401
+`invalid_api_key`.
+
+**Actual** — `422` with
+`{"detail":[{"type":"json_invalid","loc":["body",1],"msg":"JSON decode error", …}]}`,
+with no key and with a wrong key alike. FastAPI reads and parses a JSON body
+before it runs the route's dependencies, so a body that is not JSON is refused
+by the parser ahead of `require_adjudicator`. A well-formed body of the wrong
+shape (`{"note": 5}`) is fine: it gets the guard's 503. `uphold` takes no body,
+so it is fine too.
+
+**Impact** — small. A stranger learns only that the route reads a JSON body, not
+its fields. But the door's own rule is that it answers first, and it does not.
+
+**Resolution path** — run the guard ahead of body parsing for the adjudication
+routes. For example, take the body as a raw `Request` and validate it inside the
+handler after the guard, or check the key in a router-level middleware.
+
+**Verified by** — `tests/adjudication-door.spec.ts` "AD-04 no key and malformed
+JSON on reject …" (`test.fail()`, pinned to D-073).
+
+---
