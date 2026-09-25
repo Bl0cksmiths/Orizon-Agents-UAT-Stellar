@@ -267,3 +267,37 @@ test("FS-10 a rating that lands after the refund reaches the open receipt withou
   await expect(receipt.getByRole("link", { name: /view rating on stellar\.expert/ })).toHaveAttribute("href", expert(rating), { timeout: 90_000 });
   await expect(receipt).toContainText("and it cost Researcher a dispute rating");
 });
+
+test("FS-11 @phone a credited receipt at 360px: nothing past the edge, both hashes whole, both links tappable", async ({ page, context }, info) => {
+  const receipt = await open(page, "credited");
+  const tx = seed.tx.credited;
+  await expect(receipt).toContainText("Refunded");
+  const width = await page.evaluate(() => window.innerWidth);
+  expect(width).toBe(360);
+  // The page hides horizontal overflow, which would clip rather than scroll: so every box in the
+  // receipt must end inside the viewport, and each hash must fit its own box.
+  const overflow = await receipt.evaluate((root, w) =>
+    [root, ...root.querySelectorAll("*")]
+      // Screen-reader-only text is a clipped 1px box by design; only what is drawn can overflow.
+      .filter((el) => !el.closest(".sr-only"))
+      .filter((el) => el.getBoundingClientRect().right > w + 0.5 || el.scrollWidth > el.clientWidth + 1)
+      .map((el) => `${el.tagName}.${el.className}: ${(el.textContent ?? "").slice(0, 40)}`), width);
+  expect(overflow).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  for (const hash of [tx?.refund ?? "", tx?.rating ?? ""]) {
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    await expect(receipt.getByText(hash)).toBeVisible();
+  }
+  await context.route("https://stellar.expert/**", (route) => route.fulfill({ contentType: "text/html", body: "<title>stellar.expert</title>" }));
+  for (const [name, hash] of [["view refund on stellar.expert", tx?.refund], ["view rating on stellar.expert", tx?.rating]] as const) {
+    const link = receipt.getByRole("link", { name: new RegExp(name.replace(".", "\.")) });
+    const box = await link.boundingBox();
+    info.annotations.push({ type: "tap target", description: `${name}: ${box?.width.toFixed(0)}×${box?.height.toFixed(0)}px` });
+    const opened = context.waitForEvent("page");
+    await link.tap();
+    const tab = await opened;
+    expect(tab.url()).toBe(expert(hash ?? ""));
+    await tab.close();
+  }
+  await page.screenshot({ path: info.outputPath("fs11-phone-credited.png"), fullPage: true });
+});
