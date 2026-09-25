@@ -229,6 +229,46 @@ def decode_rating(tx_hash: str) -> dict:
     }
 
 
+def phase_before(ctx: dict) -> None:
+    """The prerequisite, and the agent's numbers before anything is disputed."""
+    ratings = http("GET", "/readiness")[1].get("ratings", {})
+    ctx["record"]["readiness_ratings"] = ratings
+    check("the deployment's signer is the ledger's scorer (/readiness ratings.writer)", ratings.get("writer") == "scorer", json.dumps(ratings))
+    ctx["r0"] = r0 = rep()
+    cold = plan = plan_stamp()
+    for _ in range(5):  # a cold batch read can time out; the plan then falls back to the prior, flagged
+        if not plan["rep_degraded"]:
+            break
+        time.sleep(2)
+        plan = plan_stamp()
+    ctx["record"]["before"] = {"route": r0, "plan_cold": cold, "plan": plan}
+    check("a plan that fell back to the prior says so", not cold["rep_degraded"] or cold["rep_source"] == "prior", json.dumps(cold))
+    check("before: the plan card stamps what the reputation route reads",
+          not plan["rep_degraded"] and plan["rep_count"] == r0["count"] and plan["rep_dispute_rate_bps"] == r0["dispute_rate_bps"], f"route {r0} plan {plan}")
+
+
+PHASES = [phase_before]
+
+
+def run() -> None:
+    from stellar_sdk import Keypair  # noqa: PLC0415
+
+    ctx: dict = {"record": {"fixtures": {k: v for k, v in FIX.items() if not isinstance(v, dict)}, "ttl": TTL}}
+    ctx["buyer"] = Keypair.from_secret(FIX["buyer"]["secret"])
+    ctx["jobs"] = {label: seed_workflow(label, ctx["buyer"].public_key, ctx["record"]) for label in ("script", "api")}
+    server = Server()
+    try:
+        for phase in PHASES:
+            phase(ctx)
+    finally:
+        server.stop()
+        (LOGS / "record.json").write_text(json.dumps(ctx["record"], indent=2), encoding="utf-8")
+    failed = [r for r in results if r[1] in {"FAIL", "XPASS"}]
+    expected = [r for r in results if r[1] == "XFAIL"]
+    print(f"\n{len(results) - len(failed) - len(expected)} passed, {len(expected)} expected failures, {len(failed)} failed")
+    sys.exit(1 if failed else 0)
+
+
 def serve() -> None:
     """The backend alone, in this process, on the drill's ledger and asset."""
     import uvicorn  # noqa: PLC0415
@@ -238,4 +278,4 @@ def serve() -> None:
 
 
 if __name__ == "__main__":
-    {"serve": serve}[sys.argv[1]]()
+    {"run": run, "serve": serve}[sys.argv[1]]()
