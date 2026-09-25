@@ -342,6 +342,11 @@ def phase_chain(ctx: dict) -> None:
     check("RC-01 dispute_rate_bps rose", after["dispute_rate_bps"] > r0["dispute_rate_bps"], f"{r0['dispute_rate_bps']} -> {after['dispute_rate_bps']}")
     check("RC-01 the smoothed score fell", after["smoothed_bps"] < r0["smoothed_bps"], f"{r0['smoothed_bps']} -> {after['smoothed_bps']}")
     quoted = reputation_svc.rating_weight_stroops(STEP_PRICE)
+    # Nothing is withdrawn: the two 10/100 dispute ratings join every earlier rating in the
+    # weighted average, so the settler's own 90s still count beside them.
+    joined = (r0["avg_bps"] * r0["weight"] + 1000 * 2 * quoted) / (r0["weight"] + 2 * quoted)
+    check("RC-01 the settler's ratings stand: the average moved to the weighted mean, not to the dispute's 10",
+          abs(after["avg_bps"] - joined) <= 1 and after["weight"] == r0["weight"] + 2 * quoted, f"{r0['avg_bps']} -> {after['avg_bps']} (expected {joined:.0f})")
     for label in ("script", "api"):
         dispute = ctx[f"dispute_{label}"]
         job = ctx["jobs"][label]
