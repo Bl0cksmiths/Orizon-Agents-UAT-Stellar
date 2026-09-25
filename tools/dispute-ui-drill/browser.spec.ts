@@ -212,3 +212,40 @@ test("FS-08 a reason the backend withheld is never drawn as an empty quote", asy
   await expect(receipt).toContainText("Under review");
   await expect(receipt.getByText("Your reason")).toHaveCount(0, { timeout: 10_000 });
 });
+
+/** Every text the receipt's live region is given, in order: what a screen reader announces. */
+async function recordAnnouncements(receipt: Locator): Promise<void> {
+  await receipt.locator('[role="status"]').evaluate((region) => {
+    const heard: string[] = [];
+    (window as unknown as { heard: string[] }).heard = heard;
+    new MutationObserver(() => {
+      const text = region.textContent ?? "";
+      if (text) heard.push(text);
+    }).observe(region, { childList: true, characterData: true, subtree: true });
+  });
+}
+
+const announcements = (page: Page) => page.evaluate(() => (window as unknown as { heard: string[] }).heard);
+
+test("FS-09 upheld while the payer watches: Refunded with both links, no reload, announced once", async ({ page, request }, info) => {
+  const receipt = await open(page, "live");
+  await expect(receipt).toContainText("Under review");
+  await page.evaluate(() => ((window as unknown as { sameDocument: boolean }).sameDocument = true));
+  await recordAnnouncements(receipt);
+  const upheld = await request.post(`http://127.0.0.1:8766/api/disputes/${seed.disputes.live}/uphold`, {
+    headers: { "X-API-Key": seed.apiKey },
+    timeout: 300_000,
+  });
+  expect(upheld.status()).toBe(200);
+  const dispute = (await upheld.json()) as { status: string; refund_tx: string; rating_tx: string };
+  expect(dispute.status).toBe("credited");
+
+  await expect(receipt).toContainText("Refunded", { timeout: 180_000 });
+  await expect(receipt.getByRole("link", { name: /view refund on stellar\.expert/ })).toHaveAttribute("href", expert(dispute.refund_tx));
+  await expect(receipt.getByRole("link", { name: /view rating on stellar\.expert/ })).toHaveAttribute("href", expert(dispute.rating_tx));
+  expect(await page.evaluate(() => (window as unknown as { sameDocument?: boolean }).sameDocument), "no reload").toBe(true);
+  const heard = await announcements(page);
+  expect(heard.at(-1)).toBe("Your dispute against Researcher was refunded.");
+  expect(new Set(heard).size, `each change announced once: ${JSON.stringify(heard)}`).toBe(heard.length);
+  await page.screenshot({ path: info.outputPath("fs09-live-refunded.png"), fullPage: true });
+});
