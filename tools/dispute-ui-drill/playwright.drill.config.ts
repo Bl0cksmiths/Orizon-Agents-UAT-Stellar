@@ -18,9 +18,11 @@ export default defineConfig({
   outputDir: `${process.env.DRILL_STATE ?? "."}/logs/ui-results`,
   use: { baseURL: "http://127.0.0.1:3100" },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    // Each seeded state is read once: the live and gap states can only be changed once per seed.
+    { name: "desktop", grepInvert: /@phone/, use: { ...devices["Desktop Chrome"] } },
     {
       name: "phone",
+      grep: /@phone/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true },
     },
   ],
