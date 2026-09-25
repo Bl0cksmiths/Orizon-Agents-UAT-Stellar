@@ -8,7 +8,8 @@ asset and its buyer. Nothing of the deployment's is touched, and no check here e
 settler sign: the sequence number Horizon reports for it is read before and after, and must
 not move.
 
-    python drill.py      every case, printed as PASS / FAIL / XFAIL / XPASS
+    python drill.py              every case, printed as PASS / FAIL / XFAIL / XPASS
+    python drill.py ad03 ad05    only the scenarios whose names start with these
 
 Environment: DRILL_STATE (the directory setup_testnet.py wrote), DRILL_BACKEND (a backend
 checkout), DRILL_DSN (a Postgres the drill may write to), DRILL_PYTHON (the backend's
