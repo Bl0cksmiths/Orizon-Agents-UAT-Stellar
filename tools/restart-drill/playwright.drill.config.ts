@@ -9,7 +9,8 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: ".",
   testMatch: "browser.spec.ts",
-  timeout: 600_000,
+  // Room for two backend boots in one test at the spec's 420 s ceiling each.
+  timeout: 1_200_000,
   // The first receipt read on a freshly started backend has taken over a minute locally.
   expect: { timeout: 180_000 },
   workers: 1,
