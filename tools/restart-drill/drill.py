@@ -276,7 +276,32 @@ def du02() -> None:
     check("its amounts come from the pre-restart settlement", opened.get("charged_usdc") == 0.1, str(opened.get("charged_usdc")))
 
 
-SCENARIOS: dict[str, Callable[[], None]] = {"du01": du01, "du01-control": du01_control, "du02": du02}
+def token_gap() -> None:
+    """The known gap: with TASK_AUTH_REQUIRED on, tokens die with the process — disputes must not."""
+    print("\n== token-gap: TASK_AUTH_REQUIRED=true across a restart", flush=True)
+    payer = new_payer()
+    task = f"drill-token-{secrets.token_hex(4)}"
+    job = seed_settlement(task, payer.public_key)
+    first = Backend("token-before", backend_env(durable=True, task_auth=True))
+    status, opened = open_dispute(payer, job, 1)
+    check("a dispute opens with no task token", status == 200, str(status))
+    first.kill()
+    second = Backend("token-after", backend_env(durable=True, task_auth=True))
+    status, listing = http("GET", f"/api/tasks/{task}/disputes", headers={"X-Task-Token": "held-from-before-the-restart"})
+    check("the per-task listing answers as if the task were unknown", status == 404, f"{status} {listing.get('detail')}")
+    status, one = http("GET", f"/api/disputes/{opened['id']}")
+    check("GET /api/disputes/{id} still answers, and the dispute is open", status == 200 and one.get("status") == "open", str(status))
+    status, again = open_dispute(payer, seed_settlement(f"{task}-b", payer.public_key), 1)
+    check("a new dispute can be raised after the restart with no token", status == 200 and again.get("status") == "open", str(status))
+    second.kill()
+
+
+SCENARIOS: dict[str, Callable[[], None]] = {
+    "du01": du01,
+    "du01-control": du01_control,
+    "du02": du02,
+    "token-gap": token_gap,
+}
 
 if __name__ == "__main__":
     for name in sys.argv[1:] or list(SCENARIOS):
