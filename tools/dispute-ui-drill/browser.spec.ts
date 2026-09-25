@@ -192,3 +192,14 @@ for (const [who, viewer] of [["another wallet", { wallet: STRANGER, token: false
     }
   });
 }
+
+test("FS-07 the payer returning without the task's tab still reads why it was rejected", async ({ page }, info) => {
+  // D-067: the backend sends the reasons only to a holder of the task token, which lives in the
+  // tab that ran the task. The payer's own wallet, on any other tab or device, gets neither.
+  // Remove the marker once the payer's wallet is enough to read them.
+  test.fail();
+  const receipt = await open(page, "rejected", { wallet: seed.payer, token: false });
+  await page.screenshot({ path: info.outputPath("fs07-payer-without-token.png"), fullPage: true });
+  await expect(receipt).toContainText("Rejected");
+  await expect(receipt).toContainText(REJECTION, { timeout: 10_000 });
+});
