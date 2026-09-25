@@ -2902,3 +2902,86 @@ to D-072). To be confirmed on a real phone:
 `checklists/6.03f-phone-and-screen-reader.md`.
 
 ---
+
+## D-073 — Malformed JSON on the reject route is answered 422 before the adjudication guard
+
+- **Severity:** Minor
+- **Status:** Open, contested: the backend documents this as a deliberate trade-off (see below)
+- **Affects:** AD-04 (story 6.03g)
+
+**Steps to reproduce** — on the deploy, with no key:
+
+```
+POST https://orizons.xyz/api/disputes/dsp_uat_probe/reject
+Content-Type: application/json
+
+{not json
+```
+
+**Expected** — story 6.03g: "the guard answers before the body is validated".
+With refunds off, 503 `dispute_refunds_disabled`; with them on, 401
+`invalid_api_key`.
+
+**Actual** — `422` with
+`{"detail":[{"type":"json_invalid","loc":["body",1],"msg":"JSON decode error", …}]}`,
+with no key and with a wrong key alike. FastAPI reads and parses a JSON body
+before it runs the route's dependencies, so a body that is not JSON is refused
+by the parser ahead of `require_adjudicator`. A well-formed body of the wrong
+shape (`{"note": 5}`) is fine: it gets the guard's 503. `uphold` takes no body,
+so it is fine too.
+
+**Impact** — small. A stranger learns only that the route reads a JSON body, not
+its fields. But the door's own rule is that it answers first, and it does not.
+
+**Resolution path** — run the guard ahead of body parsing for the adjudication
+routes. For example, take the body as a raw `Request` and validate it inside the
+handler after the guard, or check the key in a router-level middleware.
+
+**The backend's position** — `reject_dispute`'s docstring (`app/routers/disputes.py`) says
+"ONE ANSWER HERE PRECEDES THE GUARD, deliberately". It argues that the 422
+reveals only that the route parses JSON, since its existence is already shown
+by the guarded 503. It argues that closing the gap would cost the declared request
+model, and `tests/test_money_route_auth.py` pins the 422. The observed impact
+agrees with that. The story's product rule does not, so the product owner has to
+decide: change the rule for this one case, or change the route.
+
+**Verified by** — `tests/adjudication-door.spec.ts` "AD-04 no key and malformed
+JSON on reject …" (`test.fail()`, pinned to D-073).
+
+---
+
+## D-074 — `STELLAR_NETWORK=pubnet` is not recognised as mainnet by the boot guards
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** AD-02 (story 6.03g), found beside it; the refund door itself holds
+
+**Steps to reproduce** — backend `08efeda`, loading the settings only
+(`import app.config`), with the mainnet passphrase, a signing key set, refunds
+off and `API_KEY` empty:
+- `STELLAR_NETWORK=mainnet`: refused, "API_KEY is required because
+  STELLAR_SIGNING_KEY is set on mainnet …".
+- `STELLAR_NETWORK=pubnet`: loads, with `API_KEY` empty.
+
+**Expected** — a deployment that signs on the mainnet passphrase is held to the
+mainnet rules, whatever it names the network.
+
+**Actual** — `app/config.py` treats only `{"mainnet", "public"}` as mainnet
+(lines 320 and 396), and `app/stellar/client.py:75` passes any other name
+through. `pubnet`, the name CAIP-2 uses (`stellar:pubnet`) and the one the Stellar
+x402 tooling uses, is not one of them. So the "a mainnet signer needs an
+operator key" boot rule does not fire. With refunds on, `pubnet` is still
+refused, because that rule reads the refund switch alone (AD-02, checked on
+`pubnet`). No current deployment is affected: the deploy runs on testnet.
+
+**Impact** — a mainnet deployment configured with a common network name would
+boot without the operator key that its money-moving routes depend on.
+
+**Resolution path** — decide mainnet by the network passphrase, not the label,
+or accept `pubnet` wherever `mainnet` and `public` are accepted.
+
+**Verified by** — `tools/adjudication-drill/drill.py d074`: a real uvicorn boot
+under each name. `mainnet` exits 1; `pubnet` boots and serves `/health`
+(XFAIL, pinned to D-074).
+
+---

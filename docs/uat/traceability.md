@@ -376,3 +376,20 @@ recorded yet.
 | DS-05 | FS-09 uphold watched live: Refunded, both links, no reload (**pass**); FS-10 rating landing after the refund (`test.fail()`, D-069) | **Fail**: D-069 |
 | DS-06 | FS-11 @phone 360px: nothing past the edge, both hashes whole, both links tap through (**pass**); FS-15 @phone target height (`test.fail()`, D-072); real phone per checklist | **Pass** in the drill with D-072; real phone pending |
 | DS-07 | FS-12: 70 s of countdown with no live-region change (**pass**); FS-09: each status sentence announced once (**pass**); NVDA/VoiceOver per checklist | **Pass** by markup; real screen reader pending |
+
+## AD — the adjudication door and the refund switch (story 6.03g)
+
+Run 2026-09-26; `evidence/6.03g-adjudication-door.md`. Nothing on the deploy was
+toggled: refunds stay off there until D-053 is fixed. Live checks:
+`tests/adjudication-door.spec.ts`, 60 of 60 across four projects. Refunds-on
+checks: `tools/adjudication-drill/drill.py`, a real backend under uvicorn, 68
+pass, 1 XFAIL.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| AD-01 | spec "AD-01 with refunds off, uphold/reject is refused 503 without a key" (**pass** live); `drill.py ad01` with a valid key: 503 both, settler sequence unchanged, dispute still `open` (**pass**) | **Pass** |
+| AD-02 | `drill.py ad02`: refunds on, `API_KEY` unset or empty, on testnet, mainnet, public and pubnet: exit 1, `/health` never answers, the message names `API_KEY` (**pass**) | **Pass**; D-074 found beside it |
+| AD-03 | spec "AD-03 a wrong/short/latin-1/raw UTF-8 key …": 503, no 500 (**pass** live); `drill.py ad03`: 6 keys × 2 routes, 401 `invalid_api_key`, no 500, nothing signed (**pass**) | **Pass** |
+| AD-04 | spec "AD-04 …": the wrong-shaped body and uphold's malformed JSON get the guard's answer (**pass** live); reject's malformed JSON (`test.fail()`, D-073); `drill.py ad04`: the same with refunds on (XFAIL, D-073) | **Fail**: D-073 (contested) |
+| AD-05 | `drill.py ad05`: no, null, empty, whitespace and control-character notes each refused 422, dispute still `open`, nothing signed; then a real rejection (**pass**) | **Pass** |
+| AD-06 | spec "AD-06 the buyer's routes never ask for the operator key" (**pass** live); `drill.py ad06`: challenge and open with only a signature and refunds on (**pass**) | **Pass** |

@@ -999,3 +999,27 @@ reason are for the payer only. Other viewers see the status and the times.
 | DS-05 | the page open on an open dispute | it is upheld and credited | the receipt reaches "Refunded" with both links, with no reload |
 | DS-06 | a credited receipt on a phone | it is viewed | there is no horizontal scroll and both links are tappable |
 | DS-07 | a screen reader on the receipt | the countdown runs and the status changes | the countdown is not announced, and each status change is announced once |
+
+## Acceptance criteria — AD, the adjudication door and the refund switch (story 6.03g, verifies 4.03)
+
+`POST /api/disputes/{id}/uphold` is the one route that spends the platform's own
+balance, on an operator's say-so, with nothing on-chain bounding it. Refunds
+ship off (`DISPUTE_REFUNDS_ENABLED=false`). Turning them on makes `API_KEY`
+mandatory at boot on every network. The guard (`require_adjudicator`) fails
+closed on every request. This is mostly negative testing. Any 500 on this door
+is an Urgent Bug, and a refusal must not reveal the route's shape.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| AD-01 | `DISPUTE_REFUNDS_ENABLED=false` | uphold and reject are called, with a valid key and without | both are refused 503 `dispute_refunds_disabled`, and nothing is signed |
+| AD-02 | refunds enabled and an empty `API_KEY` | the service starts | it refuses to boot, with a message naming `API_KEY` |
+| AD-03 | a missing, wrong, short and non-ASCII key | each calls uphold (and reject) | each is refused 401 (503 while refunds are off), never 500 |
+| AD-04 | no key and an invalid body (wrong shape, or malformed JSON) | uphold or reject is called | the guard's refusal answers, not a validation error |
+| AD-05 | a reject with no, null, empty or whitespace-only note, and a valid key | each is submitted | each is refused and the dispute does not change state |
+| AD-06 | a payer raising a dispute | they submit with only their wallet signature | it is accepted with no API key involved |
+
+The deploy runs with refunds off, and they must stay off until D-053 is fixed,
+so nothing on it was toggled. `tests/adjudication-door.spec.ts` holds the
+refunds-off answers live. The refunds-on half (AD-02, AD-03 and AD-04 with a
+key configured, AD-05, AD-06 and AD-01 with a valid key) runs against a real
+local backend in `tools/adjudication-drill/`.
