@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 /**
  * FS — story 6.03f: every state of the dispute receipt, read on the real trace page as a buyer
@@ -14,6 +14,7 @@ const seed = JSON.parse(readFileSync(path.join(process.env.DRILL_STATE ?? ".", "
   payer: string;
   apiKey: string;
   tasks: Record<State, string>;
+  jobs: Record<State, string>;
   disputes: Record<State, string>;
   tokens: Record<State, string>;
   tx: Partial<Record<State, { refund: string; rating?: string; credited_usdc?: number }>>;
@@ -58,6 +59,33 @@ async function open(page: Page, state: State, viewer: Viewer = PAYER): Promise<L
   return receipt;
 }
 
+const HORIZON = "https://horizon-testnet.stellar.org";
+const expert = (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`;
+
+/** An SCVal from Horizon's operation parameters: a symbol's text, or a byte string's hex. */
+function scval(base64: string): string {
+  const raw = Buffer.from(base64, "base64");
+  const kind = raw.readUInt32BE(0);
+  const body = raw.subarray(8, 8 + raw.readUInt32BE(4));
+  return kind === 15 ? body.toString("utf8") : body.toString("hex");
+}
+
+/** What a transaction did, read back from testnet Horizon — the record Stellar Expert shows. */
+async function onChain(request: APIRequestContext, hash: string) {
+  const ops = await (await request.get(`${HORIZON}/transactions/${hash}/operations`)).json();
+  const effects = await (await request.get(`${HORIZON}/transactions/${hash}/effects`)).json();
+  const params = (ops._embedded.records[0].parameters ?? []) as { type: string; value: string }[];
+  const called = params[1];
+  if (!called) throw new Error(`${hash} is not a contract call`);
+  return {
+    successful: ops._embedded.records[0].transaction_successful as boolean,
+    fn: scval(called.value),
+    symbols: params.filter((p) => p.type === "Sym").map((p) => scval(p.value)),
+    bytes: params.filter((p) => p.type === "Bytes").map((p) => scval(p.value)),
+    credited: (effects._embedded.records as { type: string; account: string; amount: string }[]).filter((e) => e.type === "account_credited"),
+  };
+}
+
 test.describe.configure({ mode: "serial" });
 
 test("FS-01 open: under review, when it was raised, what happens next, and no links", async ({ page }, info) => {
@@ -84,4 +112,29 @@ test("FS-02 crediting: the refund is submitted and waiting, with its hash — ne
   await expect(receipt).toContainText("Up to 0.1");
   await expect(receipt).toContainText("to be credited to your wallet");
   await page.screenshot({ path: info.outputPath("fs02-crediting.png"), fullPage: true });
+});
+
+test("FS-03 credited: the amount with its funder on one line, and both links to the right transactions", async ({ page, request }, info) => {
+  const receipt = await open(page, "credited");
+  const tx = seed.tx.credited;
+  expect(tx?.refund).toMatch(/^[0-9a-f]{64}$/);
+  expect(tx?.rating).toMatch(/^[0-9a-f]{64}$/);
+  await expect(receipt).toContainText("Refunded");
+  await expect(receipt).toContainText("Done: you received 0.1");
+  const credit = receipt.locator("p", { hasText: "credit ·" });
+  await expect(credit).toContainText(/0\.1\s*USDC credited to your wallet/);
+  await expect(credit).toContainText("funded by the platform, not clawed back from the agent");
+  await expect(receipt.getByRole("link", { name: /view refund on stellar\.expert/ })).toHaveAttribute("href", expert(tx?.refund ?? ""));
+  await expect(receipt.getByRole("link", { name: /view rating on stellar\.expert/ })).toHaveAttribute("href", expert(tx?.rating ?? ""));
+
+  const refund = await onChain(request, tx?.refund ?? "");
+  expect(refund.successful).toBe(true);
+  expect(refund.fn).toBe("transfer");
+  expect(refund.credited).toEqual([expect.objectContaining({ account: seed.payer, amount: "0.1000000" })]);
+  const rating = await onChain(request, tx?.rating ?? "");
+  expect(rating.successful).toBe(true);
+  expect(rating.fn).toBe("submit");
+  expect(rating.symbols).toEqual(expect.arrayContaining(["agt_09l5", "dispute"]));
+  expect(rating.bytes[0]?.slice(0, 16), "the rating is filed under this dispute's job").toBe(seed.jobs.credited.slice(0, 16));
+  await page.screenshot({ path: info.outputPath("fs03-credited.png"), fullPage: true });
 });
