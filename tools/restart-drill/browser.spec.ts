@@ -152,3 +152,20 @@ test("DU-01 an open dispute reads the same after a backend restart", async ({ pa
   expect(await page.locator("time").first().getAttribute("datetime")).toBe(closesBefore);
   expect(await receiptText(page)).toBe(before);
 });
+
+test("DU-02 a settlement recorded before a restart is disputed through the UI after it", async ({ page }, info) => {
+  await killBackend();
+  await startBackend();
+  await connectPayer(page);
+  await page.goto(`/app/trace?task=${encodeURIComponent(seed.tasks.settled)}`);
+  await expect(page.getByText("Loading the receipt…")).toHaveCount(0);
+  await page.getByRole("button", { name: /^Dispute step 2,/ }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox").fill("After the restart: the signup form still never submits.");
+  await dialog.getByRole("button", { name: "Sign and submit" }).click();
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText("Under review")).toBeVisible();
+  await expect(page.getByText("After the restart: the signup form still never submits.")).toBeVisible();
+  await page.screenshot({ path: info.outputPath("du02-after-restart.png"), fullPage: true });
+});
