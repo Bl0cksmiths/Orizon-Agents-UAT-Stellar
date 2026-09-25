@@ -314,6 +314,35 @@ def ad01_switch_closes_the_route() -> None:
     untouched("AD-01", dispute_id, before)
 
 
+# Header values as they cross the wire: http.client sends bytes untouched, so the non-ASCII keys
+# arrive exactly as a client that encodes them one way or the other would send them.
+BAD_KEYS: list[tuple[str, str | bytes | None]] = [
+    ("no X-API-Key", None),
+    ("a wrong key", "ad-" + secrets.token_hex(12)),
+    ("the right key minus its last character", API_KEY[:-1]),
+    ("a non-ASCII key as UTF-8 bytes", ("kéy✓-" + API_KEY).encode("utf-8")),
+    ("a non-ASCII key as latin-1 bytes", ("kéy-" + API_KEY).encode("latin-1")),
+    # U+00A0 is whitespace to str.strip() and not to bytes.strip(); the guard must use the latter.
+    ("the right key with a trailing latin-1 no-break space", (API_KEY + " ").encode("latin-1")),
+]
+
+
+def ad03_bad_keys() -> None:
+    """AD-03 refunds on, a key configured: every wrong key is 401 invalid_api_key, never a 500."""
+    dispute_id = open_dispute("AD-03")
+    before = settler_sequence()
+    bodies = set()
+    for route, body in (("uphold", None), ("reject", {"note": REASON})):
+        for label, key in BAD_KEYS:
+            status, answer = http("POST", f"/api/disputes/{dispute_id}/{route}", body, headers={} if key is None else {"X-API-Key": key})
+            check(
+                f"AD-03 {route} with {label}: 401 invalid_api_key", status == 401 and error_code(answer) == "invalid_api_key", f"{status} {error_code(answer)}"
+            )
+            bodies.add(json.dumps({**answer, "error": {k: v for k, v in (answer.get("error") or {}).items() if k != "request_id"}}, sort_keys=True))
+    check("AD-03 every refusal reads the same: none says whether a key was sent", len(bodies) == 1, f"{len(bodies)} distinct bodies")
+    untouched("AD-03", dispute_id, before)
+
+
 def ad06_buyer_needs_no_key() -> None:
     """AD-06 refunds on, a key configured: the buyer's path asks for no key."""
     dispute_id = open_dispute("AD-06")
@@ -323,7 +352,7 @@ def ad06_buyer_needs_no_key() -> None:
 REFUNDS_OFF = ("refunds-off", backend_env(refunds=False, api_key=API_KEY))
 REFUNDS_ON = ("refunds-on", backend_env(refunds=True, api_key=API_KEY))
 # (server, scenario): consecutive scenarios with the same server share one boot; None boots none.
-SCENARIOS = [(None, ad02_boot_refusal), (REFUNDS_OFF, ad01_switch_closes_the_route), (REFUNDS_ON, ad06_buyer_needs_no_key)]
+SCENARIOS = [(None, ad02_boot_refusal), (REFUNDS_OFF, ad01_switch_closes_the_route), (REFUNDS_ON, ad06_buyer_needs_no_key), (REFUNDS_ON, ad03_bad_keys)]
 
 
 def main() -> None:
