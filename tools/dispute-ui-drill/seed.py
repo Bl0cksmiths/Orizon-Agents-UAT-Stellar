@@ -130,6 +130,40 @@ def crediting(state: str) -> None:
     seed["tx"][state] = {"refund": refund}
 
 
+def paid(state: str) -> str:
+    """A dispute whose real refund landed and was recorded as uphold's SUCCESS records it, with
+    no rating yet — the moment between the two writes of one uphold. Returns the dispute id."""
+    job = settle(state)
+    dispute_id = open_dispute(state, job)
+    rc.on_store(lambda store: store.append_status(dispute_id, "upheld", expected_status="open"))
+    rc.on_store(lambda store: store.claim_refund(dispute_id))
+    refund = transfer()
+    rc.on_store(lambda store: store.append_status(dispute_id, "credited", refund_tx=refund, credited_usdc=STEP_PRICE))
+    seed["tx"][state] = {"refund": refund, "credited_usdc": STEP_PRICE}
+    return dispute_id
+
+
+def dispute_rating(state: str) -> str:
+    """A real dispute rating of agt_09l5 for this state's job, as `dispute_rating` submits it."""
+    from app.services import dispute_rating as dr  # noqa: PLC0415
+    from app.services import reputation_svc  # noqa: PLC0415
+    from app.stellar import client as sc  # noqa: PLC0415
+
+    derived = dr.dispute_job_id(bytes.fromhex(seed["jobs"][state]), 0)
+    raw = sc.submit_rating(AGENT, derived, 10, reputation_svc.rating_weight_stroops(STEP_PRICE), rc.FIX["buyer"]["public"], "dispute")
+    if raw.get("status") != "SUCCESS":
+        raise RuntimeError(f"{state}: the dispute rating did not land: {raw}")
+    seed["tx"][state]["rating"] = raw["hash"]
+    return raw["hash"]
+
+
+def rating_pending(state: str) -> None:
+    """Credited, and the rating's answer timed out: recorded as the TIMEOUT branch records it."""
+    dispute_id = paid(state)
+    rating = dispute_rating(state)
+    rc.on_store(lambda store: store.append_status(dispute_id, "credited", rating_tx=rating, rating_confirmed=False))
+
+
 def main() -> None:
     server = rc.Server()
     try:
@@ -137,6 +171,7 @@ def main() -> None:
         uphold("credited")
         reject("rejected")
         crediting("crediting")
+        rating_pending("rating_pending")
     finally:
         server.stop()
     seed["payer"] = rc.FIX["buyer"]["public"]
