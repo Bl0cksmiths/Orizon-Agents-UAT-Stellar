@@ -376,6 +376,15 @@ def du04() -> None:
     check("the task listing agrees", [d["status"] for d in listing["disputes"]] == ["crediting"])
     check("the claim is still queued after the restart", dispute_id in reconciliation_queue())
 
+    code, out = run_uphold(dispute_id, env, calls, secrets.token_hex(32), "du04-run2")
+    check("run 2 exits 6, the in-flight code", code == 6, str(code))
+    check("run 2 signs nothing", transfers_signed(calls) == 1)
+    check("run 2 says DO NOT RE-RUN THIS SCRIPT FOR THIS DISPUTE", "DO NOT RE-RUN THIS SCRIPT FOR THIS DISPUTE." in out)
+    check("run 2 points at list_refund_claims() to find it later", "list_refund_claims()" in out)
+    succeeded = out.split("it SUCCEEDED", 1)[-1].split("it FAILED", 1)[0]
+    check("the hand-reconcile hint carries the amount", "credited_usdc=<the amount the transfer moved>" in succeeded)
+    check("the hand-reconcile hint carries the rating", "rating" in succeeded, "no word on the dispute rating", defect="D-064")
+
 
 SCENARIOS: dict[str, Callable[[], None]] = {
     "du01": du01,
