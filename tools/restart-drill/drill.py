@@ -166,6 +166,36 @@ def seed_settlement(task_id: str, payer: str) -> str:
     return job
 
 
+# Multi-byte on purpose: a store that re-encodes a reason shows up as a changed byte.
+REASON = "The signup form on the landing page never submits — naïve check, 😀 included"
+
+
+def new_payer():
+    from stellar_sdk import Keypair  # noqa: PLC0415
+
+    return Keypair.random()
+
+
+def open_dispute(payer, job: str, step: int, reason: str = REASON) -> tuple[int, dict]:
+    """Challenge, sign the exact message with the payer's key, and open — as a wallet would."""
+    status, challenge = http("POST", "/api/disputes/challenge", {"job_id_hex": job, "step_index": step})
+    if status != 200:
+        return status, challenge
+    signature = base64.b64encode(payer.sign(challenge["message"].encode("utf-8"))).decode("ascii")
+    return http(
+        "POST",
+        "/api/disputes",
+        {
+            "job_id_hex": job,
+            "step_index": step,
+            "reason": reason,
+            "payer": payer.public_key,
+            "nonce": challenge["nonce"],
+            "signature_b64": signature,
+        },
+    )
+
+
 SCENARIOS: dict[str, Callable[[], None]] = {}
 
 if __name__ == "__main__":
