@@ -37,3 +37,14 @@ npx playwright test --config tools/restart-drill/playwright.drill.config.ts
 
 The drill exits non-zero on any FAIL, and on any XPASS: a check pinned to an
 open defect that now passes, whose pin must then come off.
+
+## What each scenario proves
+
+| Scenario | Criteria | What it does |
+| --- | --- | --- |
+| `du01` | DU-01, DU-05 | opens a dispute, hard-kills the backend, starts a new one; the dispute, the task listing, the settlement and the closing time must be identical; reads the boot log for the store it names |
+| `du01-control` | DU-01 | the same restart onto the in-memory store — the dispute must be gone, or the drill is not measuring the store |
+| `du02` | DU-02 | seeds a settlement, restarts, then opens a dispute on it with a real signature |
+| `token-gap` | DU-01, DU-02 | `TASK_AUTH_REQUIRED=true`: after a restart the per-task listing 404s, while `GET /api/disputes/{id}` and a new dispute still work without a token |
+| `du04` | DU-03, DU-04 | a transfer that times out: exit 10 and "DO NOT RE-RUN", `crediting` with the hash and no amount through a restart, in `list_refund_claims()`, a re-run that exits 6 and signs nothing, then the hand-reconcile hint followed to the letter |
+| `browser-seed` + `browser.spec.ts` | DU-01 – DU-04 | the payer's trace page reloaded across a restart, a dispute raised through the dialog after one, the `crediting` and hand-reconciled receipts, and the token gap as the payer sees it |
