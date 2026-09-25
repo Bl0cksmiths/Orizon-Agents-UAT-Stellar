@@ -64,4 +64,13 @@ test.describe("RC — reputation consequence (story 6.03e)", () => {
     expect(plan?.rep_dispute_rate_bps).toBe(rep.dispute_rate_bps);
     expect(plan?.rep_bps).toBe(rep.smoothed_bps);
   });
+
+  test("RC-01 an upheld dispute can be reached on the deploy", async ({ request }) => {
+    // D-051: DISPUTE_REFUNDS_ENABLED is off, so adjudication answers 503 before
+    // anything else, and D-050 leaves no settled run to dispute. Remove the
+    // marker once the route answers with the adjudicator guard instead.
+    test.fail();
+    const response = await request.post("/api/disputes/dsp_uat_probe/uphold", { timeout: COLD_START_TIMEOUT, data: {} });
+    expect((await response.json()).error?.code).not.toBe("dispute_refunds_disabled");
+  });
 });
