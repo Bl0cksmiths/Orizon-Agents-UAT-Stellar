@@ -20,8 +20,9 @@ const seed = JSON.parse(readFileSync(path.join(process.env.DRILL_STATE ?? ".", "
   tx: Partial<Record<State, { refund: string; rating?: string; credited_usdc?: number }>>;
 };
 
-// seed.py's words: the payer's reason.
+// seed.py's words: the payer's reason and the adjudicator's.
 const REASON = "Research step 6.03f returned nothing usable — naïve sources, none cited 😀";
+const REJECTION = "Rejection 6.03f: the step delivered three cited sources, so the brief was met.";
 
 type Viewer = { wallet: string | null; token: boolean };
 const PAYER: Viewer = { wallet: seed.payer, token: true };
@@ -151,4 +152,15 @@ test("FS-04 credited with the rating unconfirmed: the rating reads pending, not 
   await expect(row.getByRole("link", { name: /view rating on stellar\.expert/ })).toHaveAttribute("href", expert(rating));
   await expect(receipt).not.toContainText("and it cost Researcher a dispute rating");
   await page.screenshot({ path: info.outputPath("fs04-rating-pending.png"), fullPage: true });
+});
+
+test("FS-05 rejected: the payer reads Rejected and why", async ({ page }, info) => {
+  const receipt = await open(page, "rejected");
+  await expect(receipt).toContainText("Rejected");
+  await expect(receipt).toContainText("The platform did not uphold this dispute: no credit was issued, Researcher's reputation is unchanged, and the reason is below.");
+  await expect(receipt.getByText("Why it was rejected")).toBeVisible();
+  await expect(receipt).toContainText(REJECTION);
+  await expect(receipt.getByRole("link")).toHaveCount(0);
+  await expect(receipt).not.toContainText(/credit ·|Refunded/);
+  await page.screenshot({ path: info.outputPath("fs05-rejected.png"), fullPage: true });
 });
