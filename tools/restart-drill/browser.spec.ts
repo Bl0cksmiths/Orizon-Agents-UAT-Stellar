@@ -169,3 +169,18 @@ test("DU-02 a settlement recorded before a restart is disputed through the UI af
   await expect(page.getByText("After the restart: the signup form still never submits.")).toBeVisible();
   await page.screenshot({ path: info.outputPath("du02-after-restart.png"), fullPage: true });
 });
+
+test("DU-03 a submitted, unconfirmed refund reads as pending everywhere", async ({ page }, info) => {
+  if (!backend) await startBackend();
+  await connectPayer(page);
+  await openAsPayer(page, seed.tasks.crediting);
+  await expect(page.getByText("Refund in progress")).toBeVisible();
+  await expect(page.getByText("Submitted, waiting for confirmation")).toBeVisible();
+  await expect(page.getByText(/The refund was submitted and is waiting for confirmation on Stellar/)).toBeVisible();
+  await expect(page.getByText(seed.refundTx.crediting)).toBeVisible();
+  await page.screenshot({ path: info.outputPath("du03-crediting.png"), fullPage: true });
+  const receipt = await receiptText(page);
+  expect(receipt).not.toContain("Refunded");
+  expect(receipt).not.toContain("Confirmed on Stellar");
+  expect(receipt).not.toMatch(/Done:|received \d|\d USDC credited to/);
+});
