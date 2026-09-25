@@ -982,3 +982,20 @@ backend and Postgres, the drill's own ReputationLedger built from the deployed
 wasm, and both ways to uphold (the adjudication route, and
 `scripts/uphold_dispute.py` in its own process). `evidence/6.03e-reputation-consequence.md`
 has the before and after numbers and every transaction.
+
+## Acceptance criteria — DS, the dispute UI and receipt in every state (story 6.03f, verifies 4.05 / 4.06)
+
+The receipt on the trace page is a recorded evidence artifact (SOW §6.1), so
+wording is tested as strictly as behaviour. The rule to hunt for: nothing may
+read as done until the chain says so. The buyer's reason and the rejection
+reason are for the payer only. Other viewers see the status and the times.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| DS-01 | the five dispute states: open, crediting, credited, credited with the rating unconfirmed, rejected | each is read | each explains itself (open says what is next, rejected says why), and no unconfirmed credit or rating reads as complete |
+| DS-02 | a credited dispute | both links are opened | they resolve on Stellar Expert (testnet) to that dispute's refund transfer and dispute rating |
+| DS-03 | the credited amount | its line is read | it says the platform funded it and that it was not clawed back from the agent |
+| DS-04 | a rejected dispute | it is viewed by the payer and by anyone else | the payer sees the reason, nobody else does (not on screen, in the page source or in any response), and no rejection can be recorded without one |
+| DS-05 | the page open on an open dispute | it is upheld and credited | the receipt reaches "Refunded" with both links, with no reload |
+| DS-06 | a credited receipt on a phone | it is viewed | there is no horizontal scroll and both links are tappable |
+| DS-07 | a screen reader on the receipt | the countdown runs and the status changes | the countdown is not announced, and each status change is announced once |
