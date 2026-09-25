@@ -123,10 +123,10 @@ async function openAsPayer(page: Page, task: string): Promise<void> {
   await expect(page.getByText(REASON)).toBeVisible();
 }
 
-/** The receipt as text from its heading on, with the ticking relative times blanked out. */
+/** The receipt card's text — not the trace log beside it — with the ticking relative times blanked out. */
 async function receiptText(page: Page): Promise<string> {
-  const text = await page.locator("main").innerText();
-  return text.slice(text.indexOf("Receipt")).replace(/\d+\s*[hms]\b(\s*\d+\s*[ms]\b)*( left)?|\d+ (seconds?|minutes?|hours?) ago|just now/g, "…");
+  const text = await page.getByRole("region", { name: "Receipt" }).innerText();
+  return text.replace(/\d+\s*[hms]\b(\s*\d+\s*[ms]\b)*( left)?|\d+ (seconds?|minutes?|hours?) ago|just now/g, "…");
 }
 
 test.describe.configure({ mode: "serial" });
