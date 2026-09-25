@@ -296,6 +296,47 @@ def token_gap() -> None:
     second.kill()
 
 
+def uphold_env() -> dict[str, str]:
+    """What the operator's machine needs to run the uphold script live: the refund switch,
+    a settler key (a throwaway one — nothing is signed), and a RPC that answers nothing."""
+    env = backend_env(durable=True)
+    env.update(
+        {
+            "DISPUTE_REFUNDS_ENABLED": "true",
+            "API_KEY": "drill-" + secrets.token_hex(8),
+            "STELLAR_SIGNING_KEY": new_payer().secret,
+            "STELLAR_NETWORK": "testnet",
+            "STELLAR_NETWORK_PASSPHRASE": "Test SDF Network ; September 2015",
+            "STELLAR_RPC_URL": "http://127.0.0.1:9",
+            "STELLAR_ASSET_SAC": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+            "STELLAR_REPUTATION_LEDGER": "CDCSOBEVZUPQZV5GV4D6KYHZCLNGW2KXY74RUHSZ3EZUXF34DPW422ZT",
+            "REPUTATION_ENABLED": "true",
+        }
+    )
+    return env
+
+
+def run_uphold(dispute_id: str, env: dict[str, str], calls: Path, tx_hash: str, label: str) -> tuple[int, str]:
+    """One run of the real script through run_uphold.py; returns its exit code and stdout."""
+    env = {**env, "DRILL_BACKEND": str(BACKEND), "DRILL_TRANSFER_CALLS": str(calls), "DRILL_TX_HASH": tx_hash}
+    done = subprocess.run(
+        [PYTHON, str(Path(__file__).with_name("run_uphold.py")), "--dispute-id", dispute_id],
+        cwd=BACKEND,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=300,
+    )
+    (LOGS / f"{label}.stdout.txt").write_text(done.stdout, encoding="utf-8")
+    (LOGS / f"{label}.stderr.txt").write_text(done.stderr, encoding="utf-8")
+    return done.returncode, done.stdout
+
+
+def transfers_signed(calls: Path) -> int:
+    return len(calls.read_text(encoding="utf-8").splitlines()) if calls.exists() else 0
+
+
 SCENARIOS: dict[str, Callable[[], None]] = {
     "du01": du01,
     "du01-control": du01_control,
