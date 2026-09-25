@@ -236,7 +236,28 @@ def du01() -> None:
     check("DU-05 the dispute store names postgres by the first read", any("dispute store: postgres" in l for l in after_first_read))
 
 
-SCENARIOS: dict[str, Callable[[], None]] = {"du01": du01}
+def du01_control() -> None:
+    """The control: restart onto the in-memory store and the same dispute must be gone.
+    If this ever passes the durable checks, the drill is not measuring the store."""
+    print("\n== du01-control: the in-memory fallback loses the dispute", flush=True)
+    payer = new_payer()
+    task = f"drill-control-{secrets.token_hex(4)}"
+    job = seed_settlement(task, payer.public_key)
+    first = Backend("control-before", backend_env(durable=True))
+    status, opened = open_dispute(payer, job, 1)
+    check("the dispute opens on Postgres", status == 200, str(status))
+    first.kill()
+    second = Backend("control-after", backend_env(durable=False))
+    status, one = http("GET", f"/api/disputes/{opened['id']}")
+    _, listing = http("GET", f"/api/tasks/{task}/disputes")
+    lines = store_lines(second.log())
+    second.kill()
+    check("in memory, the dispute is unknown after the restart", status == 404, f"{status} {one.get('detail')}")
+    check("in memory, the task has no settlement and no disputes", listing.get("settlement") is None and listing.get("disputes") == [])
+    check("the log says the store is in memory", any("in-memory (DATABASE_URL is unset)" in l for l in lines))
+
+
+SCENARIOS: dict[str, Callable[[], None]] = {"du01": du01, "du01-control": du01_control}
 
 if __name__ == "__main__":
     for name in sys.argv[1:] or list(SCENARIOS):
