@@ -38,8 +38,9 @@ const DEGRADED = "the on-chain read did not come back";
 async function openSettled(page: Page, open: () => Promise<void>, scope: Locator): Promise<void> {
   for (let attempt = 0; attempt < 6; attempt += 1) {
     await open();
-    await expect(scope).toBeVisible();
-    if (!((await scope.textContent()) ?? "").includes(DEGRADED)) return;
+    // The row renders before its reputation arrives; judge it only once the badge is there.
+    await expect(scope.getByLabel(/^(on-chain reputation|prior estimate)/)).toBeVisible();
+    if ((await scope.getByLabel(DEGRADED).count()) === 0) return;
     await page.waitForTimeout(3_000);
   }
 }
