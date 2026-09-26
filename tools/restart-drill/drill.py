@@ -385,7 +385,7 @@ def du04() -> None:
     check("run 2 points at list_refund_claims() to find it later", "list_refund_claims()" in out)
     succeeded = out.split("it SUCCEEDED", 1)[-1].split("it FAILED", 1)[0]
     check("the hand-reconcile hint carries the amount", "credited_usdc=<the amount the transfer moved>" in succeeded)
-    check("the hand-reconcile hint carries the rating", "rating" in succeeded, "no word on the dispute rating", defect="D-064")
+    check("the hand-reconcile hint asks for the one re-run that writes the rating", "THEN re-run this script once" in succeeded and "writes that rating alone" in succeeded)
 
     # The hint's SUCCEEDED branch, followed to the letter.
     on_store(lambda store: store.append_status(dispute_id, "credited", refund_tx=tx, credited_usdc=0.25))
