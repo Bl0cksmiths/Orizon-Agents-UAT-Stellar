@@ -158,8 +158,8 @@ def seed_settlement(task_id: str, payer: str) -> str:
         proof_tx=secrets.token_hex(32),
         settled_usdc=0.35,
         steps=(
-            ds.SettlementStep(0, "research-agent", "Researcher", 0.1, True, "Found three sources"),
-            ds.SettlementStep(1, "code-agent", "Coder", 0.25, True, "Built a landing page"),
+            ds.SettlementStep(0, "research_agent", "Researcher", 0.1, True, "Found three sources"),
+            ds.SettlementStep(1, "code_agent", "Coder", 0.25, True, "Built a landing page"),
         ),
         settled_at=now,
         window_closes_at=now + 86_400.0,
