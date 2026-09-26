@@ -66,10 +66,13 @@ async def execute_refund(buyer: str, amount_usdc: float) -> dict:
 
 
 async def submit_rating_async(agent_id, job_id, rating, weight, payer, kind) -> dict:
-    """The rating fails in one of the two ways the network can fail it: answered FAILED,
-    or the call itself raising, as a dropped RPC connection does."""
+    """The rating fails in one of the ways the network can fail it: answered FAILED, the call
+    raising as a dropped RPC connection does, or refused at simulation, raised as the client
+    raises it before anything is signed (app/stellar/client.py, prepare failed)."""
     if RATING_FAILURE == "raise":
         raise ConnectionError("rpc connection dropped")
+    if RATING_FAILURE == "refuse":
+        raise RuntimeError("prepare failed: HostError: Error(Value, InvalidInput)")
     return {"status": "FAILED", "hash": "tx_rating_failed"}
 
 
@@ -117,6 +120,13 @@ def sd08_failure_logged(opened) -> None:
           line, defect="D-075")
 
 
+def refused_before_submission_is_failed() -> None:
+    """Nothing was signed or sent, so the outcome must say nothing landed, not that it may still."""
+    lines = " | ".join(r.getMessage() for r in records if r.levelno >= logging.ERROR)
+    check("D-076 a rating refused at simulation is reported as nothing landed",
+          "nothing landed" in lines and "MAY HAVE LANDED" not in lines, lines[:200], defect="D-076")
+
+
 async def main() -> int:
     refund_svc.execute_refund = execute_refund
     sc.submit_rating_async = submit_rating_async
@@ -124,11 +134,13 @@ async def main() -> int:
     logging.getLogger().setLevel(logging.INFO)
 
     global RATING_FAILURE
-    for RATING_FAILURE in ("answer", "raise"):
+    for RATING_FAILURE in ("answer", "raise", "refuse"):
         opened, upheld = await upheld_with_a_failed_rating()
-        results.append((f"-- rating {RATING_FAILURE}s a failure", "", ""))
+        results.append((f"-- rating failure: {RATING_FAILURE}", "", ""))
         sd08_credit_kept(upheld)
         sd08_failure_logged(opened)
+        if RATING_FAILURE == "refuse":
+            refused_before_submission_is_failed()
 
     for name, verdict, detail in results:
         print(f"{verdict:5}  {name}  {detail}")
