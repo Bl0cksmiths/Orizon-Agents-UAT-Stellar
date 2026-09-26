@@ -3033,3 +3033,40 @@ outcome line.
 carries the amount" is XFAIL, pinned to D-075.
 
 ---
+## D-076 — A dispute rating refused at simulation is reported as "timed out, may still land"
+
+- **Severity:** Minor (story 6.03: money path, filed as Urgent Bug)
+- **Status:** Open
+- **Affects:** SD-08, DU-04 (story 6.03); story 4.04
+
+**Steps to reproduce** — backend `08efeda`. Uphold a dispute, or re-run
+`scripts/uphold_dispute.py` on a `credited` one, where the ledger's simulation
+refuses the rating with a host error rather than a contract error. Seen for real
+on testnet on 2026-09-26: the restart drill's fixture agent id `code-agent`
+simulated to `HostError: Error(Value, InvalidInput)`, "byte is not allowed in
+Symbol", 45.
+
+**Expected** — nothing was signed or sent, so the outcome is FAILED, "nothing
+was written". The operator is told the rating will not land as it stands.
+
+**Actual** — `app/stellar/client.py:445-452` raises
+`RuntimeError("prepare failed: …")` before it signs or sends. The same goes for
+`"submit failed: …"` at `:457-458`, when the RPC refuses the send.
+`submit_dispute_rating` (`app/services/dispute_rating.py:265-273`) catches
+every exception that is not a `ContractError` as `TIMEOUT`, and logs "rating
+submit raised and MAY HAVE LANDED". The script then prints "rating: TIMED OUT —
+submitted and unconfirmed; it may still land", and the dispute's ERROR line says
+"unconfirmed — it may still land". The docstring says such an exception "can be
+raised either side of the submission and nothing in it says which". But the
+client raises these two before any transaction exists on the network.
+
+**Impact** — no money moves, and a re-run is still safe. But a refusal that will
+recur on every retry is presented as a transient unknown. An operator can keep
+re-running and waiting for a rating that can never land, and is never told the
+real cause.
+
+**Resolution path** — have the client raise a distinct type for "refused before
+submission" (prepare, simulate, send not accepted), and map it to FAILED with the
+host error, as a non-Replay `ContractError` already is.
+
+---
