@@ -2999,3 +2999,32 @@ under each name. `mainnet` exits 1; `pubnet` boots and serves `/health`
 (XFAIL, pinned to D-074).
 
 ---
+## D-075 — A failed dispute rating is logged without the credited amount
+
+- **Severity:** Minor (story 6.03: money path, filed as Urgent Bug)
+- **Status:** Open
+- **Affects:** SD-08 (story 6.03)
+
+**Steps to reproduce** — backend `08efeda`. Run the real `dispute_svc.uphold` on
+an open dispute of a 0.05 USDC step. Replace only the two chain calls: the refund
+transfer lands, and the rating submission answers `FAILED` (or raises).
+
+**Expected** — per the story card: the buyer keeps the credit, and the log line
+for the failure carries the dispute id, job id, payer and amount.
+
+**Actual** — the buyer keeps the credit: `credited`, `refund_tx` set,
+`credited_usdc=0.05`, no `rating_tx`. The ERROR line (format at
+`app/services/dispute_svc.py:857`) reads
+`dispute rating failed (FAILED) … dispute=… job=… derived=… agent=… payer=… tx=…`.
+It has no amount. The amount appears only on the earlier INFO line
+`dispute … credited 0.0500000 USDC to G…`. So the failure can be reconciled only
+by joining two lines, and not from the ERROR line alone, as its own docstring
+promises.
+
+**Impact** — an operator filtering on errors cannot see what the buyer was paid
+without finding a second, lower-level line.
+
+**Resolution path** — add `credited_usdc` (and `refund_tx`) to the rating
+outcome line.
+
+---
