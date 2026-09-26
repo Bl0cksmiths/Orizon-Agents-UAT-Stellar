@@ -2728,7 +2728,21 @@ new score" (XFAIL, pinned to D-066).
 
 - **Severity:** Major
 - **Status:** Open
-- **Affects:** DS-01, DS-04 (story 6.03f)
+- **Affects:** DS-01, DS-04 (story 6.03f); DU-01, DU-02, DU-03 in the restart drill's browser half (story 6.03d, found 2026-09-26)
+
+**Also breaks the restart drill's browser half (2026-09-26, story 6.03).** At
+backend `08efeda`, frontend `5105a8b`, real Postgres, the drill's page is a tab
+that never ran the task. There, `GET /api/tasks/{task}/disputes` and
+`GET /api/disputes/{id}` both return `reason: ''` for the payer's open dispute.
+So in `tools/restart-drill/browser.spec.ts`:
+- DU-01 and DU-03 fail at `openAsPayer`, which waits for the payer's reason.
+- DU-02 raises its dispute through the dialog after the restart and shows
+  "Under review", then fails on its last line, the reason.
+- DU-04 passes, because it proves the payer by the receipt's payer voice.
+- The token-gap test still fails as expected on D-065's assertion.
+
+These three tests are not yet pinned or reworked. As they stand, they fail on
+D-067 before, or instead of, their durability checks.
 
 **Steps to reproduce** — backend `08efeda`, frontend `5105a8b`, with
 `tools/dispute-ui-drill/`: reject a dispute with a reason, then open the trace
