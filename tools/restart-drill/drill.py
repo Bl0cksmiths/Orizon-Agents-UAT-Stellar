@@ -318,6 +318,26 @@ def uphold_env() -> dict[str, str]:
     return env
 
 
+def testnet_rerun_env() -> dict[str, str]:
+    """uphold_env() pointed at the 6.03e drill's testnet fixtures (DRILL_STATE/rc-testnet.json): its
+    ledger, its test asset and its settler, the ledger's scorer. Only a re-run of a dispute already
+    recorded `credited` runs with it, so the one transaction it can sign is the dispute rating."""
+    fix = json.loads((Path(os.environ["DRILL_STATE"]) / "rc-testnet.json").read_text(encoding="utf-8"))
+    env = uphold_env()
+    env.update(
+        {
+            "STELLAR_RPC_URL": "https://soroban-testnet.stellar.org",
+            "STELLAR_REPUTATION_LEDGER": fix["reputation_ledger"],
+            "STELLAR_ASSET_SAC": fix["asset_sac"],
+            "STELLAR_SIGNING_KEY": fix["settler"]["secret"],
+            "STELLAR_ADMIN_ADDRESS": fix["settler"]["public"],
+        }
+    )
+    # A machine whose TLS is intercepted (an antivirus, a proxy) needs its CA bundle to reach the RPC.
+    env.update({k: os.environ[k] for k in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE") if k in os.environ})
+    return env
+
+
 def run_uphold(dispute_id: str, env: dict[str, str], calls: Path, tx_hash: str, label: str) -> tuple[int, str]:
     """One run of the real script through run_uphold.py; returns its exit code and stdout."""
     env = {**env, "DRILL_BACKEND": str(BACKEND), "DRILL_TRANSFER_CALLS": str(calls), "DRILL_TX_HASH": tx_hash}
@@ -429,12 +449,22 @@ def browser_seed() -> None:
         check(f"{name}: the transfer times out", code == 10, str(code))
     # Reconciled by the hint's SUCCEEDED branch: hash and amount, as it says.
     on_store(lambda store: store.append_status(disputes["reconciled"], "credited", refund_tx=refund_tx["reconciled"], credited_usdc=0.25))
+    # "THEN re-run this script once": the re-run writes the dispute rating alone. It runs on the
+    # 6.03e drill's own testnet ledger, whose scorer is its settler, so the rating really lands.
+    calls = LOGS / "browser-transfers-reconciled.txt"
+    signed = transfers_signed(calls)
+    code, _ = run_uphold(disputes["reconciled"], testnet_rerun_env(), calls, secrets.token_hex(32), "browser-reconciled-rerun")
+    check("reconciled: the re-run exits 0", code == 0, str(code))
+    check("reconciled: the re-run signs no transfer", transfers_signed(calls) == signed)
+    record = on_store(lambda store: store.get_dispute(disputes["reconciled"]))
+    check("reconciled: the re-run lands the dispute rating", record.rating_confirmed is True and bool(record.rating_tx), repr(record.rating_tx))
     seed = {
         "payer": payer.public_key,
         "payerSeedHex": StrKey.decode_ed25519_secret_seed(payer.secret).hex(),
         "tasks": tasks,
         "disputes": disputes,
         "refundTx": refund_tx,
+        "ratingTx": record.rating_tx,
     }
     (LOGS / "browser-seed.json").write_text(json.dumps(seed, indent=2), encoding="utf-8")
 
