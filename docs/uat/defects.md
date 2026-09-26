@@ -3069,4 +3069,9 @@ real cause.
 submission" (prepare, simulate, send not accepted), and map it to FAILED with the
 host error, as a non-Replay `ContractError` already is.
 
+**Verified by** — `tools/rating-log-drill/drill.py`, failure mode `refuse`. The
+rating submission raises what the client raises when prepare fails, and "a
+rating refused at simulation is reported as nothing landed" is XFAIL, pinned
+to D-076. The credit is kept in that mode too.
+
 ---
