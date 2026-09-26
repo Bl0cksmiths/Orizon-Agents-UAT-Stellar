@@ -4,6 +4,9 @@ Every acceptance criterion in `test-plan.md` maps to the test that verifies it.
 No cell is empty: a criterion is Covered, Added (written during this
 programme), Blocked (with a defect id), or Not covered (with a stated reason).
 
+Defect ids below link to the Bug issue filed in the repository that owns the
+code; the full defect → issue table is under "Bug issues" in `defects.md`.
+
 **Verification status of the whole matrix:** every test below was authored and
 statically checked, but **none has been executed** — see defect D-002. "Covered"
 here means "a test exists that would fail if the behaviour broke", not "observed
@@ -234,11 +237,178 @@ extensions and a real phone and have **not been run yet**.
 
 | criterion | verification | status |
 | --- | --- | --- |
-| OS-01 | `evidence/6.06-operator-surfaces.md` §1 — clean-clone walk, transcripts | **Fail** — D-042, D-047, D-048, D-049; step 2 not walked (no Render account) |
-| OS-02 | `checklists/6.06-wallet-and-phone.md` B | **Pending** (checklist not run); D-046 from source |
+| OS-01 | `evidence/6.06-operator-surfaces.md` §1 — clean-clone walk, transcripts | **Fail** — D-042 ([agent#2](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/2)), D-047 ([#3](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/3)), D-048 ([#4](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/4)), D-049 ([#5](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/5)); step 2 not walked (no Render account) |
+| OS-02 | `checklists/6.06-wallet-and-phone.md` B | **Pending** (checklist not run); D-046 ([frontend#72](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/72)) from source |
 | OS-03 | `tests/operator-surfaces.spec.ts` — `OS-03 the registration page explains both signatures before anything is clicked` | **Pass** (deployed) |
 | OS-04 | `checklists/6.06-wallet-and-phone.md` A, B | **Pending** (checklist not run) |
 | OS-05 | `tests/operator-surfaces.spec.ts` — `OS-05 an already-bound agent shows the endpoint that reads back…`; 6.05 §2 API rebinds; checklist C | **Partial** — page and API pass; in-browser rebind pending |
-| OS-06 | `tests/operator-surfaces.spec.ts` — three `OS-06 a … endpoint is refused before signing` tests, and `OS-06 an unresolvable endpoint…` | **Partial** — 3 pass; unresolvable `test.fail()`, D-043 |
-| OS-07 | `tests/operator-surfaces.spec.ts` — no-wallet, owns-nothing, several-agents counts, failed-lookup-not-zero (pass); not-online `test.fail()` D-044; not-routable `test.fail()` D-045; escrow note `test.fail()` D-036 | **Partial** |
+| OS-06 | `tests/operator-surfaces.spec.ts` — three `OS-06 a … endpoint is refused before signing` tests, and `OS-06 an unresolvable endpoint…` | **Partial** — 3 pass; unresolvable `test.fail()`, D-043 ([backend#66](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/66)) |
+| OS-07 | `tests/operator-surfaces.spec.ts` — no-wallet, owns-nothing, several-agents counts, failed-lookup-not-zero (pass); not-online `test.fail()` D-044 ([frontend#70](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/70)); not-routable `test.fail()` D-045 ([#71](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/71)); escrow note now passes (D-036 resolved 2026-09-24) | **Partial** |
 | OS-08 | `tests/operator-surfaces.spec.ts` — two `OS-08 … fits the screen width` tests (emulated); checklist D | **Pending** — emulated width passes; real phone not run |
+
+## EX — re-judged on the redeployed stack (2026-09-24)
+
+The rows above describe the pre-2.06 build. After the redeploy the whole path
+was driven again with a new agent (`uat624_ext_op`); see
+`evidence/6.05-external-dispatch.md` §13. These rows supersede them.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| EX-00 | `tests/external-dispatch.spec.ts` — `EX-00 the settlement evidence route is deployed` (marker removed) | **Pass** — D-036 resolved |
+| EX-01 | same spec — binding read-back; registration tx `e3f58a12…ce1b` | **Pass** |
+| EX-02 | same spec — `EX-02 the captured dispatch envelope carries the documented fields` (marker removed; fixture `6.05/dispatch-2026-09-24.json`) and the routing test | **Pass** — D-040 resolved, `deadline_ms: 100000` |
+| EX-03 | same spec — three `EX-03` tests against the new capture | **Pass** |
+| EX-04 | run §13.3 (needs a payer key — not in CI) | **Pass** with D-039 ([contracts#3](https://github.com/Bl0cksmiths/Orizon-Agents-Smart-Contract-Stellar/issues/3)) — output in trace, artifact and `spent`; still never charged |
+| EX-05 | run §13.3 | **Pass** — five distinct classes (`invalid_response`, `oversize_response`, `response_timeout`, `no_connection`, `error_status`); D-037 resolved |
+| EX-06 | `tests/external-dispatch.spec.ts` — `EX-06 the re-run agent carries on-chain ratings…`; run §13.4 | **Pass** — 7 `rated` events, score falls on failure; D-038 resolved |
+| EX-07 | same spec — binding and routing re-read after a week and several restarts | **Pass** |
+| EX-08 | `evidence/6.05-external-dispatch.md` §13, `evidence/6.05/dispatch-2026-09-24.json` | **Pass** |
+| EX-09 (new) | run §13.5 — `GET /api/tasks/{id}/disputes` returns `settlement: null` for a delivered run | **Fail** — D-050 ([backend#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67)), the Epic 4 dispute path is unreachable |
+
+## DP — the dispute happy path (story 6.03a)
+
+Attempted 2026-09-24; `evidence/6.03a-dispute-path.md`. The story's own flow
+could not start: no payment settles on this deployment, and refunds are switched
+off in it.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| DP-01 | `tests/dispute-path.spec.ts` — `DP-01 a paid, delivered run exposes a settlement and a window to dispute against` | **Fail** — `test.fail()`, D-050 ([backend#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67)), behind D-039 ([contracts#3](https://github.com/Bl0cksmiths/Orizon-Agents-Smart-Contract-Stellar/issues/3)) |
+| DP-02 | same spec — `DP-02 an anonymous caller cannot uphold a dispute` / `… reject …` | **Pass**, with the refusal ambiguous while refunds are off (D-051, D-052) |
+| DP-03 | same spec — `DP-03 a dispute challenge for a job that never settled is refused as unknown_job` | **Pass** |
+| DP-04 | same spec — `DP-04 a finished run answers the dispute endpoint with a task-shaped payload` | **Pass** |
+| DP-05 | needs the settler key and a recorded session | **Blocked** — D-050, D-051; no dispute exists to uphold |
+| DP-06 | needs a sealed job id from an attestation | **Blocked** — `proof_tx` is null on every run (D-039) |
+| DP-07 | needs a recorded session on an open dispute | **Blocked** — the receipt panel never renders, `settlement` is null |
+
+## DR — the dispute refusal paths (story 6.03b)
+
+Run 2026-09-24; `evidence/6.03b-dispute-refusals.md`. Criteria inferred from the
+story title — see the scope note in `test-plan.md`.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| DR-01 | `tests/dispute-refusals.spec.ts` — two `DR-01 a dispute challenge with …` tests | **Pass** |
+| DR-02 | same spec — `DR-02 opening a dispute with a forged nonce and signature is refused…` | **Pass** |
+| DR-03 | same spec — three `DR-03 opening a dispute with …` tests | **Pass** |
+| DR-04 | same spec — `DR-04 reading a dispute that does not exist…` | **Pass** |
+| DR-05 | same spec — `DR-05 a settled run refuses a dispute challenge from a wallet that is not its payer` | **Blocked** — `test.fail()`, D-050 ([backend#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67)) |
+| DR-06 | `tests/dispute-path.spec.ts` — `DP-02 an anonymous caller cannot uphold/reject a dispute` | **Pass**, code ambiguous while refunds are off — D-051 ([backend#68](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/68)), D-052 ([backend#69](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/69)) |
+| DR-07 | walk by hand once DR-05 passes | **Blocked** — D-050 |
+| DR-08 | walk by hand once DR-05 passes | **Blocked** — D-050 |
+| DR-09 | walk by hand once DR-05 passes | **Blocked** — D-050, D-051 |
+| DR-10 | walk by hand once DR-05 passes | **Blocked** — D-050 |
+| DR-11 | walk by hand once DR-05 passes | **Blocked** — D-050, D-051 |
+
+## IB — idempotency on the money path (story 6.03b)
+
+Run 2026-09-24; `evidence/6.03b-idempotency.md`. Nothing could be run on the
+deploy (D-050, D-051), so every row is verified in code only, and none counts as
+a pass until it resolves on Stellar Expert.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| IB-01 | code attack of all seven paths, evidence §2; on-chain count once unblocked | **Fail** — D-053, D-058 (both held privately) |
+| IB-02 | backend `test_dispute_svc.py`, `test_dispute_store.py` race tests; frontend `dispute-dialog.test.tsx`, `e2e/disputes.spec.ts:373`; live once D-050 clears | **Blocked** — D-050; gap D-057 |
+| IB-03 | backend `test_adjudication.py` credited-dispute tests, `test_uphold_script.py`; live once D-050 and D-051 clear | **Blocked** — D-050, D-051 |
+| IB-04 | backend `test_dispute_job_id.py`, `test_dispute_rating_flow.py`; Stellar Expert lookup once unblocked | **Blocked** — D-050, D-051 |
+| IB-05 | backend cap tests in `test_refund_svc.py` and the uphold script tests; live once D-051 clears | **Blocked** — D-051; D-054, D-055 open |
+
+## WC — who may dispute and when (story 6.03c)
+
+Run 2026-09-24/25; `evidence/6.03c-eligibility.md`. Only the API side of the
+reason rules is reachable on the deploy; the rest was run locally against the
+real backend and frontend and waits on D-050 for a live run.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| WC-01 | backend window tests in `test_dispute_svc.py`, local run §2; live once D-050 clears | **Fail** — D-056; live run blocked by D-050 |
+| WC-02 | frontend `e2e/disputes.spec.ts:565` (no dialog open), local run §3 | **Fail** — D-060; live run blocked by D-050 |
+| WC-03 | frontend `e2e/disputes.spec.ts:283`, `:311`, `:145`; backend `test_a_signature_from_another_wallet_is_refused`; local run | **Blocked** — D-050 (holds locally) |
+| WC-04 | backend `test_an_expired_challenge_is_refused_and_says_to_ask_for_another`, `test_the_buyer_s_signature_verifies_once_and_only_once`; local run | **Blocked** — D-050 (holds locally) |
+| WC-05 | `tests/dispute-eligibility.spec.ts` — `WC-05` empty and whitespace tests (**pass** live), zero-width and right-to-left tests (`test.fail()`, D-059); frontend `e2e/disputes.spec.ts:158` | **Fail** — D-059 |
+| WC-06 | `tests/dispute-eligibility.spec.ts` — `WC-06` multi-byte cap test (**pass** live); `DR-03` 501-character test (**pass** live); frontend `dispute-dialog.test.tsx:388-416` | **Fail** — D-062 |
+
+## DU — durability and the unconfirmed-refund path (story 6.03d)
+
+Run 2026-09-25; `evidence/6.03d-durability.md`. The restarts were run locally
+with `tools/restart-drill/` (a real backend on a real Postgres, hard-killed, and
+the real frontend). The deploy has no settled step to restart around (D-050).
+
+| criterion | verification | status |
+| --- | --- | --- |
+| DU-01 | `drill.py du01` (15 checks) and `du01-control`; `browser.spec.ts` "DU-01 an open dispute reads the same after a backend restart"; with task auth on: `drill.py token-gap`, `browser.spec.ts` "DU-01 with TASK_AUTH_REQUIRED on …" (`test.fail()`, D-065) | **Pass** locally; live blocked by D-050; D-065 latent |
+| DU-02 | `drill.py du02`, `drill.py token-gap`; `browser.spec.ts` "DU-02 …" (a dispute signed and raised through the dialog after a restart) | **Pass** locally; live blocked by D-050 |
+| DU-03 | `drill.py du04` (`crediting`, hash, no amount, no rating, through a restart); `browser.spec.ts` "DU-03 …"; frontend `dispute-status-badge.test.tsx`, `dispute-receipt.test.tsx` | **Pass** locally; live blocked by D-050, D-051 |
+| DU-04 | `drill.py du04` (exit 10 then 6, one transfer signed, queue before and after a restart, "DO NOT RE-RUN"; rating checks XFAIL, D-064); `browser.spec.ts` "DU-04 …" (`test.fail()`, D-064) | **Fail** — D-064 |
+| DU-05 | `tests/durability.spec.ts` — uptime and binding-older-than-the-process tests (**pass** live); `drill.py du01` boot-log checks (dispute store XFAIL, D-063) | **Pass** on the deploy by proxy; D-063 |
+
+## RC — the reputation consequence and routing (story 6.03e)
+
+Run 2026-09-25; `evidence/6.03e-reputation-consequence.md`. The upheld path ran
+on testnet with `tools/reputation-drill/`: a real backend on a real Postgres, and
+the drill's own ReputationLedger built from the deployed wasm. The deploy can
+uphold nothing (D-050, D-051).
+
+| criterion | verification | status |
+| --- | --- | --- |
+| RC-01 | `drill.py run` phase_chain: `count` +2, `disputed` +2, `dispute_rate_bps` rose, smoothed score fell, and the average is the weighted mean (0 → 5000 bps and 3333 → 5000 bps, both recorded); `tests/reputation-consequence.spec.ts` "RC-01 …" (`test.fail()`, D-051) | **Pass** on testnet; live blocked by D-050, D-051 |
+| RC-02 | `drill.py run` phase_chain: `kind` `dispute`, rating 10, weight 1 000 000 = the quoted price, not the 3 500 000 settled, all decoded from four transaction envelopes | **Pass** on testnet |
+| RC-03 | `drill.py run` phase_chain: the rating job id's first 8 bytes equal the sealed job's, the rest differs, and the settler's rating is still under the sealed id (4 of 4) | **Pass** on testnet |
+| RC-04 | `drill.py run` phase_api (API path: the plan decomposed at once stamps the new count and rate, **pass**) and phase_script (script path at a 120 s TTL: the old score for 91.9 s, XFAIL, D-066); `tests/reputation-consequence.spec.ts` "RC-04 …" (plan stamp = route, **pass** live); `tools/reputation-drill/browser.spec.ts` badge and plan card (**pass** at a 120 s TTL: ★ 3.44 · 8 ⚑ 50.0% on both) | **Fail**: D-066 on the script path; the display half passes |
+| RC-05 | `drill.py run` phase_open: two open disputes; the route at once, the route after the TTL, and a plan are all unchanged | **Pass** on testnet |
+
+## DS — the dispute UI and receipt in every state (story 6.03f)
+
+Run 2026-09-25/26; `evidence/6.03f-dispute-ui.md`. Read on the real trace page
+(frontend `5105a8b`, backend `08efeda`) with `tools/dispute-ui-drill/`: real
+disputes and real testnet transactions on the 6.03e drill's ledger. The deploy
+can hold no dispute (D-050, D-051). The live, real-phone and screen-reader
+steps are in `checklists/6.03f-phone-and-screen-reader.md`, with nothing
+recorded yet.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| DS-01 | `browser.spec.ts` FS-01 open, FS-02 crediting, FS-03 credited, FS-04 rating unconfirmed, FS-05 rejected (**pass**); FS-13 upheld with no transfer (`test.fail()`, D-070); FS-14 dialog amount (`test.fail()`, D-071); FS-08 empty quote (`test.fail()`, D-068) | **Fail**: D-068, D-070, D-071; no premature success found; live pending |
+| DS-02 | FS-03: both hrefs equal that dispute's `refund_tx` / `rating_tx` on testnet Stellar Expert, and both read back from Horizon (a `transfer` crediting the payer 0.1; a `submit` of kind `dispute` under this job's first 8 bytes) | **Pass** in the drill; live pending |
+| DS-03 | FS-03: the amount and "funded by the platform, not clawed back from the agent" in one `<p>` | **Pass** in the drill; live pending |
+| DS-04 | `seed.py` reject refusals (no note → 422 `validation_error`, blank → 422 `rejection_reason_required`, still `open`); FS-05 payer with token (**pass**); FS-06 another wallet and no wallet: not on screen, in the source or in any response (**pass**); FS-07 payer without token (`test.fail()`, D-067) | **Fail**: D-067 |
+| DS-05 | FS-09 uphold watched live: Refunded, both links, no reload (**pass**); FS-10 rating landing after the refund (`test.fail()`, D-069) | **Fail**: D-069 |
+| DS-06 | FS-11 @phone 360px: nothing past the edge, both hashes whole, both links tap through (**pass**); FS-15 @phone target height (`test.fail()`, D-072); real phone per checklist | **Pass** in the drill with D-072; real phone pending |
+| DS-07 | FS-12: 70 s of countdown with no live-region change (**pass**); FS-09: each status sentence announced once (**pass**); NVDA/VoiceOver per checklist | **Pass** by markup; real screen reader pending |
+
+## AD — the adjudication door and the refund switch (story 6.03g)
+
+Run 2026-09-26; `evidence/6.03g-adjudication-door.md`. Nothing on the deploy was
+toggled: refunds stay off there until D-053 is fixed. Live checks:
+`tests/adjudication-door.spec.ts`, 60 of 60 across four projects. Refunds-on
+checks: `tools/adjudication-drill/drill.py`, a real backend under uvicorn, 68
+pass, 1 XFAIL.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| AD-01 | spec "AD-01 with refunds off, uphold/reject is refused 503 without a key" (**pass** live); `drill.py ad01` with a valid key: 503 both, settler sequence unchanged, dispute still `open` (**pass**) | **Pass** |
+| AD-02 | `drill.py ad02`: refunds on, `API_KEY` unset or empty, on testnet, mainnet, public and pubnet: exit 1, `/health` never answers, the message names `API_KEY` (**pass**) | **Pass**; D-074 found beside it |
+| AD-03 | spec "AD-03 a wrong/short/latin-1/raw UTF-8 key …": 503, no 500 (**pass** live); `drill.py ad03`: 6 keys × 2 routes, 401 `invalid_api_key`, no 500, nothing signed (**pass**) | **Pass** |
+| AD-04 | spec "AD-04 …": the wrong-shaped body and uphold's malformed JSON get the guard's answer (**pass** live); reject's malformed JSON (`test.fail()`, D-073); `drill.py ad04`: the same with refunds on (XFAIL, D-073) | **Fail**: D-073 (contested) |
+| AD-05 | `drill.py ad05`: no, null, empty, whitespace and control-character notes each refused 422, dispute still `open`, nothing signed; then a real rejection (**pass**) | **Pass** |
+| AD-06 | spec "AD-06 the buyer's routes never ask for the operator key" (**pass** live); `drill.py ad06`: challenge and open with only a signature and refunds on (**pass**) | **Pass** |
+
+## SD — the story 6.03 card as a whole
+
+Rolled up 2026-09-26; `evidence/6.03-dispute-refund-rating.md`. Live checks:
+the five 6.03 specs, 30 of 30 on `chromium-desktop` (expected failures
+included). Code checks: the sub-story drills, the §3 re-checks at backend
+`08efeda` and frontend `5105a8b`, and `tools/rating-log-drill/drill.py` (16
+pass, 2 XFAIL).
+
+| criterion | verification | status |
+| --- | --- | --- |
+| SD-01 | DP-01 (`test.fail()`, D-050); DP-05, DP-06, RC-02, DS-02 on the drill ledger: refund `a5baac43…` and rating `7138e4e3…` resolve on testnet | **Blocked**: D-050, D-051 |
+| SD-02 | IB-01..IB-03 (6.03b attacks 1–7, re-run at `08efeda`); DU-03, DU-04 | **Pass in code**; not proven on-chain |
+| SD-03 | WC-01, WC-02, DR-07 | **Fail**: D-060; D-056 fixed in code, not deployed |
+| SD-04 | WC-03, DR-05, DS-04 | **Pass in code** |
+| SD-05 | DU-01, DU-02 (`tools/restart-drill`); DU-05 (**pass** live) | **Pass in code**; D-065 latent |
+| SD-06 | DR-11, IB-05 | **Fail**: D-054, D-055 |
+| SD-07 | RC-01..RC-05 (`tools/reputation-drill`); RC-04 script path XFAIL | **Fail**: D-066 |
+| SD-08 | `rating-log-drill`: credit kept (**pass**); the error line's amount (XFAIL); DS-01 rating-unconfirmed state | **Fail**: D-075 |

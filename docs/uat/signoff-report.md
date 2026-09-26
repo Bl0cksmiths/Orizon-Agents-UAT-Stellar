@@ -521,3 +521,28 @@ supplied by the test, that the live registry holds 17 agents with no on-chain
 evidence and therefore cannot place any agent below the floor, that the panel
 was opened with one click, and which build the frame came from — anchored to the
 observed response shape, since the deployment exposes no build identifier.
+
+# Story 6.03 — dispute, refund and negative-rating path
+
+## Recommendation for story 6.03: NO-GO
+
+Rolled up 2026-09-26 from 6.03a–g and a re-check against today's code. The full
+record is `evidence/6.03-dispute-refund-rating.md`.
+
+| criterion | verdict | holding it back |
+| --- | --- | --- |
+| SD-01 both on-chain artifacts | Blocked | D-050 (no settlement, behind D-039), D-051 (refunds off) |
+| SD-02 one transfer across four duplicate paths | Pass in code | on-chain proof waits on SD-01 |
+| SD-03 window edges, closing time stated | Fail | D-060; D-056 fixed at `08efeda`, not deployed |
+| SD-04 non-payer refused | Pass in code | live waits on D-050 |
+| SD-05 survives a restart | Pass in code | D-065 latent |
+| SD-06 credit bounded before signing | Fail | D-054, D-055 |
+| SD-07 reputation moves, not cached | Fail | D-066 |
+| SD-08 failed rating keeps credit, logged | Fail | D-075 (new) |
+
+Deliverable 3 is **not captured**. The drill's testnet refund and dispute rating
+prove the code path, but they are neither USDC nor the platform's ledger.
+
+Refunds stay off until the deploy runs backend `08efeda` or later, and
+`MAX_REFUND_USDC` is confirmed finite. The ordered steps are in §5 of the
+evidence.

@@ -1554,7 +1554,7 @@ fails loudly if the label changes.
 ## D-036 — The deployed backend predates story 2.06: the settlement evidence route is missing
 
 - **Severity:** Blocker (for story 6.05's entry criterion)
-- **Status:** Open
+- **Status:** **Resolved 2026-09-24** — the backend was redeployed. `GET /api/stellar/settlement/uat605_ext_op` answers `200` with a `SettlementEvidence` body (`{"agent_id":…,"window_days":7.0,"scanned_ledgers":120959,"entries":[],"total_stroops":0,"unavailable":null}`), and the deployed API now also carries `floor_bps`, `planner_fallback` and `reputation_degraded`, so the split stack of D-031 is gone too. Verified by `EX-00 the settlement evidence route is deployed` (marker removed) and by `OS-07 where the money would be, the dashboard names the escrow defect instead of a zero`, which now renders the escrow note for real. The re-run this unblocked is `evidence/6.05-external-dispatch.md` §13
 - **Affects:** EX-00 (6.05 precondition); every 6.05 result is therefore a result about the *old* build
 
 **Failing Given/When/Then (story 6.05, Preconditions)** — *"A deployed backend
@@ -1598,7 +1598,7 @@ by `EX-00 the settlement evidence route is deployed` (`test.fail()` until then).
 ## D-037 — On the deployed build every external failure reads the same: no failure class reaches the trace
 
 - **Severity:** Critical
-- **Status:** Open — fixed on backend `main` (`deb1320`, 2026-09-16), not deployed (D-036)
+- **Status:** **Resolved 2026-09-24** — deployed (D-036) and re-verified. Each class now reaches the buyer's trace, one per failure mode, on plan `pln_5541a1c3` against `uat624_ext_op`: malformed JSON → `external.uat624_ext_op failed (invalid_response)` (`tsk_8a053d47246cf746`); 2 MiB body → `(oversize_response)` (`tsk_e8444f9f49f6576e`); no answer → `(response_timeout)` at 106.345 s (`tsk_ed640b5cbccb5db6`); refused TCP on `scanme.nmap.org:444` → `(no_connection)` (`tsk_2fbab8598729c0cf`); origin down behind a live tunnel (proxy 502) → `(error_status)` (`tsk_3c06e3fe4074019b`). The workflow continued in every case and `spent` excluded the failed step
 - **Affects:** EX-05 (story 2.03)
 
 **Failing Given/When/Then (story 6.05)** — *Given a timeout, a refused
@@ -1647,7 +1647,7 @@ unit level.
 ## D-038 — Non-delivery costs an external agent nothing: no rating reaches the chain, for failure or for success
 
 - **Severity:** Critical
-- **Status:** Open — fixed on backend `main` (ADR 0005 D2, rating no longer behind `if charge_tx and job_id`), not deployed (D-036)
+- **Status:** **Resolved 2026-09-24** — deployed (D-036) and re-verified on chain. Seven workflows against `uat624_ext_op` produced seven `rated` events on `ReputationLedger CDCSOBEV…422ZT` (13 in the window counting `agt_09l5`'s six), with **0** `charged` events on the escrow over the same ledgers — so rating no longer depends on settlement. The trace now carries the line, e.g. `proof reputation → UAT 6.24 haiku operator rated 95/100 · tx 0bc33e0ac9…`, and the score moves in both directions: `count 0 source prior` → 95/100 on delivery (`7002`), then `6997 → 6993 → 6989 → 6985 → 6981` across the five failures, back to `6983` on recovery. Non-delivery now has a cost. Pinned by `EX-06 the re-run agent carries on-chain ratings, not the cold-start prior`
 - **Affects:** EX-06 (story 2.03, whose premise is that non-delivery has a cost)
 
 **Failing Given/When/Then (story 6.05)** — *Given an external step that fails,
@@ -1694,7 +1694,7 @@ tx in the trace and a `ReputationLedger` event for the agent.
 ## D-039 — A buyer is never charged, and the run still reports `complete` with a `spent` that did not happen
 
 - **Severity:** Critical
-- **Status:** Open — known contract defect (`PaymentEscrow.charge` needs the payer's `require_auth()`, which only the settler's signature is present for); verified here, not re-diagnosed
+- **Status:** Open — known contract defect (`PaymentEscrow.charge` needs the payer's `require_auth()`, which only the settler's signature is present for); verified here, not re-diagnosed. **Re-verified 2026-09-24** on the redeployed backend and unchanged: the escrow contract `CBJPTMAP…525PI` has not been redeployed since 2026-09-16, seven fresh workflows produced seven `authd` events and **0** `charged`, every task still finalized `complete` with `charge_tx null`, `spent` set (0.01–0.034) and a trailing `error · on-chain settlement failed`. It is now the only one of the five 6.05 defects still open, and it is what makes D-050 unreachable
 - **Affects:** EX-04, EX-05 (stories 2.02, 2.04)
 
 **Failing Given/When/Then (story 6.05)** — *Given the endpoint returns a valid
@@ -1738,7 +1738,7 @@ distinguishes "delivered, unsettled" from "complete".
 ## D-040 — The deployed dispatch envelope carries no `deadline_ms`, which the operator guide tells operators to read
 
 - **Severity:** Major
-- **Status:** Open — present on backend `main` (`external_http.py:420`), not deployed (D-036)
+- **Status:** **Resolved 2026-09-24** — deployed (D-036) and re-verified from a fresh capture. The envelope now reads `{"v":2,"agent_id":"uat624_ext_op",…,"network":"testnet","deadline_ms":100000}` — see `evidence/6.05/dispatch-2026-09-24.json`, which replaces the 2026-09-17 capture as the spec's fixture. The measured budget (a `response_timeout` at 106.3 s) matches the 100 s the field now advertises. Pinned by `EX-02 the captured dispatch envelope carries the documented fields` (marker removed)
 - **Affects:** EX-02, EX-05 (stories 2.02, 2.03)
 
 **Steps to reproduce** — decode `raw_body_base64` in
@@ -2103,5 +2103,1009 @@ the live service nothing they do moves it, good or bad.
 **Resolution path** — deploy backend `main` and re-check with a 6.05 re-run; or,
 until then, move rating and attestation from *Works today* to *Pending* with a
 pointer to D-038.
+
+---
+
+## D-050 — No run can be disputed: the whole Epic 4 dispute path is unreachable behind the escrow defect
+
+- **Severity:** Critical
+- **Status:** Open
+- **Affects:** EX-04 (stories 4.02, 4.05, 4.06); the dispute UI shipped in the frontend on 2026-09-22
+
+**Steps to reproduce** — run any workflow to completion on the deployed
+service, then ask for its disputes (2026-09-24, `tsk_e534ce3029391aee`,
+status `complete`, `spent 0.034`, both steps delivered):
+
+```
+curl -s https://orizons.xyz/api/tasks/tsk_e534ce3029391aee/disputes
+```
+
+**Expected** — a settlement to dispute against, and a window: the backend
+stamps `dispute_window_seconds` (default 86 400) onto the settlement record at
+settle time, and the trace is supposed to announce
+`dispute window open — any delivered step can be disputed until …`.
+
+**Actual**
+
+```json
+{"task_id":"tsk_e534ce3029391aee","window_closes_at":null,"now":1790220636.5,"settlement":null,"disputes":[]}
+```
+
+No trace in the re-run carried a dispute-window line. `_record_settlement`
+returns early when the charge produced no `job_id`
+(`execution_svc.py:1060-1061`), and the charge never lands (D-039) — so no
+settlement row is ever written, and every finished run is silently
+non-disputable. The buyer is not told: the task still reads `complete` with a
+non-zero `spent`.
+
+**Impact** — three merged stories' worth of dispute and refund work
+(`POST /api/disputes`, the adjudicator routes, the refund executor, the
+negative-rating path, and the whole `/app/trace` dispute UI) cannot be reached
+by any buyer on testnet. Nothing in the product says so; it looks like a
+feature that exists.
+
+**Resolution path** — this is D-039's consequence, not a separate bug in the
+dispute code: fix the escrow so a charge lands, then re-check this against a
+run whose `charge_tx` is non-null. Until then the dispute UI should say why it
+is empty rather than showing nothing. Worth a QA story of its own — Epic 4 has
+no acceptance criteria in this plan.
+
+---
+
+## Bug issues
+
+Every open defect from stories 6.05 and 6.06 is filed as a Bug in the repository that owns the code, each quoting the failing Given/When/Then and linking back here. Filed 2026-09-24.
+
+| defect | severity | repo | issue |
+| --- | --- | --- | --- |
+| D-042 | Critical | Example-Agent | [#2](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/2) |
+| D-047 | Major | Example-Agent | [#3](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/3) |
+| D-048 | Minor | Example-Agent | [#4](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/4) |
+| D-049 | Major | Example-Agent | [#5](https://github.com/Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar/issues/5) |
+| D-044 | Major | FE | [#70](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/70) |
+| D-045 | Minor | FE | [#71](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/71) |
+| D-046 | Major | FE | [#72](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/72) |
+| D-043 | Major | BE | [#66](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/66) |
+| D-050 | Critical | BE | [#67](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/67) |
+| D-039 | Critical | Smart-Contract | [#3](https://github.com/Bl0cksmiths/Orizon-Agents-Smart-Contract-Stellar/issues/3) |
+| D-051 | Blocker (6.03a) | BE | [#68](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/68) |
+| D-052 | Minor | BE | [#69](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/69) |
+| D-054 | Major | BE | [#70](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/70) |
+| D-055 | Minor | BE | [#71](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/71) |
+| D-056 | Minor | BE | [#72](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/72) |
+| D-057 | Minor | FE | [#73](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/73) |
+| D-059 | Minor | BE | [#73](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/73) |
+| D-060 | Minor | FE | [#74](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/74) |
+| D-061 | Minor | FE | [#75](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/75) |
+| D-062 | Minor | BE | [#74](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/74) |
+| D-063 | Minor | BE | [#76](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/76) |
+| D-064 | Major | BE | [#77](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/77) |
+| D-065 | Minor | FE | [#77](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/77) |
+| D-066 | Major | BE | [#78](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/78) |
+| D-067 | Major | BE | [#79](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/79) |
+| D-068 | Minor | FE | [#78](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/78) |
+| D-069 | Major | FE | [#79](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/79) |
+| D-070 | Minor | FE | [#80](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/80) |
+| D-071 | Minor | FE | [#81](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/81) |
+| D-072 | Minor | FE | [#82](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/82) |
+| D-073 | Minor | BE | [#80](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/80) |
+| D-074 | Major | BE | [#81](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/81) |
+| D-075 | Minor | BE | [#82](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/82) |
+| D-076 | Minor | BE | [#83](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/83) |
+
+D-036, D-037, D-038 and D-040 are not filed: they were resolved by the 2026-09-24 redeploy. D-050 is D-039's consequence and says so in both issues.
+
+
+## D-051 — The deployment has dispute refunds switched off, so no dispute can ever be upheld
+
+- **Severity:** Blocker (for story 6.03a)
+- **Status:** Open — deployment configuration, not code
+- **Affects:** DP-01, DP-02 (stories 4.03, 4.04, 6.03a)
+
+**Failing precondition (story 6.03a)** — *"`DISPUTE_REFUNDS_ENABLED=true` and a
+non-empty `API_KEY` are set in the Render dashboard."*
+
+**Steps to reproduce** (2026-09-24)
+
+```
+curl -s -X POST https://orizons.xyz/api/disputes/dsp_test/uphold \
+  -H 'content-type: application/json' -d '{}'
+```
+
+**Expected** — `401 invalid_api_key`: the adjudicator guard refusing an
+anonymous caller, with the feature itself available to a holder of the key.
+
+**Actual**
+
+```json
+{"detail":"dispute_refunds_disabled",
+ "error":{"code":"dispute_refunds_disabled","message":"dispute refunds disabled","request_id":"e5ae82462de24666"}}
+```
+`503`. `dispute_refunds_enabled` defaults to `False` in `app/config.py:254`, and
+the deployed service is running with the default. Turning it on also makes
+`API_KEY` mandatory at boot, so the two preconditions stand or fall together.
+
+**Impact** — even once a settlement exists (D-050), `scripts/uphold_dispute.py`
+cannot credit anything: the route refuses before it reaches the adjudicator
+guard. Story 6.03a's flow cannot be completed, and Deliverable 3's two on-chain
+artifacts cannot be produced.
+
+**Resolution path** — set `DISPUTE_REFUNDS_ENABLED=true` and a non-empty
+`API_KEY` in the Render dashboard and redeploy, then re-run the 6.03a
+procedure. Worth confirming `DATABASE_URL` in the same pass: it cannot be
+checked from outside, and without it the dispute store is in-memory and every
+window dies at the next restart (`dispute_store.py:1443`).
+
+**Pinned by** `DP-02 an anonymous caller cannot uphold a dispute` / `… reject …`,
+which accept either refusal today and will narrow to `401` once the switch is
+on.
+
+---
+
+## D-052 — The adjudication routes answer an anonymous caller with their configuration state
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DP-02 (story 4.04)
+
+**Steps to reproduce** — with no credentials at all:
+
+```
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://orizons.xyz/api/disputes/dsp_test/uphold -H 'content-type: application/json' -d '{}'
+```
+
+**Expected** — `401 invalid_api_key`. `require_adjudicator` is documented to
+fail closed, and an unauthenticated caller should learn nothing beyond "not for
+you".
+
+**Actual** — `503 dispute_refunds_disabled`. The refunds master switch is
+checked before the adjudicator guard, so anyone can read a deployment's
+`DISPUTE_REFUNDS_ENABLED` state, for any dispute id, without a key. The same
+call would presumably answer `401` once refunds are on, which is itself the
+signal.
+
+**Impact** — small: the disclosed fact is one boolean about a testnet
+deployment, and nothing is adjudicated either way. It is filed because the
+guard's own docstring says it fails closed, and here a public caller reaches a
+decision the guard was supposed to take first. It also makes a negative
+authorization test ambiguous — `DP-02` has to accept two codes to stay honest.
+
+**Resolution path** — run `require_adjudicator` before the feature-flag check,
+so an anonymous caller gets `401` whatever the flag says.
+
+---
+
+## D-053 — Adjudication concurrency: a money-path defect, held privately
+
+- **Severity:** Critical (story 6.03b: Urgent, stop-the-line)
+- **Status:** Fixed in code, not yet deployed — details held privately
+- **Affects:** IB-01 (story 6.03b)
+
+**Re-check 2026-09-26 (story 6.03)** — the private reproduction was re-run against
+backend origin/main `08efeda`, including on a real Postgres. It produced one transfer
+where `3347090` signed two. The deploy still runs an older build (§1 of
+`evidence/6.03-dispute-refund-rating.md`), so the advice below stands until the deploy
+runs `08efeda` or later. This moves to Resolved when IB-01 passes on the deploy.
+
+Found 2026-09-24 by reading and exercising the backend's adjudication code
+(origin/main `3347090`) with the signer stubbed. The mechanism and the
+reproduction are withheld from this public log on purpose, and have been handed
+to the settler key holder and the backend maintainers directly.
+
+What can be said publicly: under one specific interleaving of adjudication
+calls, the refund guard does not hold. Triggering it needs adjudicator
+credentials, so it is not reachable by a buyer or an anonymous caller, and
+nothing has happened on-chain — refunds are switched off on the deploy (D-051).
+
+**Consequence for D-051** — do not switch `DISPUTE_REFUNDS_ENABLED` on until
+this is fixed, and until then never run two upholds of one dispute at the same
+time, from any mix of the script and the API.
+
+**Reproducing test** — not reachable on the deploy (D-050, D-051); a backend
+regression test is part of the private hand-off.
+
+---
+
+## D-054 — `MAX_REFUND_USDC` is not validated, so a bad value silently removes the refund cap
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** IB-05 (story 6.03b)
+
+**Steps to reproduce** — backend origin/main `3347090`, locally, no network:
+start the service or build `Settings()` with `MAX_REFUND_USDC=nan`, then ask
+`refund_svc.creditable_for` for a 50 USDC step.
+
+**Expected** — the setting is refused at boot, as a missing `API_KEY` is when
+refunds are on. The cap is the last thing between a policy mistake and the
+platform wallet.
+
+**Actual** — `nan` is accepted (`config.py:247`, no validator), and every
+`amount > nan` comparison is false, so both cap checks (`refund_svc.py:227`,
+`:285-293`) pass: the 50 USDC step comes back creditable at `50.0`. `inf`
+disables the cap the same way; a negative value refuses every credit. A NaN
+`settled_usdc` likewise skips the settled-total bound.
+
+**Impact** — only a misconfiguration reaches it, but it fails open, silently,
+on the one guard whose job is to bound a loss. At the default `1.0` the cap
+holds: the amount is rounded to 7 places before the comparison and converted to
+stroops from that same value.
+
+**Resolution path** — validate `MAX_REFUND_USDC` as finite and positive at
+boot, and refuse a non-finite amount in the cap check itself.
+
+---
+
+## D-055 — A refund refused at the cap does not tell the caller the amount or the cap
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** IB-05 (story 6.03b)
+
+**Steps to reproduce** — backend origin/main `3347090`: uphold a dispute whose
+computed credit is above `MAX_REFUND_USDC`.
+
+**Expected** — story 6.03b: "the refusal should name the amount and the cap".
+
+**Actual** — the HTTP answer is `{"code":"refund_above_cap","message":"refund
+above cap"}` (`routers/disputes.py:431`, message rebuilt from the code in
+`main.py:411-422`). The amount and the cap reach only `refund_svc`'s ERROR log
+line (`refund_svc.py:102-110`); the second log line, from `dispute_svc.py:1247`,
+prints `amount=-` because no amount is passed to it.
+
+**Impact** — no money moves: the refusal comes before anything is signed. An
+adjudicator who is refused cannot tell by how much, or what the cap is,
+without server log access.
+
+**Resolution path** — carry the amount and the cap in the refusal body, and
+pass the amount to `_refuse_credit`.
+
+---
+
+## D-056 — Every dispute refusal except the duplicate loses the service's message on the wire
+
+- **Severity:** Minor
+- **Status:** Fixed in code at backend `08efeda` for the buyer's routes, not yet deployed (re-checked 2026-09-26, story 6.03). A replay answers `400 challenge_expired` with the service's own message. A late dispute answers `409 dispute_window_closed`, "…closed at 2026-09-26T01:55:41+00:00". `not_the_payer`, `signature_malformed` and `unknown_job` carry theirs too (298574b, 042a5e2, ff75cc2). The adjudication routes still answer with a code only, which is now documented as deliberate. It moves to Resolved when WC-01 passes on the deploy.
+- **Affects:** IB-02, DR-07, WC-01, WC-04 (stories 6.03b, 6.03c, 4.02) — reconfirmed 2026-09-25 by running the service locally: a dispute after the close is refused `409 dispute_window_closed` with the message `"dispute window closed"`, and the closing time the service built is dropped
+
+**Steps to reproduce** — backend origin/main `3347090`: replay a captured
+`POST /api/disputes` body after it succeeded, or dispute a step whose window has
+closed.
+
+**Expected** — the service's own message: "…expired or was already used — ask
+for a new one", and "…closed at <ISO time>" (`docs/disputes.md:543`: "the
+response says when it closed").
+
+**Actual** — `routers/disputes.py:431` raises `HTTPException(status, code)` and
+`main.py:412-413` rebuilds the message from the code, so callers get
+`"challenge expired"` and `"dispute window closed"`. Only `duplicate_dispute`
+keeps its message. `test_dispute_api.py` stubs the message as
+`code.replace("_", " ")`, so no test notices.
+
+**Impact** — a replay is still refused, and nothing is paid; the refusal is just
+less legible than documented, and the closing time is not stated.
+
+**Resolution path** — pass the service message through to the envelope, and
+assert it in a test that does not stub the service.
+
+---
+
+## D-057 — After a 409 whose refetch fails, the step offers Dispute again with no hint it is already disputed
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** IB-02 (story 6.03b)
+
+**Steps to reproduce** — frontend origin/main `e56a07a`, component level:
+`POST /api/disputes` answers `409 duplicate_dispute`, then
+`GET /api/tasks/{id}/disputes` answers `503`.
+
+**Expected** — story 6.03b: "the UI showing that dispute rather than a second
+form".
+
+**Actual** — the dialog closes silently on the 409 and the section refetches
+(`dispute-section.tsx:256-261`). The 409 carries the original dispute, but
+`ApiError` keeps no body (`lib/disputes.ts:336-341`), so the UI can only show it
+from the refetch. When the refetch fails, the step still offers Dispute and the
+only message is a generic "receipt unavailable". Pressing Dispute again costs
+another challenge, another wallet prompt and another 409. The same window
+exists briefly while a successful refetch is in flight.
+
+**Impact** — nothing is recorded twice: the backend refuses every repeat. The
+cost is a confusing loop and extra wallet prompts.
+
+**Resolution path** — keep the dispute carried by the 409 on the error and
+render it straight away, without waiting for the refetch.
+
+---
+
+## D-058 — In-memory dispute store: a money-path defect, held privately
+
+- **Severity:** Major (only when `DATABASE_URL` is unset)
+- **Status:** Open — details held privately
+- **Affects:** IB-01 (story 6.03b)
+
+Found 2026-09-24 in the backend's in-memory dispute store (origin/main
+`3347090`), by reading the code; not run end to end. Details are handed to the
+backend maintainers directly, with D-053. It does not apply when the service
+runs on Postgres.
+
+**Consequence for D-051** — before refunds are switched on, confirm
+`DATABASE_URL` is set on Render. It cannot be confirmed from outside today:
+`/readiness` does not report which dispute store is in use.
+
+---
+
+## D-059 — A dispute reason made only of invisible characters is accepted as a reason
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** WC-05 (story 6.03c)
+
+**Steps to reproduce** — live, no wallet needed:
+
+```
+curl -s -X POST https://orizon-agents-be-stellar.onrender.com/api/disputes \
+  -H 'content-type: application/json' \
+  -d '{"job_id_hex":"7fc5bc5ea95f15fc7fc5bc5ea95f15fc","step_index":0,"reason":"\u200b",
+       "payer":"GDJHP2I6NRCWYZTB3ZOXRE74V4M4EGXRYORGNPTGQ6BVNJNSSJO4PKXJ",
+       "nonce":"00000000000000000000000000000000","signature_b64":"AAAA"}'
+```
+
+**Expected** — `422 reason_required`, as `" \t\n "` gets: the reason is mandatory,
+and a reason nobody can see is not one.
+
+**Actual** — the reason check passes and the request goes on to the job lookup
+(`404 unknown_job`). Run locally against origin/main `3347090` with a seeded
+settlement and a real signature, a reason of only U+200B, U+200C, U+2060,
+U+FEFF, U+00AD, U+202E (right-to-left override) or U+3164 opens the dispute —
+`200`, status `open`, the nonce spent, the stored reason one invisible
+character. C1 controls such as U+009B are stored as-is, although
+`_require_reason` says C1 is stripped. Cause: `sanitize_untrusted` strips only
+`[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]` plus what `.strip()` removes
+(`app/agents/workers/prompt_safety.py`).
+
+**Impact** — only the paying wallet, inside its window, can open such a
+dispute, and nothing is paid without an adjudicator. The adjudicator is handed
+a dispute with no visible reason, and a right-to-left override can reorder how
+a reason displays.
+
+**Resolution path** — treat a reason with no visible character (Unicode
+categories Cf, Zs, Cc, and fillers) as empty, and strip C1 controls as
+documented.
+
+---
+
+## D-060 — A dispute dialog left open when the window closes still asks the wallet to sign
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** WC-02 (story 6.03c)
+
+**Steps to reproduce** — frontend origin/main `e56a07a`, run with the real
+components and a controlled clock (vitest fake timers and Playwright
+`page.clock` agree): open the dispute dialog about five seconds before the
+window closes, type a reason, and let the clock pass the close.
+
+**Expected** — story 6.03c: when the closing time passes, "every dispute action
+should disappear without a reload".
+
+**Actual** — the row buttons do disappear on their own at the close, with no
+refetch (`lib/use-dispute-panel.ts` ticks on the server-corrected clock). The
+open dialog does not: it stays mounted while a target is set
+(`dispute-section.tsx:304-312`), and its `canSubmit`
+(`dispute-dialog.tsx:412-413`) never looks at the window. "Sign and submit"
+stays enabled; pressing it mints a challenge, asks the wallet for a signature,
+and only then is refused `409`, shown as "The dispute window for this workflow
+has closed, so this step can no longer be disputed."
+
+**Impact** — nothing is recorded, but the buyer signs for a dispute that could
+no longer be accepted, with no warning before the signature.
+
+**Resolution path** — have the dialog read the window from the same clock and
+switch to the closed message at the close, before any signature.
+
+---
+
+## D-061 — A reason refused as a validation error is shown as a generic, retryable failure
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** WC-05, WC-06 (story 6.03c)
+
+**Steps to reproduce** — frontend origin/main `e56a07a`, component level:
+`POST /api/disputes` answers `422 validation_error` on `reason` (the answer the
+live service gives an empty or over-long reason).
+
+**Expected** — story 6.03c: every refusal is legible; the buyer is told the
+reason was the problem.
+
+**Actual** — `validation_error` is not among the codes the dialog recognises
+(`lib/disputes.ts:74-85`; `disputes.test.ts:572` asserts it maps to null), so
+it gets "Your dispute couldn't be submitted. Your reason is still here — try
+again." with "Sign and submit again". The field is not marked invalid, and a
+retry fails the same way at the cost of another signature. Relatedly, a
+`reason_required` refusal for an over-long reason is always shown as "Say what
+went wrong with this step, in words, before submitting."
+
+**Impact** — reachable only if the field's own guards are bypassed: in a real
+browser the field caps at 500 and blank reasons keep submit disabled. The copy
+is wrong where it does appear.
+
+**Resolution path** — map a `validation_error` naming `reason` to the reason
+field's own message, and choose the copy from the refusal rather than the code.
+
+---
+
+## D-062 — A reason that contains a prompt-fence marker is stored altered and truncated
+
+- **Severity:** Minor
+- **Status:** Open — the backend documents it as an accepted edge
+- **Affects:** WC-06 (story 6.03c)
+
+**Steps to reproduce** — backend origin/main `3347090`, run locally with a
+seeded settlement and a real signature: open a dispute whose reason is 490 × `x`
+followed by `" END ABCD"` (499 characters, inside the cap).
+
+**Expected** — story 6.03c: "whatever is submitted should be stored whole".
+
+**Actual** — the dispute opens, and the stored reason is 513 characters ending
+`…[truncated]`: the marker is replaced by `[redacted marker]`, which lengthens
+the reason past the cap, and the service then cuts it. The buyer is not told.
+The router's comment on `OpenDisputeReq.reason` (`routers/disputes.py:92-98`)
+names this as "the one trim left". Other cleaning also changes what is stored:
+surrounding whitespace is stripped, `====` runs collapse to `===`, and control
+characters become spaces. The frontend trims surrounding whitespace itself, so
+through the UI only the marker case changes a reason's content.
+
+**Impact** — small: only text that imitates an internal prompt marker reaches
+it, and the adjudicator still sees the redaction. It is logged because the
+story's rule is absolute.
+
+**Resolution path** — refuse such a reason with a `422` naming the phrase, or
+redact without exceeding the cap, so what is stored is what was sent.
+
+---
+
+## D-063 — The startup log does not name the dispute store; it is named only at first use
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DU-05 (story 6.03d)
+
+**Steps to reproduce** — backend origin/main `3347090`, `DATABASE_URL` set to a
+real Postgres: start `uvicorn app.main:app` and read the log up to
+`Application startup complete.`, then make any request that touches a
+settlement or a dispute (`GET /api/disputes/{id}` will do).
+
+**Expected** — story 6.03d: "Check the startup log names Postgres, not the
+in-memory fallback", for the store that holds settlements and disputes.
+
+**Actual** — the boot names the binding store
+(`binding store: postgres (DATABASE_URL is set) — bindings survive a restart`)
+and nothing about disputes. `dispute store: postgres (DATABASE_URL is set) —
+settlements and disputes survive a restart` appears only inside the first
+request that uses the store, carrying that request's id. `get_dispute_store()`
+is resolved lazily by design and `lifespan` never calls it. `/readiness` does
+not report the store either.
+
+**Impact** — small, because the two stores are chosen from the same
+`DATABASE_URL`, so the binding line is a working proxy. But an operator who
+checks for the dispute store's own line after a restart finds nothing until
+someone has used a dispute, and on a quiet free-tier instance that can be never.
+
+**Resolution path** — resolve the dispute store once in `lifespan` (it dials
+nothing until used), or report it on `/readiness`.
+
+**Verified by** — `tools/restart-drill/drill.py du01`, check "DU-05 the boot log
+names the dispute store" (XFAIL, pinned to D-063).
+
+---
+
+## D-064 — A credit reconciled by the uphold script's own hint is never rated, and the hint says not to re-run
+
+- **Severity:** Major
+- **Status:** Fixed in code at backend `08efeda`, not yet deployed (re-checked 2026-09-26, story 6.03). The timeout block's SUCCEEDED branch now records the hash and amount, and then asks for one re-run. It says a re-run on a `credited` dispute "writes that rating alone" and signs no second transfer. That was confirmed by running the real `uphold` on a credited dispute: no transfer, rating written. The backend's own tests pin it: `test_the_timeout_block_asks_for_the_one_re_run_that_finishes_the_dispute` and `test_a_rerun_after_a_rating_that_did_not_land_writes_the_rating_and_signs_no_transfer` (7696ffd, c9661aa). **Restart drill re-run 2026-09-26 at `08efeda`, on a real Postgres:** `drill.py du04` gives 25 passed, 0 expected failures and 0 failed. The hint pin XPASSed and was lifted (2d9b9f9). The "do not re-run" wording check follows the new "DO NOT RE-RUN THIS SCRIPT YET" (d88957e). The rating check now sits after the re-run the hint asks for, and it passes: that run signs no transfer and attempts the dispute rating only (dca3610). **Browser pin lifted (reworked 2026-09-26):** `browser-seed` now follows the hint to the letter. It records the hash and amount by hand, then runs the real uphold script once more against the 6.03e drill's testnet ledger. That re-run exits 0, signs no transfer, and lands a real `dispute` rating, e.g. [`2d52858a…df0d`](https://stellar.expert/explorer/testnet/tx/2d52858aa4c9cee72df5a38a64228d83aa34e4c156330bbd0f20bb5f69d5df0d), ledger 4873945 (e7d571a). The fixture agent ids became Soroban Symbols, `code_agent`, since the ledger refuses a `-` (c6389b5). Browser DU-04, with no `test.fail()`, **passes** on frontend `5105a8b`: "Refunded", "0.25 USDC credited to your wallet", "it cost Coder a dispute rating on its reputation", and the link to that rating (81e0ad0). DU-04 proves the payer by the receipt's payer voice rather than by the reason, because at `08efeda` the reason is withheld from a tab without the task's read token (D-067).
+- **Affects:** DU-04, DU-03 (story 6.03d); stories 4.04, 4.06
+
+**Steps to reproduce** — backend origin/main `3347090` on a real Postgres. Take a
+dispute to `crediting` with a transfer that times out (`scripts/uphold_dispute.py`
+exits 10), then follow the block's "it SUCCEEDED" branch exactly:
+`append_status(<id>, 'credited', refund_tx=<hash>, credited_usdc=<amount>)`.
+Read the dispute and the payer's receipt.
+
+**Expected** — story 6.03d: "when an operator records a credit manually, the
+hints in the script include the amount and the rating confirmation — without
+them the receipt would show the credit as a promise forever."
+
+**Actual** — the hint carries the amount (`credited_usdc`) and nothing about the
+rating. Followed to the letter, it leaves a `credited` dispute with no
+`rating_tx`: the agent is never rated for the upheld dispute, and the payer's
+receipt reads "Done: you received 0.25 USDC; the dispute rating it costs Coder
+is not confirmed yet." with "Dispute rating against Coder — not recorded
+on-chain yet.", with no end to that state. The fix already exists: re-running the script on a
+`credited` dispute writes the rating alone and signs no transfer (exit 12 or 0,
+"the credit will NOT be paid again"). But the hint's last line says the opposite:
+"Re-running this script instead would credit them a second time."
+
+**Impact** — the buyer is paid correctly. The reputational consequence of an
+upheld dispute (4.04) silently never lands for every refund reconciled by hand,
+and the buyer's receipt stays unfinished. Nothing queues the missing rating:
+the claim leaves `list_refund_claims()` the moment the credit is recorded.
+
+**Resolution path** — end the SUCCEEDED branch with the next step: "then run
+this script again for this dispute: it writes the dispute rating only and signs
+no transfer". Keep "do not re-run" for the `crediting` state it belongs to.
+
+**Verified by** — `tools/restart-drill/drill.py du04`, checks "the hand-reconcile
+hint carries the rating" and "the reconciled dispute carries its rating" (both
+XFAIL, pinned to D-064); `tools/restart-drill/browser.spec.ts` "DU-04 …"
+(`test.fail()`, pinned to D-064).
+
+---
+
+## D-065 — With TASK_AUTH_REQUIRED on, a backend restart hides the payer's receipt and every dispute action
+
+- **Severity:** Minor (latent: production runs with `TASK_AUTH_REQUIRED` off, confirmed live on 2026-09-25)
+- **Status:** Open
+- **Affects:** DU-01, DU-02 (story 6.03d)
+
+**Steps to reproduce** — backend origin/main `3347090` on a real Postgres with
+`TASK_AUTH_REQUIRED=true`, frontend origin/main `e56a07a`. Open a dispute,
+restart the backend, then reload the trace page as the payer.
+
+**Expected** — story 6.03d: after a restart the per-task listing may answer as
+if the task were unknown, "while the dispute itself survives … Confirm the
+buyer's ability to raise a dispute never depends on that token."
+
+**Actual** — on the API, it does not depend on the token. `POST /api/disputes/challenge`,
+`POST /api/disputes` and `GET /api/disputes/{id}` all work with no token after
+the restart. In the console, it does. `GET /api/tasks/{id}/disputes` answers
+`404 unknown task` because task tokens live in memory, and
+`use-dispute-panel.ts` reads any 404 there as "this backend has no receipt
+route". The whole receipt disappears without a word: settlement, window, the
+open dispute and every Dispute button. The payer cannot see their dispute or
+raise one from the page.
+
+**Impact** — none while enforcement stays off. If it is switched on, every
+restart takes the receipt away from every buyer with a live window, which
+happens on Render's free tier every time the service idles.
+
+**Resolution path** — on the backend, keep task tokens where settlements are
+kept, or let the payer's signature authorise the per-task read. On the
+frontend, a 404 on this read must not be taken to mean the route is missing
+once the backend is known to have it.
+
+**Verified by** — `tools/restart-drill/drill.py token-gap` (API side, passes);
+`tools/restart-drill/browser.spec.ts` "DU-01 with TASK_AUTH_REQUIRED on …"
+(`test.fail()`, pinned to D-065).
+
+---
+
+## D-066 — A dispute upheld with the uphold script leaves the running server on the pre-dispute score
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** RC-04 (story 6.03e)
+
+**Steps to reproduce** — backend origin/main `08efeda`, run on testnet with
+`tools/reputation-drill/`: start the backend, keep the agent's score cached by
+reading `GET /api/stellar/reputation/agt_09l5`, uphold a dispute on that
+agent's step with `scripts/uphold_dispute.py` (its own process, as an operator
+runs it), then decompose a plan that routes to the agent.
+
+**Expected** — story 6.03e: "A cached score is invalidated when a rating lands,
+so the next plan should see the new number rather than waiting out the read
+TTL".
+
+**Actual** — the script calls `reputation_svc.invalidate_rep`, but in its own
+process. The server's cache is never told. With `REPUTATION_READ_TTL_SECONDS=120`
+the server served the old count for 91.9 s after the rating landed. A plan
+decomposed 4.3 s after it stamped count 6 and 3333 bps. At that moment the
+script had just printed the dispute rate as 4285 bps (3 of 7). At the default
+15 s TTL the same window is up to 15 s, which is inside the story's "within a
+few seconds". Upholding through `POST /api/disputes/{id}/uphold` does not have
+this problem: the plan decomposed right after it showed the new count.
+
+**Impact** — for up to one read TTL after a script uphold, plans are routed and
+stamped on the score the dispute was meant to change. During that time the
+operator's own screen shows the new rate while the API shows the old one. It
+is bounded and self-healing, and no money is involved.
+
+**Resolution path** — make the script invalidate the server's entry, for
+example through an authenticated invalidate route or a shared cache. Or have
+the script say that a running server keeps the old score for up to
+`REPUTATION_READ_TTL_SECONDS`.
+
+**Verified by** — `tools/reputation-drill/drill.py run` with `DRILL_TTL=120`,
+check "RC-04 script path: a plan decomposed right after the uphold shows the
+new score" (XFAIL, pinned to D-066).
+
+---
+
+## D-067 — The payer loses both reasons unless they are in the tab that ran the task
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** DS-01, DS-04 (story 6.03f); DU-01, DU-02, DU-03 in the restart drill's browser half (story 6.03d, found 2026-09-26)
+
+**Also breaks the restart drill's browser half (2026-09-26, story 6.03).** At
+backend `08efeda`, frontend `5105a8b`, real Postgres, the drill's page is a tab
+that never ran the task. There, `GET /api/tasks/{task}/disputes` and
+`GET /api/disputes/{id}` both return `reason: ''` for the payer's open dispute.
+So in `tools/restart-drill/browser.spec.ts`:
+- DU-01 and DU-03 fail at `openAsPayer`, which waits for the payer's reason.
+- DU-02 raises its dispute through the dialog after the restart and shows
+  "Under review", then fails on its last line, the reason.
+- DU-04 passes, because it proves the payer by the receipt's payer voice.
+- The token-gap test still fails as expected on D-065's assertion.
+
+**Reworked the same day.** The reason is now pinned in one place: a test named
+"DU-01 the payer's own reason is on their receipt", `test.fail()` on D-067
+(0607d1a). `openAsPayer`, DU-01's post-reload check and DU-02's last line prove
+the payer by the receipt's own voice instead, "your wallet", which anyone else
+reads as "the payer's wallet" (344c55c, b77cb56, 27b0c92). DU-04 went back to
+the shared helper (6c82291).
+
+Each test was then run on its own, against backend `08efeda`, frontend `5105a8b`
+and a real Postgres:
+- DU-01 passes (18.7 min).
+- DU-02 passes.
+- DU-03 passes.
+- DU-04 passes.
+- The D-067 test fails as expected.
+- The token-gap test fails as expected (D-065).
+
+A run of the whole file in its serial order did **not** complete. DU-01's second
+backend boot never started within the spec's 420 s: its log is empty, so Python
+never finished importing. The laptop had about 190 MB available (3.8 GB total).
+That is the machine, not the product, but the serial run is still owed on a
+machine with room.
+
+**Steps to reproduce** — backend `08efeda`, frontend `5105a8b`, with
+`tools/dispute-ui-drill/`: reject a dispute with a reason, then open the trace
+page with the payer's wallet connected, in a tab that does not hold the task's
+read token. That is any tab other than the one that ran the task, any other
+device, or any session after the backend has restarted.
+
+**Expected** — story 6.03f: "The rejection reason is shown to the payer only",
+and "rejected says why".
+
+**Actual** — the receipt reads "Rejected" and "The platform did not uphold
+this dispute: no credit was issued, Researcher's reputation is unchanged."
+There is no reason, and there is an empty "Your reason" label (D-068). The
+backend sends `reason` and `rejection_reason` only to a caller holding the task
+token or the operator key (`TaskReadProof.proves`, `DisputeResponse.of`). The
+payer's wallet is never considered. The token lives in the backend's memory,
+which is lost on restart and evicted after 200 tasks, and in the sessionStorage
+of the tab that ran the task. Adjudication is manual and can take up to 24 h,
+so by the time a verdict exists the token is almost always gone.
+
+**Impact** — the one reader the reason is written for does not see it. The
+privacy rule itself holds: nobody else sees it either.
+
+**Resolution path** — let the payer prove who they are to read the free text,
+for example with the same signed challenge that opens a dispute. Keep
+withholding it from everyone else.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-07 the payer
+returning without the task's tab still reads why it was rejected"
+(`test.fail()`, pinned to D-067).
+
+---
+
+## D-068 — A withheld reason is drawn as an empty "Your reason" quote
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-01 (story 6.03f)
+
+**Steps to reproduce** — as for D-067: open any dispute's trace page with the
+payer's wallet connected but without the task token.
+
+**Expected** — a reason the viewer may not read is left out, as it is for other
+viewers.
+
+**Actual** — the backend sends a withheld `reason` as `""` rather than `null`
+(`DisputeResponse.of`). The frontend passes `""` through for the payer
+(`lib/disputes.ts`, `reason: isPayer ? dispute.reason : null`), and the receipt
+draws the quote whenever the reason is not null. The payer sees a "YOUR REASON"
+heading over nothing.
+
+**Impact** — a blank block on an evidence screen, read as though the payer
+gave no reason.
+
+**Resolution path** — treat an empty reason as absent in the frontend, and/or
+send `null` from the backend.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-08 a reason the
+backend withheld is never drawn as an empty quote" (`test.fail()`, pinned to
+D-068).
+
+---
+
+## D-069 — The receipt stops polling once the refund confirms, so a rating that lands after it never shows
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** DS-05 (story 6.03f)
+
+**Steps to reproduce** — with `tools/dispute-ui-drill/`: open the payer's trace
+page on a dispute recorded as `credited` with its refund confirmed and no
+rating yet. This is the moment between the two writes one uphold makes: the
+credit first, then the rating seconds later. Then land and record the rating
+(`seed.py rate-gap`), and wait.
+
+**Expected** — story 6.03f: "The receipt must reach 'Refunded' without a
+reload", with both links.
+
+**Actual** — once a poll returns the refund confirmed and no rating,
+`receiptAwaitsChain` finds nothing left to wait for and polling stops. The
+rating landed and the backend served it (`credited`, `rating_confirmed` true),
+but after 90 s the receipt still read "the dispute rating it costs Researcher
+is not confirmed yet" and "Dispute rating against Researcher — not recorded
+on-chain yet". A reload fixes it. A poll lands in that gap whenever an uphold's
+rating is still being written: the rating takes seconds, and the page polls
+every 5 s while a refund is in flight. So a buyer watching the uphold can be
+left on this screen. The same freeze follows a rating that timed out with no
+hash, or one that failed.
+
+**Impact** — the receipt shows a finished refund with the rating "not recorded
+on-chain", which is no longer true. Only one of the two on-chain facts is
+linked, until the payer happens to reload.
+
+**Resolution path** — keep polling while a credited dispute has no confirmed
+rating, bounded as the other chain waits are.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-10 a rating that
+lands after the refund reaches the open receipt without a reload"
+(`test.fail()`, pinned to D-069). FS-09, a full uphold watched live, passed. Its
+poll happened to land after both writes.
+
+---
+
+## D-070 — An upheld dispute with no transfer says the transfer "is queued", under a success tick
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-01 (story 6.03f)
+
+**Steps to reproduce** — with `tools/dispute-ui-drill/`: open the payer's
+receipt for a dispute left `upheld` with no transfer on record. That is where a
+refused or failed transfer leaves it once the claim is released.
+
+**Expected** — story 6.03f: "If a sentence is true but misleading, file it."
+Nothing may read as further along than the record.
+
+**Actual** — "The platform upheld this dispute; the credit has not been sent
+yet — the transfer to your wallet is queued, and there is no transaction to
+look up until the platform submits it." Nothing queues it. In the backend,
+`upheld` outlasts an uphold only after a transfer was refused, failed or not
+configured, and a person has to uphold it again. The badge reads "✓ Upheld" in
+cyan, the same glyph and colour as "✓ Confirmed on Stellar", on a record where
+no money has moved. The refund row correctly says "No transaction on record".
+
+**Impact** — the buyer is told their money is in a queue that does not exist,
+and may wait for it instead of asking.
+
+**Resolution path** — say that the credit was not sent and that the platform
+has to send it, with no time implied. Consider a non-success glyph for a
+decision with no money moved.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-13 upheld with no
+transfer on record …" (`test.fail()`, pinned to D-070).
+
+---
+
+## D-071 — The dispute dialog states the credit as exact; the receipt says "Up to"
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-01 (story 6.03f)
+
+**Steps to reproduce** — open a settled task's trace page as the payer and
+press Dispute on a step charged 0.25 USDC.
+
+**Expected** — the dialog and the receipt state the same thing about the same
+number.
+
+**Actual** — the dialog reads "Credited if upheld 0.25 USDC", with no
+qualifier. The receipt of the same dispute reads "Up to 0.25 USDC would be
+credited … if upheld", correctly: the backend bounds the payout again when it
+pays, by the fraction in force then and by what the charge moved.
+
+**Impact** — a promise made in the dialog that the receipt then walks back.
+
+**Resolution path** — say "Up to" in the dialog too.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-14 the dispute
+dialog states the credit as the receipt does …" (`test.fail()`, pinned to
+D-071).
+
+---
+
+## D-072 — The two Stellar Expert links on a receipt are 15px tall on a phone
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** DS-06 (story 6.03f)
+
+**Steps to reproduce** — open a credited receipt at 360px width with touch.
+
+**Expected** — story 6.03f: "both links must be tappable."
+
+**Actual** — both links are tappable, and each opens the right transaction
+(FS-11). Each is its 10px mono text, measured at 217×15px. That passes WCAG
+2.5.8 only through its spacing exception, since the links are more than 24px
+apart. It is a small target for a thumb.
+
+**Impact** — mis-taps on the two links a reviewer is most likely to follow.
+
+**Resolution path** — pad each link to at least 24px of height, or 44px, the
+usual touch guidance.
+
+**Verified by** — `tools/dispute-ui-drill/browser.spec.ts` "FS-15 @phone both
+Stellar Expert links are at least 24px tall to a thumb" (`test.fail()`, pinned
+to D-072). To be confirmed on a real phone:
+`checklists/6.03f-phone-and-screen-reader.md`.
+
+---
+
+## D-073 — Malformed JSON on the reject route is answered 422 before the adjudication guard
+
+- **Severity:** Minor
+- **Status:** Open, contested: the backend documents this as a deliberate trade-off (see below)
+- **Affects:** AD-04 (story 6.03g)
+
+**Steps to reproduce** — on the deploy, with no key:
+
+```
+POST https://orizons.xyz/api/disputes/dsp_uat_probe/reject
+Content-Type: application/json
+
+{not json
+```
+
+**Expected** — story 6.03g: "the guard answers before the body is validated".
+With refunds off, 503 `dispute_refunds_disabled`; with them on, 401
+`invalid_api_key`.
+
+**Actual** — `422` with
+`{"detail":[{"type":"json_invalid","loc":["body",1],"msg":"JSON decode error", …}]}`,
+with no key and with a wrong key alike. FastAPI reads and parses a JSON body
+before it runs the route's dependencies, so a body that is not JSON is refused
+by the parser ahead of `require_adjudicator`. A well-formed body of the wrong
+shape (`{"note": 5}`) is fine: it gets the guard's 503. `uphold` takes no body,
+so it is fine too.
+
+**Impact** — small. A stranger learns only that the route reads a JSON body, not
+its fields. But the door's own rule is that it answers first, and it does not.
+
+**Resolution path** — run the guard ahead of body parsing for the adjudication
+routes. For example, take the body as a raw `Request` and validate it inside the
+handler after the guard, or check the key in a router-level middleware.
+
+**The backend's position** — `reject_dispute`'s docstring (`app/routers/disputes.py`) says
+"ONE ANSWER HERE PRECEDES THE GUARD, deliberately". It argues that the 422
+reveals only that the route parses JSON, since its existence is already shown
+by the guarded 503. It argues that closing the gap would cost the declared request
+model, and `tests/test_money_route_auth.py` pins the 422. The observed impact
+agrees with that. The story's product rule does not, so the product owner has to
+decide: change the rule for this one case, or change the route.
+
+**Verified by** — `tests/adjudication-door.spec.ts` "AD-04 no key and malformed
+JSON on reject …" (`test.fail()`, pinned to D-073).
+
+---
+
+## D-074 — `STELLAR_NETWORK=pubnet` is not recognised as mainnet by the boot guards
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** AD-02 (story 6.03g), found beside it; the refund door itself holds
+
+**Steps to reproduce** — backend `08efeda`, loading the settings only
+(`import app.config`), with the mainnet passphrase, a signing key set, refunds
+off and `API_KEY` empty:
+- `STELLAR_NETWORK=mainnet`: refused, "API_KEY is required because
+  STELLAR_SIGNING_KEY is set on mainnet …".
+- `STELLAR_NETWORK=pubnet`: loads, with `API_KEY` empty.
+
+**Expected** — a deployment that signs on the mainnet passphrase is held to the
+mainnet rules, whatever it names the network.
+
+**Actual** — `app/config.py` treats only `{"mainnet", "public"}` as mainnet
+(lines 320 and 396), and `app/stellar/client.py:75` passes any other name
+through. `pubnet`, the name CAIP-2 uses (`stellar:pubnet`) and the one the Stellar
+x402 tooling uses, is not one of them. So the "a mainnet signer needs an
+operator key" boot rule does not fire. With refunds on, `pubnet` is still
+refused, because that rule reads the refund switch alone (AD-02, checked on
+`pubnet`). No current deployment is affected: the deploy runs on testnet.
+
+**Impact** — a mainnet deployment configured with a common network name would
+boot without the operator key that its money-moving routes depend on.
+
+**Resolution path** — decide mainnet by the network passphrase, not the label,
+or accept `pubnet` wherever `mainnet` and `public` are accepted.
+
+**Verified by** — `tools/adjudication-drill/drill.py d074`: a real uvicorn boot
+under each name. `mainnet` exits 1; `pubnet` boots and serves `/health`
+(XFAIL, pinned to D-074).
+
+---
+## D-075 — A failed dispute rating is logged without the credited amount
+
+- **Severity:** Minor (story 6.03: money path, filed as Urgent Bug)
+- **Status:** Open
+- **Affects:** SD-08 (story 6.03)
+
+**Steps to reproduce** — backend `08efeda`. Run the real `dispute_svc.uphold` on
+an open dispute of a 0.05 USDC step. Replace only the two chain calls: the refund
+transfer lands, and the rating submission answers `FAILED` (or raises).
+
+**Expected** — per the story card: the buyer keeps the credit, and the log line
+for the failure carries the dispute id, job id, payer and amount.
+
+**Actual** — the buyer keeps the credit: `credited`, `refund_tx` set,
+`credited_usdc=0.05`, no `rating_tx`. The ERROR line (format at
+`app/services/dispute_svc.py:857`) reads
+`dispute rating failed (FAILED) … dispute=… job=… derived=… agent=… payer=… tx=…`.
+It has no amount. The amount appears only on the earlier INFO line
+`dispute … credited 0.0500000 USDC to G…`. So the failure can be reconciled only
+by joining two lines, and not from the ERROR line alone, as its own docstring
+promises.
+
+**Impact** — an operator filtering on errors cannot see what the buyer was paid
+without finding a second, lower-level line.
+
+**Resolution path** — add `credited_usdc` (and `refund_tx`) to the rating
+outcome line.
+
+**Verified by** — `tools/rating-log-drill/drill.py`, for both a rating answered
+`FAILED` and one that raises. The credit and the ids pass. "the error line
+carries the amount" is XFAIL, pinned to D-075.
+
+---
+## D-076 — A dispute rating refused at simulation is reported as "timed out, may still land"
+
+- **Severity:** Minor (story 6.03: money path, filed as Urgent Bug)
+- **Status:** Open
+- **Affects:** SD-08, DU-04 (story 6.03); story 4.04
+
+**Steps to reproduce** — backend `08efeda`. Uphold a dispute, or re-run
+`scripts/uphold_dispute.py` on a `credited` one, where the ledger's simulation
+refuses the rating with a host error rather than a contract error. Seen for real
+on testnet on 2026-09-26: the restart drill's fixture agent id `code-agent`
+simulated to `HostError: Error(Value, InvalidInput)`, "byte is not allowed in
+Symbol", 45.
+
+**Expected** — nothing was signed or sent, so the outcome is FAILED, "nothing
+was written". The operator is told the rating will not land as it stands.
+
+**Actual** — `app/stellar/client.py:445-452` raises
+`RuntimeError("prepare failed: …")` before it signs or sends. The same goes for
+`"submit failed: …"` at `:457-458`, when the RPC refuses the send.
+`submit_dispute_rating` (`app/services/dispute_rating.py:265-273`) catches
+every exception that is not a `ContractError` as `TIMEOUT`, and logs "rating
+submit raised and MAY HAVE LANDED". The script then prints "rating: TIMED OUT —
+submitted and unconfirmed; it may still land", and the dispute's ERROR line says
+"unconfirmed — it may still land". The docstring says such an exception "can be
+raised either side of the submission and nothing in it says which". But the
+client raises these two before any transaction exists on the network.
+
+**Impact** — no money moves, and a re-run is still safe. But a refusal that will
+recur on every retry is presented as a transient unknown. An operator can keep
+re-running and waiting for a rating that can never land, and is never told the
+real cause.
+
+**Resolution path** — have the client raise a distinct type for "refused before
+submission" (prepare, simulate, send not accepted), and map it to FAILED with the
+host error, as a non-Replay `ContractError` already is.
+
+**Verified by** — `tools/rating-log-drill/drill.py`, failure mode `refuse`. The
+rating submission raises what the client raises when prepare fails, and "a
+rating refused at simulation is reported as nothing landed" is XFAIL, pinned
+to D-076. The credit is kept in that mode too.
 
 ---

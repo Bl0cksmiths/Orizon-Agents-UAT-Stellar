@@ -803,3 +803,241 @@ payments have ever settled. What is tested is whether the page says so honestly.
 (`w1_audit_a7x`, `sign_probe_bb5c12`); one bound `GBWMD26I…7BQJ`
 (`uat605_ext_op`). The spec re-derives counts from `/api/agents` and the binding
 reads on every run rather than hard-coding them.
+
+### EX-09 — a finished run can be disputed (added 2026-09-24, stories 4.02 / 4.05 / 4.06)
+
+Epic 4 shipped a dispute window, dispute and adjudication endpoints, a refund
+executor and a dispute UI on `/app/trace`, and no criterion in this plan covers
+any of it. This is the smallest criterion that says whether a buyer can reach
+it at all; the epic still needs QA of its own.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| EX-09 | a workflow that finished and delivered | its disputes are read (`GET /api/tasks/{task_id}/disputes`) | a settlement and a closing time come back, the trace announced the window, and a delivered step can be disputed inside it |
+
+Verified against the run, not in CI: it needs a payer key. On 2026-09-24 it
+**fails** — no settlement is ever recorded because the charge never lands
+(D-050, behind D-039).
+
+## Acceptance criteria — DP, the dispute happy path (story 6.03a, verifies 4.02–4.06)
+
+One real dispute, from a settled payment to both on-chain artifacts. The story
+is deliberately a single sitting with a screen recording running, because the
+proof is the sequence: pay → receipt → dispute → uphold → the receipt flipping
+to "Refunded" without a reload → both transactions resolving on Stellar Expert.
+
+Three things in it are not QA's to do alone: `scripts/uphold_dispute.py` signs
+with the settler secret (Dan's), the recording needs a person, and the evidence
+is a session artifact rather than a test run. What the suite can hold is
+whether the path is reachable at all — which is what DP-01 measures, and why it
+is the first criterion rather than a footnote.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| DP-01 | a paid workflow that delivered | its disputes are read | a settlement and a closing window come back, so a step can be disputed |
+| DP-02 | no adjudicator credentials | uphold or reject is called | it is refused, and nothing is adjudicated |
+| DP-03 | a job that never settled | a dispute challenge is minted for it | it is refused as `unknown_job` |
+| DP-04 | any finished run | `GET /api/tasks/{task_id}/disputes` | it answers with that task's id, a `settlement` field and a `disputes` list |
+| DP-05 | an upheld dispute | its two transactions are opened on Stellar Expert | a transfer of the credited amount to the buyer and a `kind="dispute"` reputation write both resolve, and the credited amount matches the receipt |
+| DP-06 | the dispute rating's transaction | its job id is compared with the sealed job id from the attestation | the first 8 bytes are identical |
+| DP-07 | the trace page open on an open dispute | the dispute is upheld and credited | the receipt shows "Refunded" with both links, without a reload, and the recording shows it happening |
+
+DP-05 to DP-07 need the settler key and a recorded session; DP-01 to DP-04 run
+in `tests/dispute-path.spec.ts` on every suite run. On 2026-09-24 DP-01 fails
+(D-050) and DP-05 to DP-07 are blocked behind it and D-051.
+
+## Acceptance criteria — DR, the dispute refusal paths (story 6.03b, verifies 4.02–4.04)
+
+**Scope is inferred.** The story was supplied as a title only, so these criteria
+are QA's reading of "the dispute refusal paths" — every refusal the dispute API
+can produce — and are written against behaviour observed on the deployed
+service (`evidence/6.03b-dispute-refusals.md`). Replace them if the story's own
+criteria differ; the tests assert observed behaviour and will survive a
+renumbering.
+
+A refusal is only tested if it can be reached. DR-01 to DR-04 and DR-06 need
+nothing but a request; the rest need a settled dispute, which no deployment has
+produced yet (D-050), and are pinned rather than assumed.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| DR-01 | a malformed job id or a negative step index | a dispute challenge is requested | it is refused `422`, naming the field that was wrong |
+| DR-02 | a forged nonce and signature | a dispute is opened with them | it is refused, and the answer does not reveal whether the signature was the problem |
+| DR-03 | a reason past the 500-character cap, a payer that is not a G-address, or no reason | a dispute is opened | it is refused `422` before the job is looked up, naming the field |
+| DR-04 | a dispute id that does not exist | it is read | it is refused `404 unknown_dispute`, with a request id and no traceback |
+| DR-05 | a settled run and a wallet that is not its payer | that wallet raises a dispute | it is refused for authorization, not for a missing job |
+| DR-06 | no adjudicator credentials | uphold or reject is called | it is refused and nothing is adjudicated |
+| DR-07 | a dispute window that has closed | a step from that run is disputed | it is refused, and the closing time is stated |
+| DR-08 | a step already disputed | the same step is disputed again | `409`, carrying the existing dispute id |
+| DR-09 | a dispute already upheld or rejected | it is adjudicated again | it is refused and the first outcome stands |
+| DR-10 | a challenge nonce already used | it is replayed | it is refused — one use per nonce |
+| DR-11 | a credit that would exceed `max_refund_usdc` | the dispute is upheld | it is refused as over the cap, and nothing is transferred |
+
+Rate limiting (`429`) is advertised by every dispute route and is deliberately
+not tripped from the functional suite: the deployed limiter is a whole-service
+bucket, so exercising it would throttle the shared target for everyone else.
+
+## Acceptance criteria — IB, idempotency on the money path (story 6.03b, verifies 4.03–4.05)
+
+These are the story's own criteria; they arrived after DR was written from the
+title alone. Where they overlap, IB governs: DR-08 is IB-02, DR-10 and DR-11
+are attacks under IB-01 and IB-05, and **DR-09 is superseded for upheld
+disputes** — re-upholding a credited dispute is not refused, it is answered
+with the existing credit and retries the rating only (IB-03).
+
+Every money assertion resolves on Stellar Expert, counting credits from the
+settler on the buyer's account; a UI claim is not evidence.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| IB-01 | all seven attacks run against one dispute where they apply (second dispute on a step, double-click, two tabs, replayed signed body, re-uphold, two concurrent upholds, over-cap uphold) | the buyer's account is examined on Stellar Expert | exactly one credit from the settler exists per upheld dispute |
+| IB-02 | a step that already has a dispute | it is disputed again | `409 duplicate_dispute` carrying the original dispute, and the UI shows that dispute rather than a second form |
+| IB-03 | a credited dispute | the uphold is run again | no transfer is signed, the recorded refund hash is unchanged, and the rating comes back as a replay |
+| IB-04 | two upheld disputes against one agent on two steps of one workflow | both ratings are looked up on Stellar Expert | two distinct `kind="dispute"` writes resolve, neither refused as a replay of the other |
+| IB-05 | a computed credit above `MAX_REFUND_USDC` | the uphold is attempted | nothing reaches the chain, and the refusal names the amount and the cap |
+
+On 2026-09-24 none can be run on the deploy (D-050, D-051). They were attacked
+in code instead — `evidence/6.03b-idempotency.md` — and IB-01 fails there
+(D-053, D-058).
+
+## Acceptance criteria — WC, who may dispute and when (story 6.03c, verifies 4.02, 4.05)
+
+A dispute is authorised by the paying wallet's signature over a live
+challenge (ADR 0007 D2), not by the task token: the token proves someone holds
+the link, not that they paid. Both signature encodings real wallets produce —
+raw bytes and SEP-53 — must be accepted. The window's closing time is the one
+stamped at settlement, whatever `DISPUTE_WINDOW_SECONDS` says later. A non-payer
+sees nothing: no disabled control, no hint.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| WC-01 | disputes attempted just inside and just after the closing time | each is submitted | the first is accepted (`open`) and the second refused, naming when the window closed |
+| WC-02 | the trace page open with the window about to close | the closing time passes | every dispute action disappears without a reload |
+| WC-03 | a non-payer's wallet connected to the same trace | they look for and attempt a dispute | no dispute action is present, and a signed attempt from that wallet is refused |
+| WC-04 | a reused nonce and an expired nonce | each is submitted | both are refused, and neither message reads as "wrong wallet" |
+| WC-05 | an empty reason | submission is attempted in the UI and directly against the API | the UI submit stays disabled and the API refuses |
+| WC-06 | a reason longer than 500 characters | it is entered | the field caps it, and whatever is submitted is stored whole |
+
+Also exercised under these IDs: a wallet that is not connected sees the receipt,
+the window and a prompt to connect the paying wallet (WC-03); an undelivered,
+uncharged step has no dispute action and is refused by the API (WC-03).
+
+On 2026-09-25 only the API side of WC-05 and WC-06 can be reached on the deploy
+— the reason is checked before the job — and runs in
+`tests/dispute-eligibility.spec.ts`. Everything else needs a settled step
+(D-050) and was verified by running the backend and frontend locally:
+`evidence/6.03c-eligibility.md`.
+
+## Acceptance criteria — DU, durability and the unconfirmed-refund path (story 6.03d, verifies 4.02–4.06)
+
+Durability is tested by restarting, not by reasoning: Render restarts an idle
+free-tier service routinely, and `/health` reports `uptime_seconds`, so a
+restart can be seen from outside. None of this holds without `DATABASE_URL`;
+the store announces itself in the log. A timed-out refund is never retried
+automatically — the dispute keeps its claim and stays `crediting` until a
+person reconciles it, which is correct behaviour, not a defect.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| DU-01 | an open dispute and a backend restart | the trace page is reloaded | the dispute still exists with its status, reason, amounts and the same closing time |
+| DU-02 | a settled workflow and a backend restart | a step is disputed afterwards | the dispute is accepted |
+| DU-03 | a refund submitted but not confirmed | the receipt is viewed | it shows a pending refund and a "Refund in progress" badge, and nowhere says the credit is complete |
+| DU-04 | a dispute left in `crediting` | the reconciliation queue is read and the script is run again | the dispute is in the queue, and the script refuses and tells the operator not to re-run it |
+| DU-05 | the deployed backend | its startup log is read | it names Postgres, not the in-memory fallback |
+
+Also under these IDs: with `TASK_AUTH_REQUIRED` on, a restart loses task tokens
+but never a buyer's ability to raise or read a dispute (DU-01, DU-02); a credit
+reconciled by hand carries its amount and rating confirmation (DU-04).
+
+On 2026-09-25 only DU-05 could be checked on the deploy, and by proxy rather
+than from the log: a binding older than the running process is still served
+(`tests/durability.spec.ts`). The restarts behind DU-01 – DU-04 were run locally
+with `tools/restart-drill/`: a real backend hard-killed on a real Postgres, the
+real uphold script, and the real frontend as the payer.
+`evidence/6.03d-durability.md` has the results.
+
+## Acceptance criteria — RC, the reputation consequence and routing (story 6.03e, verifies 3.02 / 4.04)
+
+An upheld dispute is more than a refund: the settler writes a second rating
+(kind `dispute`, 10/100) beside its own, never replacing it, so the agent's
+`dispute_rate_bps` rises and its score falls. The rating is weighted by the
+step's quoted price and filed under a job id derived from the sealed one, whose
+first 8 bytes are the sealed job's. A landed rating invalidates the cached score,
+so the next plan sees it without waiting out the 15 s read TTL. An unadjudicated
+dispute moves nothing. Prerequisite: `/readiness` `ratings.writer` is `scorer`.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| RC-01 | the agent's reputation before an upheld dispute | it is read again afterwards | `dispute_rate_bps` has risen, `count` is one higher, and both numbers are recorded |
+| RC-02 | the dispute rating on Stellar Expert | its arguments are inspected | `kind` is `dispute` and the weight is the step's quoted price, not the settled total |
+| RC-03 | the rating's job id and the sealed job id | they are compared | the first 8 bytes are identical |
+| RC-04 | a dispute rating that has just landed | a new intent is decomposed within seconds | the plan, and the marketplace badge, show the updated score, not the pre-dispute one |
+| RC-05 | a dispute that has not been adjudicated | the agent's reputation is read | it is unchanged |
+
+On 2026-09-25 no dispute could be upheld on the deploy (D-050, D-051). There,
+`tests/reputation-consequence.spec.ts` checks the scorer prerequisite and that a
+plan stamps what the reputation route reads. RC-01 stays pinned as an expected
+failure. The upheld path ran on testnet with `tools/reputation-drill/`: a real
+backend and Postgres, the drill's own ReputationLedger built from the deployed
+wasm, and both ways to uphold (the adjudication route, and
+`scripts/uphold_dispute.py` in its own process). `evidence/6.03e-reputation-consequence.md`
+has the before and after numbers and every transaction.
+
+## Acceptance criteria — DS, the dispute UI and receipt in every state (story 6.03f, verifies 4.05 / 4.06)
+
+The receipt on the trace page is a recorded evidence artifact (SOW §6.1), so
+wording is tested as strictly as behaviour. The rule to hunt for: nothing may
+read as done until the chain says so. The buyer's reason and the rejection
+reason are for the payer only. Other viewers see the status and the times.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| DS-01 | the five dispute states: open, crediting, credited, credited with the rating unconfirmed, rejected | each is read | each explains itself (open says what is next, rejected says why), and no unconfirmed credit or rating reads as complete |
+| DS-02 | a credited dispute | both links are opened | they resolve on Stellar Expert (testnet) to that dispute's refund transfer and dispute rating |
+| DS-03 | the credited amount | its line is read | it says the platform funded it and that it was not clawed back from the agent |
+| DS-04 | a rejected dispute | it is viewed by the payer and by anyone else | the payer sees the reason, nobody else does (not on screen, in the page source or in any response), and no rejection can be recorded without one |
+| DS-05 | the page open on an open dispute | it is upheld and credited | the receipt reaches "Refunded" with both links, with no reload |
+| DS-06 | a credited receipt on a phone | it is viewed | there is no horizontal scroll and both links are tappable |
+| DS-07 | a screen reader on the receipt | the countdown runs and the status changes | the countdown is not announced, and each status change is announced once |
+
+## Acceptance criteria — AD, the adjudication door and the refund switch (story 6.03g, verifies 4.03)
+
+`POST /api/disputes/{id}/uphold` is the one route that spends the platform's own
+balance, on an operator's say-so, with nothing on-chain bounding it. Refunds
+ship off (`DISPUTE_REFUNDS_ENABLED=false`). Turning them on makes `API_KEY`
+mandatory at boot on every network. The guard (`require_adjudicator`) fails
+closed on every request. This is mostly negative testing. Any 500 on this door
+is an Urgent Bug, and a refusal must not reveal the route's shape.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| AD-01 | `DISPUTE_REFUNDS_ENABLED=false` | uphold and reject are called, with a valid key and without | both are refused 503 `dispute_refunds_disabled`, and nothing is signed |
+| AD-02 | refunds enabled and an empty `API_KEY` | the service starts | it refuses to boot, with a message naming `API_KEY` |
+| AD-03 | a missing, wrong, short and non-ASCII key | each calls uphold (and reject) | each is refused 401 (503 while refunds are off), never 500 |
+| AD-04 | no key and an invalid body (wrong shape, or malformed JSON) | uphold or reject is called | the guard's refusal answers, not a validation error |
+| AD-05 | a reject with no, null, empty or whitespace-only note, and a valid key | each is submitted | each is refused and the dispute does not change state |
+| AD-06 | a payer raising a dispute | they submit with only their wallet signature | it is accepted with no API key involved |
+
+The deploy runs with refunds off, and they must stay off until D-053 is fixed,
+so nothing on it was toggled. `tests/adjudication-door.spec.ts` holds the
+refunds-off answers live. The refunds-on half (AD-02, AD-03 and AD-04 with a
+key configured, AD-05, AD-06 and AD-01 with a valid key) runs against a real
+local backend in `tools/adjudication-drill/`.
+
+## Acceptance criteria — SD, the story 6.03 card as a whole (verifies Epic 4, 4.01–4.06)
+
+Story 6.03 is the parent of 6.03a–g. Its eight criteria are the card's own
+wording. Each is judged from the sub-story criteria listed against it, and never
+from the x402 stub. A money assertion counts only when its transaction resolves
+on Stellar Expert (testnet).
+
+| ID | Given | When | Then | Judged from |
+| --- | --- | --- | --- | --- |
+| SD-01 | a settled workflow with a disputed step | the dispute is upheld | a USDC refund and a `kind="dispute"` rating both resolve on Stellar Expert | DP-01, DP-05, DP-06, RC-02, DS-02 |
+| SD-02 | a credited dispute | the refund is retried, double-submitted, replayed and re-triggered | exactly one transfer exists across all four | IB-01, IB-02, IB-03, DU-03, DU-04 |
+| SD-03 | disputes just inside and just after the window | each is submitted | the first is accepted; the second is refused, stating the closing time | WC-01, WC-02, DR-07 |
+| SD-04 | a trace link shared with a non-payer | they try to dispute | they are refused as unauthorised, and the UI shows no dispute action | WC-03, DR-05, DS-04 |
+| SD-05 | an open dispute | the backend is restarted | it still exists with its status and reason, and can still be processed | DU-01, DU-02, DU-05 |
+| SD-06 | a credit above the settled amount or the refund cap | it is attempted | it is clamped or refused before anything is signed, and the refusal is logged | DR-11, IB-05 |
+| SD-07 | an upheld dispute | the reputation is read and a new plan is built | `dispute_rate_bps` has risen, and the plan uses the new score rather than a cached one | RC-01, RC-03, RC-04 |
+| SD-08 | a refund that lands and a rating write that then fails | the failure is handled | the buyer keeps the credit, and the log line carries the dispute id, job id, payer and amount | DS-01 (rating unconfirmed), DU-04, and a direct log check |
