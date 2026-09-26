@@ -2364,7 +2364,7 @@ pass the amount to `_refuse_credit`.
 ## D-056 — Every dispute refusal except the duplicate loses the service's message on the wire
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** Fixed in code at backend `08efeda` for the buyer's routes, not yet deployed (re-checked 2026-09-26, story 6.03). A replay answers `400 challenge_expired` with the service's own message. A late dispute answers `409 dispute_window_closed`, "…closed at 2026-09-26T01:55:41+00:00". `not_the_payer`, `signature_malformed` and `unknown_job` carry theirs too (298574b, 042a5e2, ff75cc2). The adjudication routes still answer with a code only, which is now documented as deliberate. It moves to Resolved when WC-01 passes on the deploy.
 - **Affects:** IB-02, DR-07, WC-01, WC-04 (stories 6.03b, 6.03c, 4.02) — reconfirmed 2026-09-25 by running the service locally: a dispute after the close is refused `409 dispute_window_closed` with the message `"dispute window closed"`, and the closing time the service built is dropped
 
 **Steps to reproduce** — backend origin/main `3347090`: replay a captured
