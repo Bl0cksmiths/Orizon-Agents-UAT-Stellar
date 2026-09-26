@@ -197,10 +197,7 @@ test("DU-04 a credit reconciled by the script's own hint ends with a complete re
   // re-run it asks for, which lands the dispute rating on the drill's testnet ledger.
   if (!backend) await startBackend();
   await connectPayer(page);
-  // Not openAsPayer: since backend 08efeda the payer's reason is withheld from a tab without
-  // the task's read token (D-067), so the receipt's payer voice ("your wallet") proves the wallet.
-  await page.goto(`/app/trace?task=${encodeURIComponent(seed.tasks.reconciled)}`);
-  await expect(page.getByText("Loading the receipt…")).toHaveCount(0);
+  await openAsPayer(page, seed.tasks.reconciled);
   await expect(page.getByText("Refunded")).toBeVisible();
   await page.screenshot({ path: info.outputPath("du04-reconciled.png"), fullPage: true });
   const receipt = await receiptText(page);
