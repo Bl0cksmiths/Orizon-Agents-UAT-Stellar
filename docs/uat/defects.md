@@ -3027,4 +3027,8 @@ without finding a second, lower-level line.
 **Resolution path** — add `credited_usdc` (and `refund_tx`) to the rating
 outcome line.
 
+**Verified by** — `tools/rating-log-drill/drill.py`, for both a rating answered
+`FAILED` and one that raises. The credit and the ids pass. "the error line
+carries the amount" is XFAIL, pinned to D-075.
+
 ---
