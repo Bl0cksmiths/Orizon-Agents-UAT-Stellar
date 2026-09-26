@@ -393,3 +393,22 @@ pass, 1 XFAIL.
 | AD-04 | spec "AD-04 …": the wrong-shaped body and uphold's malformed JSON get the guard's answer (**pass** live); reject's malformed JSON (`test.fail()`, D-073); `drill.py ad04`: the same with refunds on (XFAIL, D-073) | **Fail**: D-073 (contested) |
 | AD-05 | `drill.py ad05`: no, null, empty, whitespace and control-character notes each refused 422, dispute still `open`, nothing signed; then a real rejection (**pass**) | **Pass** |
 | AD-06 | spec "AD-06 the buyer's routes never ask for the operator key" (**pass** live); `drill.py ad06`: challenge and open with only a signature and refunds on (**pass**) | **Pass** |
+
+## SD — the story 6.03 card as a whole
+
+Rolled up 2026-09-26; `evidence/6.03-dispute-refund-rating.md`. Live checks:
+the five 6.03 specs, 30 of 30 on `chromium-desktop` (expected failures
+included). Code checks: the sub-story drills, the §3 re-checks at backend
+`08efeda` and frontend `5105a8b`, and `tools/rating-log-drill/drill.py` (16
+pass, 2 XFAIL).
+
+| criterion | verification | status |
+| --- | --- | --- |
+| SD-01 | DP-01 (`test.fail()`, D-050); DP-05, DP-06, RC-02, DS-02 on the drill ledger: refund `a5baac43…` and rating `7138e4e3…` resolve on testnet | **Blocked**: D-050, D-051 |
+| SD-02 | IB-01..IB-03 (6.03b attacks 1–7, re-run at `08efeda`); DU-03, DU-04 | **Pass in code**; not proven on-chain |
+| SD-03 | WC-01, WC-02, DR-07 | **Fail**: D-060; D-056 fixed in code, not deployed |
+| SD-04 | WC-03, DR-05, DS-04 | **Pass in code** |
+| SD-05 | DU-01, DU-02 (`tools/restart-drill`); DU-05 (**pass** live) | **Pass in code**; D-065 latent |
+| SD-06 | DR-11, IB-05 | **Fail**: D-054, D-055 |
+| SD-07 | RC-01..RC-05 (`tools/reputation-drill`); RC-04 script path XFAIL | **Fail**: D-066 |
+| SD-08 | `rating-log-drill`: credit kept (**pass**); the error line's amount (XFAIL); DS-01 rating-unconfirmed state | **Fail**: D-075 |
