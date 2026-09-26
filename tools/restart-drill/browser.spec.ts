@@ -151,7 +151,7 @@ test("DU-01 an open dispute reads the same after a backend restart", async ({ pa
   await startBackend();
   await page.reload();
   await expect(page.getByText("Loading the receipt…")).toHaveCount(0);
-  await expect(page.getByText(REASON)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Receipt" }).getByText(PAYER_VOICE).first()).toBeVisible();
   await expect(page.getByText("Under review")).toBeVisible();
   await page.screenshot({ path: info.outputPath("du01-after.png"), fullPage: true });
 
