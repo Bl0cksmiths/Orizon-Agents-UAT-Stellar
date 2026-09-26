@@ -118,10 +118,14 @@ async function connectPayer(page: Page): Promise<void> {
   }, seed.payer);
 }
 
+/** The receipt speaks to the payer ("your wallet") and to anyone else of "the payer's wallet". */
+const PAYER_VOICE = /your wallet/;
+
 async function openAsPayer(page: Page, task: string): Promise<void> {
   await page.goto(`/app/trace?task=${encodeURIComponent(task)}`);
   await expect(page.getByText("Loading the receipt…")).toHaveCount(0);
-  await expect(page.getByText(REASON)).toBeVisible();
+  // Not the payer's reason: a tab without the task's read token is never sent it (D-067).
+  await expect(page.getByRole("region", { name: "Receipt" }).getByText(PAYER_VOICE).first()).toBeVisible();
 }
 
 /** The receipt card's text — not the trace log beside it — with the ticking relative times blanked out. */
