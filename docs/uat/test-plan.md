@@ -1023,3 +1023,17 @@ so nothing on it was toggled. `tests/adjudication-door.spec.ts` holds the
 refunds-off answers live. The refunds-on half (AD-02, AD-03 and AD-04 with a
 key configured, AD-05, AD-06 and AD-01 with a valid key) runs against a real
 local backend in `tools/adjudication-drill/`.
+
+## Acceptance criteria — SD, the story 6.03 card as a whole (verifies Epic 4, 4.01–4.06)
+
+Story 6.03 is the parent of 6.03a–g. Its eight criteria are the card's own
+wording. Each is judged from the sub-story criteria listed against it, and never
+from the x402 stub. A money assertion counts only when its transaction resolves
+on Stellar Expert (testnet).
+
+| ID | Given | When | Then | Judged from |
+| --- | --- | --- | --- | --- |
+| SD-01 | a settled workflow with a disputed step | the dispute is upheld | a USDC refund and a `kind="dispute"` rating both resolve on Stellar Expert | DP-01, DP-05, RC-01, DS-05 |
+| SD-02 | a credited dispute | the refund is retried, double-submitted, replayed and re-triggered | exactly one transfer exists across all four | IB-01..IB-05, DU-02 |
+| SD-03 | disputes just inside and just after the window | each is submitted | the first is accepted; the second is refused, stating the closing time | WC-01, WC-02 |
+| SD-04 | a trace link shared with a non-payer | they try to dispute | they are refused as unauthorised, and the UI shows no dispute action | WC-03, WC-04, DS-06 |
