@@ -2604,7 +2604,7 @@ names the dispute store" (XFAIL, pinned to D-063).
 ## D-064 — A credit reconciled by the uphold script's own hint is never rated, and the hint says not to re-run
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** Fixed in code at backend `08efeda`, not yet deployed (re-checked 2026-09-26, story 6.03). The timeout block's SUCCEEDED branch now records the hash and amount, and then asks for one re-run. It says a re-run on a `credited` dispute "writes that rating alone" and signs no second transfer. That was confirmed by running the real `uphold` on a credited dispute: no transfer, rating written. The backend's own tests pin it: `test_the_timeout_block_asks_for_the_one_re_run_that_finishes_the_dispute` and `test_a_rerun_after_a_rating_that_did_not_land_writes_the_rating_and_signs_no_transfer` (7696ffd, c9661aa). **Deferred:** the pins in `tools/restart-drill/drill.py du04` and `browser.spec.ts` have not been re-run at `08efeda`, because the drill needs about 4 GB of free RAM and the laptop had 0.2 GB. At that re-run, lift each pin that XPASSes, and move the post-reconcile rating check to after the re-run the hint now asks for.
 - **Affects:** DU-04, DU-03 (story 6.03d); stories 4.04, 4.06
 
 **Steps to reproduce** — backend origin/main `3347090` on a real Postgres. Take a
