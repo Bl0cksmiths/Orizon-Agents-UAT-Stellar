@@ -97,14 +97,28 @@ def sd08_credit_kept(upheld) -> None:
     check("SD-08 no rating hash is claimed", upheld.rating_tx is None, str(upheld.rating_tx))
 
 
+def sd08_failure_logged(opened) -> None:
+    """The rating's failure line must let an operator reconcile the credit from it alone."""
+    errors = [r.getMessage() for r in records
+              if r.name == "app.services.dispute_svc" and r.levelno >= logging.ERROR]
+    check("SD-08 the rating failure is logged as an error", len(errors) == 1, f"{len(errors)} lines")
+    line = errors[0] if errors else ""
+    for field, value in (("dispute id", opened.id), ("job id", opened.job_id_hex),
+                         ("payer", opened.payer)):
+        check(f"SD-08 the error line carries the {field}", value in line, line)
+    check("SD-08 the error line carries the amount", str(PRICE) in line,
+          line, defect="D-075")
+
+
 async def main() -> int:
     refund_svc.execute_refund = execute_refund
     sc.submit_rating_async = submit_rating_async
     logging.getLogger().addHandler(Capture())
     logging.getLogger().setLevel(logging.INFO)
 
-    _, upheld = await upheld_with_a_failed_rating()
+    opened, upheld = await upheld_with_a_failed_rating()
     sd08_credit_kept(upheld)
+    sd08_failure_logged(opened)
 
     for name, verdict, detail in results:
         print(f"{verdict:5}  {name}  {detail}")
