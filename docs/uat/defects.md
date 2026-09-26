@@ -2741,8 +2741,27 @@ So in `tools/restart-drill/browser.spec.ts`:
 - DU-04 passes, because it proves the payer by the receipt's payer voice.
 - The token-gap test still fails as expected on D-065's assertion.
 
-These three tests are not yet pinned or reworked. As they stand, they fail on
-D-067 before, or instead of, their durability checks.
+**Reworked the same day.** The reason is now pinned in one place: a test named
+"DU-01 the payer's own reason is on their receipt", `test.fail()` on D-067
+(0607d1a). `openAsPayer`, DU-01's post-reload check and DU-02's last line prove
+the payer by the receipt's own voice instead, "your wallet", which anyone else
+reads as "the payer's wallet" (344c55c, b77cb56, 27b0c92). DU-04 went back to
+the shared helper (6c82291).
+
+Each test was then run on its own, against backend `08efeda`, frontend `5105a8b`
+and a real Postgres:
+- DU-01 passes (18.7 min).
+- DU-02 passes.
+- DU-03 passes.
+- DU-04 passes.
+- The D-067 test fails as expected.
+- The token-gap test fails as expected (D-065).
+
+A run of the whole file in its serial order did **not** complete. DU-01's second
+backend boot never started within the spec's 420 s: its log is empty, so Python
+never finished importing. The laptop had about 190 MB available (3.8 GB total).
+That is the machine, not the product, but the serial run is still owed on a
+machine with room.
 
 **Steps to reproduce** — backend `08efeda`, frontend `5105a8b`, with
 `tools/dispute-ui-drill/`: reject a dispute with a reason, then open the trace
