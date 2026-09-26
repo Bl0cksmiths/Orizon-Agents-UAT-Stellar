@@ -2277,8 +2277,14 @@ so an anonymous caller gets `401` whatever the flag says.
 ## D-053 — Adjudication concurrency: a money-path defect, held privately
 
 - **Severity:** Critical (story 6.03b: Urgent, stop-the-line)
-- **Status:** Open — details held privately
+- **Status:** Fixed in code, not yet deployed — details held privately
 - **Affects:** IB-01 (story 6.03b)
+
+**Re-check 2026-09-26 (story 6.03)** — the private reproduction was re-run against
+backend origin/main `08efeda`, including on a real Postgres. It produced one transfer
+where `3347090` signed two. The deploy still runs an older build (§1 of
+`evidence/6.03-dispute-refund-rating.md`), so the advice below stands until the deploy
+runs `08efeda` or later. This moves to Resolved when IB-01 passes on the deploy.
 
 Found 2026-09-24 by reading and exercising the backend's adjudication code
 (origin/main `3347090`) with the signer stubbed. The mechanism and the
