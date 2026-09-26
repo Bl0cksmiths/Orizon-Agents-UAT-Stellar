@@ -1037,3 +1037,7 @@ on Stellar Expert (testnet).
 | SD-02 | a credited dispute | the refund is retried, double-submitted, replayed and re-triggered | exactly one transfer exists across all four | IB-01, IB-02, IB-03, DU-03, DU-04 |
 | SD-03 | disputes just inside and just after the window | each is submitted | the first is accepted; the second is refused, stating the closing time | WC-01, WC-02, DR-07 |
 | SD-04 | a trace link shared with a non-payer | they try to dispute | they are refused as unauthorised, and the UI shows no dispute action | WC-03, DR-05, DS-04 |
+| SD-05 | an open dispute | the backend is restarted | it still exists with its status and reason, and can still be processed | DU-01, DU-02, DU-05 |
+| SD-06 | a credit above the settled amount or the refund cap | it is attempted | it is clamped or refused before anything is signed, and the refusal is logged | DR-11, IB-05 |
+| SD-07 | an upheld dispute | the reputation is read and a new plan is built | `dispute_rate_bps` has risen, and the plan uses the new score rather than a cached one | RC-01, RC-03, RC-04 |
+| SD-08 | a refund that lands and a rating write that then fails | the failure is handled | the buyer keeps the credit, and the log line carries the dispute id, job id, payer and amount | DS-01 (rating unconfirmed), DU-04, and a direct log check |
