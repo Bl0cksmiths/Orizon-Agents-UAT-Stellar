@@ -1033,7 +1033,7 @@ on Stellar Expert (testnet).
 
 | ID | Given | When | Then | Judged from |
 | --- | --- | --- | --- | --- |
-| SD-01 | a settled workflow with a disputed step | the dispute is upheld | a USDC refund and a `kind="dispute"` rating both resolve on Stellar Expert | DP-01, DP-05, RC-01, DS-05 |
-| SD-02 | a credited dispute | the refund is retried, double-submitted, replayed and re-triggered | exactly one transfer exists across all four | IB-01..IB-05, DU-02 |
-| SD-03 | disputes just inside and just after the window | each is submitted | the first is accepted; the second is refused, stating the closing time | WC-01, WC-02 |
-| SD-04 | a trace link shared with a non-payer | they try to dispute | they are refused as unauthorised, and the UI shows no dispute action | WC-03, WC-04, DS-06 |
+| SD-01 | a settled workflow with a disputed step | the dispute is upheld | a USDC refund and a `kind="dispute"` rating both resolve on Stellar Expert | DP-01, DP-05, DP-06, RC-02, DS-02 |
+| SD-02 | a credited dispute | the refund is retried, double-submitted, replayed and re-triggered | exactly one transfer exists across all four | IB-01, IB-02, IB-03, DU-03, DU-04 |
+| SD-03 | disputes just inside and just after the window | each is submitted | the first is accepted; the second is refused, stating the closing time | WC-01, WC-02, DR-07 |
+| SD-04 | a trace link shared with a non-payer | they try to dispute | they are refused as unauthorised, and the UI shows no dispute action | WC-03, DR-05, DS-04 |
