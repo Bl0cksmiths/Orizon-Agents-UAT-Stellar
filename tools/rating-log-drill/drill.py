@@ -66,7 +66,14 @@ async def execute_refund(buyer: str, amount_usdc: float) -> dict:
 
 
 async def submit_rating_async(agent_id, job_id, rating, weight, payer, kind) -> dict:
+    """The rating fails in one of the two ways the network can fail it: answered FAILED,
+    or the call itself raising, as a dropped RPC connection does."""
+    if RATING_FAILURE == "raise":
+        raise ConnectionError("rpc connection dropped")
     return {"status": "FAILED", "hash": "tx_rating_failed"}
+
+
+RATING_FAILURE = "answer"
 
 
 async def upheld_with_a_failed_rating():
@@ -116,9 +123,12 @@ async def main() -> int:
     logging.getLogger().addHandler(Capture())
     logging.getLogger().setLevel(logging.INFO)
 
-    opened, upheld = await upheld_with_a_failed_rating()
-    sd08_credit_kept(upheld)
-    sd08_failure_logged(opened)
+    global RATING_FAILURE
+    for RATING_FAILURE in ("answer", "raise"):
+        opened, upheld = await upheld_with_a_failed_rating()
+        results.append((f"-- rating {RATING_FAILURE}s a failure", "", ""))
+        sd08_credit_kept(upheld)
+        sd08_failure_logged(opened)
 
     for name, verdict, detail in results:
         print(f"{verdict:5}  {name}  {detail}")
