@@ -47,4 +47,10 @@ open defect that now passes, whose pin must then come off.
 | `du02` | DU-02 | seeds a settlement, restarts, then opens a dispute on it with a real signature |
 | `token-gap` | DU-01, DU-02 | `TASK_AUTH_REQUIRED=true`: after a restart the per-task listing 404s, while `GET /api/disputes/{id}` and a new dispute still work without a token |
 | `du04` | DU-03, DU-04 | a transfer that times out: exit 10 and "DO NOT RE-RUN", `crediting` with the hash and no amount through a restart, in `list_refund_claims()`, a re-run that exits 6 and signs nothing, then the hand-reconcile hint followed to the letter |
-| `browser-seed` + `browser.spec.ts` | DU-01 – DU-04 | the payer's trace page reloaded across a restart, a dispute raised through the dialog after one, the `crediting` and hand-reconciled receipts, and the token gap as the payer sees it |
+| `browser-seed` + `browser.spec.ts` | DU-01 – DU-04 | the payer's trace page reloaded across a restart, a dispute raised through the dialog after one, the `crediting` receipt, the hand-reconciled one after the re-run its hint asks for, and the token gap as the payer sees it |
+
+`browser-seed` also needs the 6.03e testnet fixtures. It re-runs the uphold script once on the
+hand-reconciled dispute with `DRILL_STATE`'s ledger and settler (see `tools/reputation-drill`),
+and that re-run lands one real `dispute` rating on the drill's own testnet ledger. On a machine
+whose TLS is intercepted, set `REQUESTS_CA_BUNDLE` (and `SSL_CERT_FILE`) for that re-run, and
+`NODE_EXTRA_CA_CERTS` for the browser half.
