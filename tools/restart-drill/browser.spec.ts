@@ -172,7 +172,8 @@ test("DU-02 a settlement recorded before a restart is disputed through the UI af
   await dialog.getByRole("button", { name: "Done" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText("Under review")).toBeVisible();
-  await expect(page.getByText("After the restart: the signup form still never submits.")).toBeVisible();
+  // The payer's own dispute, by the receipt's voice; its reason is D-067's to show (see below).
+  await expect(page.getByRole("region", { name: "Receipt" }).getByText(PAYER_VOICE).first()).toBeVisible();
   await page.screenshot({ path: info.outputPath("du02-after-restart.png"), fullPage: true });
 });
 
