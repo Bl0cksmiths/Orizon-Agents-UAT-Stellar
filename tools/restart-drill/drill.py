@@ -394,11 +394,15 @@ def du04() -> None:
     _, one = http("GET", f"/api/disputes/{dispute_id}")
     api.kill()
     check("the reconciled dispute carries what it paid", one.get("status") == "credited" and one.get("credited_usdc") == 0.25)
-    check("the reconciled dispute carries its rating", one.get("rating_tx") is not None, "never written", defect="D-064")
+    check("before its re-run the reconciled dispute carries no rating", one.get("rating_tx") is None, repr(one.get("rating_tx")))
 
     code, out = run_uphold(dispute_id, env, calls, secrets.token_hex(32), "du04-run3")
     check("a later run on the reconciled dispute signs no transfer", transfers_signed(calls) == 1)
     check("a later run says the credit will not be paid again", "ALREADY CREDITED — the credit will NOT be paid again" in out, f"exit {code}")
+    # The drill's RPC goes nowhere, so the rating is attempted but cannot land; landing is RC-02's.
+    rerun = (LOGS / "du04-run3.stderr.txt").read_text(encoding="utf-8")
+    check("the re-run attempts the dispute rating, and only that", "the dispute rating ONLY" in out
+          and f"dispute rating unconfirmed — it may still land; uphold again to settle it: dispute={dispute_id}" in rerun)
 
 
 def browser_seed() -> None:
