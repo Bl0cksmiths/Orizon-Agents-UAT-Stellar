@@ -362,7 +362,7 @@ def du04() -> None:
     check("run 1 exits 10, the timeout code", code == 10, str(code))
     check("run 1 signed exactly one transfer", transfers_signed(calls) == 1)
     check("run 1 says the transfer timed out and may still land", "THE TRANSFER TIMED OUT — IT MAY STILL LAND." in out)
-    check("run 1 says DO NOT RE-RUN THIS SCRIPT FOR THIS DISPUTE", "DO NOT RE-RUN THIS SCRIPT FOR THIS DISPUTE." in out)
+    check("run 1 says DO NOT RE-RUN THIS SCRIPT YET", "DO NOT RE-RUN THIS SCRIPT YET" in out)
     check("run 1 prints the in-flight hash", tx in out)
     check("run 1 never calls it a refusal", "REFUSED" not in out and "nothing was signed" not in out)
     check("the claim is in the reconciliation queue", dispute_id in reconciliation_queue())
@@ -381,7 +381,7 @@ def du04() -> None:
     code, out = run_uphold(dispute_id, env, calls, secrets.token_hex(32), "du04-run2")
     check("run 2 exits 6, the in-flight code", code == 6, str(code))
     check("run 2 signs nothing", transfers_signed(calls) == 1)
-    check("run 2 says DO NOT RE-RUN THIS SCRIPT FOR THIS DISPUTE", "DO NOT RE-RUN THIS SCRIPT FOR THIS DISPUTE." in out)
+    check("run 2 says DO NOT RE-RUN THIS SCRIPT YET", "DO NOT RE-RUN THIS SCRIPT YET" in out)
     check("run 2 points at list_refund_claims() to find it later", "list_refund_claims()" in out)
     succeeded = out.split("it SUCCEEDED", 1)[-1].split("it FAILED", 1)[0]
     check("the hand-reconcile hint carries the amount", "credited_usdc=<the amount the transfer moved>" in succeeded)
