@@ -16,6 +16,7 @@ const seed = JSON.parse(readFileSync(path.join(LOGS, "browser-seed.json"), "utf8
   tasks: Record<"open" | "settled" | "crediting" | "reconciled", string>;
   disputes: Record<"open" | "crediting" | "reconciled", string>;
   refundTx: Record<"crediting" | "reconciled", string>;
+  ratingTx: string;
 };
 
 // The payer's own words: the receipt shows them to the payer alone, so seeing
@@ -187,17 +188,20 @@ test("DU-03 a submitted, unconfirmed refund reads as pending everywhere", async 
 });
 
 test("DU-04 a credit reconciled by the script's own hint ends with a complete receipt", async ({ page }, info) => {
-  // D-064: the hint records hash and amount but never the dispute rating, so the
-  // receipt says "the dispute rating it costs Coder is not confirmed yet" forever.
-  test.fail();
+  // The hint followed to the letter: hash and amount recorded by hand, then the one
+  // re-run it asks for, which lands the dispute rating on the drill's testnet ledger.
   if (!backend) await startBackend();
   await connectPayer(page);
-  await openAsPayer(page, seed.tasks.reconciled);
+  // Not openAsPayer: since backend 08efeda the payer's reason is withheld from a tab without
+  // the task's read token (D-067), so the receipt's payer voice ("your wallet") proves the wallet.
+  await page.goto(`/app/trace?task=${encodeURIComponent(seed.tasks.reconciled)}`);
+  await expect(page.getByText("Loading the receipt…")).toHaveCount(0);
   await expect(page.getByText("Refunded")).toBeVisible();
   await page.screenshot({ path: info.outputPath("du04-reconciled.png"), fullPage: true });
   const receipt = await receiptText(page);
-  expect(receipt).toMatch(/0\.25\d* USDC credited to/);
+  expect(receipt).toMatch(/0\.25\d* USDC credited to your wallet/);
   expect(receipt).toContain("it cost Coder a dispute rating on its reputation");
+  await expect(page.locator(`a[href="https://stellar.expert/explorer/testnet/tx/${seed.ratingTx}"]`)).toBeVisible();
 });
 
 test("DU-01 with TASK_AUTH_REQUIRED on, the payer still sees their dispute after a restart", async ({ page }, info) => {
