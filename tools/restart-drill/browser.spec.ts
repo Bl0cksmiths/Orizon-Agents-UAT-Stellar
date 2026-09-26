@@ -204,6 +204,17 @@ test("DU-04 a credit reconciled by the script's own hint ends with a complete re
   await expect(page.locator(`a[href="https://stellar.expert/explorer/testnet/tx/${seed.ratingTx}"]`)).toBeVisible();
 });
 
+test("DU-01 the payer's own reason is on their receipt", async ({ page }) => {
+  // D-067: since backend 08efeda the reason is withheld from any tab without the task's read
+  // token, and this page is such a tab: every read answers reason "", so no quote is drawn.
+  test.fail();
+  if (!backend) await startBackend();
+  await connectPayer(page);
+  await page.goto(`/app/trace?task=${encodeURIComponent(seed.tasks.open)}`);
+  await expect(page.getByText("Loading the receipt…")).toHaveCount(0);
+  await expect(page.getByText(REASON)).toBeVisible({ timeout: 30_000 });
+});
+
 test("DU-01 with TASK_AUTH_REQUIRED on, the payer still sees their dispute after a restart", async ({ page }, info) => {
   // D-065: the per-task read 404s once the in-memory token is gone, and the
   // console treats that 404 as "no receipt route": the panel and every dispute
