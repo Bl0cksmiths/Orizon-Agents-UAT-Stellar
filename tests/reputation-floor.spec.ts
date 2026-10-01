@@ -293,6 +293,28 @@ test.describe("RF-11 live — the reputation signals the split deploy withheld (
       "the reputation route still drops the degraded flag at the API boundary (D-024)",
     ).toBe(false);
   });
+
+  /**
+   * `FloorSummary` (floor-summary.tsx) returns null when `plan.floor_bps` is
+   * absent, so on the split deploy the live card never stated the floor it was
+   * built under. With the field served it must, on the 0–5 scale the badges
+   * use (`bps / 2000`).
+   */
+  test("RF-14 the live plan card states the routing floor it was built under", async ({
+    page,
+  }) => {
+    const errors = collectConsoleErrors(page);
+    await decomposeIntent(page, EVIDENCE_INTENT);
+
+    const summary = page.getByRole("region", { name: "routing floor" });
+    await expect(summary, "the floor summary did not render on a live plan").toBeVisible();
+    await expect(summary).toContainText(`floor ${(FLOOR_BPS / 2000).toFixed(2)} · applied`);
+
+    expect(
+      errors.getConsoleErrors(),
+      JSON.stringify(errors.getConsoleErrors(), null, 2),
+    ).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
