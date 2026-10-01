@@ -2109,7 +2109,7 @@ pointer to D-038.
 ## D-050 — No run can be disputed: the whole Epic 4 dispute path is unreachable behind the escrow defect
 
 - **Severity:** Critical
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01, with a narrower scope.** Escrow v2's `_settle_v2` writes the settlement record once the settle confirms (backend 2c12bd0). Verified live by `tests/dispute-path.spec.ts` DP-01 (9bfc1fb): `tsk_7e1c369cebaf41b3` reads `settlement_state: settled`, with step 0 (calculatorai) paid and `window_closes_at` = `settled_at` + 24 h, and its dispute is credited. DP-04 (dbb30fe) holds the no-settlement shape for a pre-v2 task. Only steps whose agent has an on-chain owner are paid and disputable: seeded `agt_*` steps settle at 0 and are refused `nothing_was_charged`.
 - **Affects:** EX-04 (stories 4.02, 4.05, 4.06); the dispute UI shipped in the frontend on 2026-09-22
 
 **Steps to reproduce** — run any workflow to completion on the deployed
