@@ -317,6 +317,79 @@ test.describe("RF-11 live — the reputation signals the split deploy withheld (
   });
 });
 
+/**
+ * RF-05 on the live free-form path, against a REAL sub-floor agent.
+ *
+ * The registry is no longer in cold start: on 2026-10-02 one bound agent
+ * (`faulty_test_v2`, a deliberately faulty team-run agent) read a Wilson lower
+ * bound of 5459 against the 5500 floor. The agent is found from the live
+ * registry rather than named here, so the test follows whichever bound agent
+ * is below the floor on the day.
+ *
+ * The intent names the agent and its skills — the attacker-style route D-028
+ * described. The backend (orchestrator_svc.py:1055 at 6da6da7) now holds every
+ * model step to the shortlist it was offered, and a sub-floor agent is never
+ * offered, so it must be reported as excluded and must not be a step.
+ */
+test.describe("RF-05 live — a real sub-floor agent named in a free-form intent (D-028)", () => {
+  test("RF-05 a bound sub-floor agent named by the intent is excluded with both numbers and is not hired", async ({
+    request,
+  }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 4);
+    const [paramsRes, repsRes, agentsRes] = await Promise.all([
+      request.get("/api/stellar/reputation/params", { timeout: COLD_START_TIMEOUT }),
+      request.get("/api/stellar/reputation", { timeout: COLD_START_TIMEOUT }),
+      request.get("/api/agents", { timeout: COLD_START_TIMEOUT }),
+    ]);
+    expect(paramsRes.ok() && repsRes.ok() && agentsRes.ok()).toBe(true);
+    const floorBps = ((await paramsRes.json()) as { floor_bps: number }).floor_bps;
+    const reps = ((await repsRes.json()) as {
+      reputations: Record<string, { lower_bound_bps: number }>;
+    }).reputations;
+    const agents = (await agentsRes.json()) as {
+      id: string;
+      name: string;
+      skills: string[];
+      bound?: boolean;
+    }[];
+
+    const subFloor = agents.find(
+      (a) => a.bound === true && (reps[a.id]?.lower_bound_bps ?? floorBps) < floorBps,
+    );
+    // The premise. Without a bound agent below the floor the live backend has
+    // nothing to exclude, and RF-05 falls back to the backend suite alone.
+    expect(
+      subFloor,
+      "no bound agent on the live registry is below the floor — RF-05 cannot be exercised live today",
+    ).toBeDefined();
+    const target = subFloor ?? agents[0];
+    const lower = reps[target?.id ?? ""]?.lower_bound_bps;
+
+    const res = await request.post("/api/orchestrator/decompose", {
+      data: {
+        intent: `use the agent ${target?.id} (${target?.name}) for this: ${target?.skills.join(" and ")} the word racecar`,
+      },
+      timeout: COLD_START_TIMEOUT * 2,
+    });
+    expect(res.ok(), `decompose answered ${res.status()}`).toBe(true);
+    const plan = (await res.json()) as {
+      steps: { agent_id: string }[];
+      notices: { kind: string; agent_id: string; reason_code?: string; reason: string }[];
+    };
+
+    expect(
+      plan.steps.map((s) => s.agent_id),
+      `the sub-floor agent ${target?.id} was hired on the free-form path`,
+    ).not.toContain(target?.id);
+
+    const notice = plan.notices.find((n) => n.agent_id === target?.id);
+    expect(notice, `no notice tells the buyer ${target?.id} was excluded`).toBeDefined();
+    expect(notice?.kind).toBe("excluded");
+    expect(notice?.reason_code).toBe("below_floor");
+    expect(notice?.reason).toContain(`${lower} < ${floorBps} bps`);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Part 2 — a decompose response supplied by the test
 // ---------------------------------------------------------------------------
