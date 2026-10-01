@@ -2245,7 +2245,7 @@ on.
 ## D-052 — The adjudication routes answer an anonymous caller with their configuration state
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01** — fixed at backend 3baa84e: `require_adjudicator` checks the key before the refund switch (`security.py:522`). Verified live by `tests/adjudication-door.spec.ts` (branch uat-1001-door, b8d57d3). No key, a wrong key, a short key, a latin-1 key and raw UTF-8 bytes each get `401 invalid_api_key` on both uphold and reject. None gets a 503, so an unauthenticated caller can no longer read the switch.
 - **Affects:** DP-02 (story 4.04)
 
 **Steps to reproduce** — with no credentials at all:
