@@ -1058,3 +1058,13 @@ fails, and that is worse than a dead link.
 | OV-02 | the eleven §6.3 metrics | each is counted from chain data, not the dashboard | each has a verified actual value recorded against its target |
 | OV-03 | each claimed workflow attestation | `AttestationRegistry.get` is called and a re-seal is simulated | the attestation exists, and the re-seal fails `AlreadyExists` |
 | OV-04 | the claimed external operator addresses | each is checked against wallets the team controls | at least two are distinct and demonstrably not team-controlled |
+| OV-05 | the registration page, the integration guide and the demo video | each is opened in a fresh context with no wallet and no session | each is fully reachable |
+| OV-06 | any §6.3 target that was not met | the verification report is written | it states the actual value and the reason plainly, never rounded up |
+| OV-07 | verification is complete | the SOW §6.2 checklist is reviewed | every row is marked Present, or the report states precisely why it cannot be |
+| OV-08 | the deployed dApp on testnet | a complete validation workflow is run end to end by UAT's own buyer | every artifact it produces (authorize, settle, seal) is captured at the moment of the run and resolves on Stellar Expert |
+
+Two inputs bound this story:
+- **Seals expire.** The AttestationRegistry never extends an entry's lifetime,
+  and the 2026-09-30 seals expire around 2026-10-07. OV-03 must run before then.
+- **The asset is testnet XLM.** Every escrow amount moves native XLM; "USDC" in
+  a metric's wording is checked against what actually moved.
