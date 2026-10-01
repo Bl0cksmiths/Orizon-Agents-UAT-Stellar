@@ -143,3 +143,28 @@ export const CONTRACT_FACTS = new Map<string, Record<string, ScValue>>([
   [ESCROW_V1, { Admin: ADMIN, Settler: ADMIN, Usdc: XLM_SAC, Registry: REGISTRY }],
   [ESCROW_V2, { Admin: ADMIN, Settler: PLATFORM, Usdc: XLM_SAC, Registry: REGISTRY }],
 ]);
+
+export type AccountFacts = {
+  /** UTC day of the account's create_account, when the index dates the key. */
+  createdOn?: string;
+  /** Every agent the AgentRegistry lists with this owner as of the snapshot. */
+  owns: string[];
+};
+
+/** What the index says each linked account is and owns. */
+export const ACCOUNT_FACTS = new Map<string, AccountFacts>([
+  [
+    ADMIN,
+    {
+      owns: [
+        "orizon_batch", "Testing_Agent", "dan_w1_probe", "calculatorai",
+        "algorex", "algorex_v2", "keyboardai", "3D_Artbot",
+      ],
+    },
+  ],
+  [PLATFORM, { owns: [] }],
+  [QA_OPERATOR, { owns: ["uat605_ext_op", "uat624_ext_op"] }],
+  [PROBE, { owns: ["w1_audit_a7x", "sign_probe_bb5c12"] }],
+  [SPIKE_GA5LE, { createdOn: "2026-09-15", owns: ["spike_97437"] }],
+  [BUYER_GB4K6, { createdOn: "2026-09-15", owns: ["faulty_test_v2"] }],
+]);
