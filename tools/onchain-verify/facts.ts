@@ -168,3 +168,25 @@ export const ACCOUNT_FACTS = new Map<string, AccountFacts>([
   [SPIKE_GA5LE, { createdOn: "2026-09-15", owns: ["spike_97437"] }],
   [BUYER_GB4K6, { createdOn: "2026-09-15", owns: ["faulty_test_v2"] }],
 ]);
+
+/** Owners the index counts as the team's when it splits registrations. */
+export const TEAM_OWNERS = [ADMIN, PROBE, QA_OPERATOR, SPIKE_GA5LE, BUYER_GB4K6];
+
+/**
+ * The counts the index's contract links state, each at the moment the
+ * index's method says it was measured on 2026-09-30 (UTC). Ratings and seals
+ * are counted from their writers' full Horizon history.
+ */
+export const SNAPSHOT = {
+  registrations: { at: "2026-09-30T15:48:00Z", total: 25, team: 14, outside: 11, outsideOwners: 7 },
+  ratings: { at: "2026-09-30T15:30:00Z", total: 41, disputes: 1, writers: [ADMIN, PLATFORM] },
+  seals: {
+    at: "2026-09-30T15:30:00Z",
+    sprintStart: "2026-09-07T00:00:00Z",
+    preSprint: 8,
+    runDay: "2026-09-30",
+    runs: 3,
+    sealers: [ADMIN, PLATFORM],
+  },
+  v1Charges: { sprintStart: "2026-09-07T00:00:00Z", total: 8 },
+} as const;
