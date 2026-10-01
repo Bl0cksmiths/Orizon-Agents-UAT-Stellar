@@ -2480,7 +2480,7 @@ documented.
 ## D-060 — A dispute dialog left open when the window closes still asks the wallet to sign
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (97eb69fa, 8c7e541a; re-checked 2026-10-01). `canSubmit` now requires the window to be open. An idle or retry form switches to "window closed" at the close. The sign step refuses before the wallet prompt, and `raiseDispute` checks the window before the challenge and before each signature. No UAT test pins this. It was verified by code reading and the frontend's dispute suite.
 - **Affects:** WC-02 (story 6.03c)
 
 **Steps to reproduce** — frontend origin/main `e56a07a`, run with the real
