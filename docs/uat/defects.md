@@ -2199,7 +2199,7 @@ D-036, D-037, D-038 and D-040 are not filed: they were resolved by the 2026-09-2
 ## D-051 — The deployment has dispute refunds switched off, so no dispute can ever be upheld
 
 - **Severity:** Blocker (for story 6.03a)
-- **Status:** Open — deployment configuration, not code
+- **Status:** **Resolved 2026-10-01** — the deploy upheld and paid a real dispute on 2026-09-30: `dsp_15acee279ac02852a5877ac1696ec4b5` is `credited`, with refund `cb2c5792…` and a confirmed `dispute` rating `b512135f…` on ReputationLedger CDCSOBEV…422ZT. So `DISPUTE_REFUNDS_ENABLED` was on, with `API_KEY` set. Verified live by `tests/reputation-consequence.spec.ts` RC-01 (43b6d01, 50c2387), which reads the record and confirms both transactions on Horizon. The switch's current value cannot be read from outside, since D-052's fix answers 401 first.
 - **Affects:** DP-01, DP-02 (stories 4.03, 4.04, 6.03a)
 
 **Failing precondition (story 6.03a)** — *"`DISPUTE_REFUNDS_ENABLED=true` and a
