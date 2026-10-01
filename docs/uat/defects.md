@@ -2928,7 +2928,7 @@ D-071).
 ## D-072 — The two Stellar Expert links on a receipt are 15px tall on a phone
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (4cd0109e, c41cf1fe, f60f1b61, 2de64b93; re-checked 2026-10-01). `StellarExpertLink` is now `inline-flex min-h-6`, 24 px tall, with the text still 10 px. That covers all of its call sites. **Pin not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-15 needs a browser run. The 44 px touch guidance is not met.
 - **Affects:** DS-06 (story 6.03f)
 
 **Steps to reproduce** — open a credited receipt at 360px width with touch.
