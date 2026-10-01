@@ -152,3 +152,41 @@ export async function jobEntry(jobId: string): Promise<EntryLifetime | undefined
     stored: asAttestation(readScVal(reader)),
   };
 }
+
+const LEDGER_ENTRY_CONTRACT_CODE = 7;
+const SCV_CONTRACT_INSTANCE = 19;
+const SCV_LEDGER_KEY_CONTRACT_INSTANCE = 20;
+const EXECUTABLE_WASM = 0;
+
+export type ContractLifetime = { latestLedger: number; instanceLiveUntil: number; wasmHash: string; codeLiveUntil: number };
+
+/**
+ * The registry's instance entry (it holds the admin and the sealer) and its
+ * wasm code entry. Every `get` and `seal` loads both, so they archive the
+ * whole registry when they lapse, whatever the job entries' own TTLs.
+ */
+export async function contractLifetime(): Promise<ContractLifetime> {
+  const instanceKey = new XdrWriter()
+    .u32(LEDGER_ENTRY_CONTRACT_DATA)
+    .raw(scAddress(REGISTRY))
+    .u32(SCV_LEDGER_KEY_CONTRACT_INSTANCE)
+    .u32(PERSISTENT)
+    .bytes();
+  const instance = await rpc<LedgerEntries>("getLedgerEntries", { keys: [instanceKey.toString("base64")] });
+  const instanceEntry = instance.entries?.[0];
+  if (!instanceEntry) throw new Error(`registry ${REGISTRY} has no instance entry`);
+  const reader = new XdrReader(instanceEntry.xdr);
+  reader.fixed(8); // entry type and ext
+  readScAddress(reader);
+  if (reader.u32() !== SCV_LEDGER_KEY_CONTRACT_INSTANCE || reader.u32() !== PERSISTENT) throw new Error("not the instance entry");
+  if (reader.u32() !== SCV_CONTRACT_INSTANCE || reader.u32() !== EXECUTABLE_WASM) throw new Error("registry is not a wasm contract");
+  const wasmHash = reader.fixed(32);
+  const codeKey = new XdrWriter().u32(LEDGER_ENTRY_CONTRACT_CODE).raw(wasmHash).bytes();
+  const code = await rpc<LedgerEntries>("getLedgerEntries", { keys: [codeKey.toString("base64")] });
+  return {
+    latestLedger: instance.latestLedger,
+    instanceLiveUntil: instanceEntry.liveUntilLedgerSeq ?? 0,
+    wasmHash: wasmHash.toString("hex"),
+    codeLiveUntil: code.entries?.[0]?.liveUntilLedgerSeq ?? 0,
+  };
+}
