@@ -2423,7 +2423,7 @@ render it straight away, without waiting for the refetch.
 ## D-058 — In-memory dispute store: a money-path defect, held privately
 
 - **Severity:** Major (only when `DATABASE_URL` is unset)
-- **Status:** Open — details held privately
+- **Status:** **Fixed in code at backend `6da6da7`** — details held privately (re-checked 2026-10-01 with the private reproduction). It was never reachable on the deploy, which runs the Postgres store (`/readiness` shows `disputes.store: postgres`).
 - **Affects:** IB-01 (story 6.03b)
 
 Found 2026-09-24 in the backend's in-memory dispute store (origin/main
