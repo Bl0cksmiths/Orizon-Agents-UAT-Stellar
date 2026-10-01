@@ -73,7 +73,9 @@ async def submit_rating_async(agent_id, job_id, rating, weight, payer, kind) -> 
     if RATING_FAILURE == "raise":
         raise ConnectionError("rpc connection dropped")
     if RATING_FAILURE == "refuse":
-        raise RuntimeError("prepare failed: HostError: Error(Value, InvalidInput)")
+        # Backend 6da6da7 on types this as NotSubmittedError (a RuntimeError); before, a bare RuntimeError.
+        refused = getattr(sc, "NotSubmittedError", RuntimeError)
+        raise refused("prepare failed: HostError: Error(Value, InvalidInput)")
     return {"status": "FAILED", "hash": "tx_rating_failed"}
 
 
