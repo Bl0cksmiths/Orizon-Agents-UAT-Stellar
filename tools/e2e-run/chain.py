@@ -124,3 +124,33 @@ class Chain:
             args=params[2:],
             transfers=transfers,
         )
+
+    def rpc(self, method: str, params: dict[str, Any] | None = None) -> Any:
+        payload: dict[str, Any] = {"jsonrpc": "2.0", "id": 1, "method": method}
+        if params is not None:
+            payload["params"] = params
+        response = self.client.post(self.rpc_url, json=payload, timeout=30.0)
+        response.raise_for_status()
+        body = response.json()
+        if "error" in body:
+            raise ChainError(f"{method}: {body['error']}")
+        return body["result"]
+
+    def events(self, contract_id: str, ledger: int, tx_hash: str) -> list[dict[str, Any]]:
+        """`contract_id`'s events emitted by `tx_hash`, decoded: [{topics, value}]."""
+        result = self.rpc(
+            "getEvents",
+            {
+                "startLedger": ledger,
+                "filters": [{"type": "contract", "contractIds": [contract_id]}],
+                "pagination": {"limit": 200},
+            },
+        )
+        return [
+            {
+                "topics": [decode_scval(t) for t in raw.get("topic") or []],
+                "value": decode_scval(raw["value"]) if raw.get("value") else None,
+            }
+            for raw in result.get("events") or []
+            if raw.get("txHash") == tx_hash
+        ]
