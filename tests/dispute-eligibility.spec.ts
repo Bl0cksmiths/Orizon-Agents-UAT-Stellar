@@ -28,11 +28,10 @@ test.describe("WC — dispute eligibility (story 6.03c)", () => {
     expect((await response.json()).error?.code).toBe("reason_invalid");
   });
 
-  test("WC-05 a reason of only whitespace is refused as reason_required before the job is looked up", async ({ request }) => {
+  test("WC-05 a reason of only whitespace is refused as reason_invalid before the job is looked up", async ({ request }) => {
     const response = await request.post("/api/disputes", { timeout: COLD_START_TIMEOUT, data: { ...OPEN, reason: " \t\n " } });
     expect(response.status()).toBe(422);
-    const body = await response.json();
-    expect(body.error?.code).toBe("reason_required");
+    expect((await response.json()).error?.code).toBe("reason_invalid");
   });
 
   for (const [name, reason] of [["a zero-width space", "​"], ["a right-to-left override", "‮"]]) {
