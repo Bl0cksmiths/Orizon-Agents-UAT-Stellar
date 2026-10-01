@@ -2340,7 +2340,7 @@ boot, and refuse a non-finite amount in the cap check itself.
 ## D-055 — A refund refused at the cap does not tell the caller the amount or the cap
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** Open (re-checked 2026-10-01 at backend `6da6da7`). The service's own message now names both figures ("X USDC exceeds MAX_REFUND_USDC=Y"), and `scripts/uphold_dispute.py` prints it. But the adjudication route still sends only the code, on purpose (`routers/disputes.py:587`), and the uphold log line still prints `amount=-`.
 - **Affects:** IB-05 (story 6.03b)
 
 **Steps to reproduce** — backend origin/main `3347090`: uphold a dispute whose
