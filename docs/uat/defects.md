@@ -2440,7 +2440,7 @@ runs on Postgres.
 ## D-059 — A dispute reason made only of invisible characters is accepted as a reason
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01** — fixed at backend f857b43 and ed1c351. A reason with nothing visible is now refused `422 reason_invalid`. Verified live by `tests/dispute-eligibility.spec.ts` WC-05 (5813563, 249fd66): a zero-width space, a right-to-left override, an empty bidi isolate pair and a Hangul filler are each refused, and the pins are removed. Empty and whitespace-only reasons get the same code now (c30d95a, 68c6720).
 - **Affects:** WC-05 (story 6.03c)
 
 **Steps to reproduce** — live, no wallet needed:
