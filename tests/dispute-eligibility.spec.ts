@@ -56,4 +56,12 @@ test.describe("WC — dispute eligibility (story 6.03c)", () => {
     expect(response.status()).toBe(404);
     expect((await response.json()).error?.code).toBe("unknown_job");
   });
+
+  test("WC-06 a 501-character reason is refused as reason_invalid, never cut to fit", async ({ request }) => {
+    // D-062, fixed: one character past the cap is a refusal before the job
+    // lookup, not a reason stored shortened or marked truncated.
+    const response = await request.post("/api/disputes", { timeout: COLD_START_TIMEOUT, data: { ...OPEN, reason: "é".repeat(501) } });
+    expect(response.status()).toBe(422);
+    expect((await response.json()).error?.code).toBe("reason_invalid");
+  });
 });
