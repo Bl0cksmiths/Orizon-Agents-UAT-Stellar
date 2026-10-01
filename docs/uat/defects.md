@@ -3070,7 +3070,7 @@ carries the amount" is XFAIL, pinned to D-075.
 ## D-076 — A dispute rating refused at simulation is reported as "timed out, may still land"
 
 - **Severity:** Minor (story 6.03: money path, filed as Urgent Bug)
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01** — fixed at backend `6da6da7` (289111c, a4be4f1, 7b0221d): the client raises `NotSubmittedError` for a failed prepare or a refused send (`client.py:557-576`), and `dispute_rating` maps it to FAILED with the reason, so the line reads "refused before it was submitted". Verified by `tools/rating-log-drill/drill.py` mode `refuse`, which now raises the client's own type (14c8576): "a rating refused at simulation is reported as nothing landed" passes, and its pin is removed (f1a655f).
 - **Affects:** SD-08, DU-04 (story 6.03); story 4.04
 
 **Steps to reproduce** — backend `08efeda`. Uphold a dispute, or re-run
