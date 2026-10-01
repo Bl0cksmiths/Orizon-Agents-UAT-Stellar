@@ -1694,7 +1694,7 @@ tx in the trace and a `ReputationLedger` event for the agent.
 ## D-039 — A buyer is never charged, and the run still reports `complete` with a `spent` that did not happen
 
 - **Severity:** Critical
-- **Status:** Open — known contract defect (`PaymentEscrow.charge` needs the payer's `require_auth()`, which only the settler's signature is present for); verified here, not re-diagnosed. **Re-verified 2026-09-24** on the redeployed backend and unchanged: the escrow contract `CBJPTMAP…525PI` has not been redeployed since 2026-09-16, seven fresh workflows produced seven `authd` events and **0** `charged`, every task still finalized `complete` with `charge_tx null`, `spent` set (0.01–0.034) and a trailing `error · on-chain settlement failed`. It is now the only one of the five 6.05 defects still open, and it is what makes D-050 unreachable
+- **Status:** **Resolved 2026-10-01** — replaced by PaymentEscrow v2 (contracts PR #4, deployed 2026-09-30 as `CCNO5TENCK3EK532I3OZLZ63323FEEULPAKJ74CUP3JZK3XQINRQ5VC4`). Funds are held in custody at `authorize`, signed by the payer, and `settle` is called by the settler, `GDB4N25…CDHP`. On testnet, v2 shows 5 `charged` events since deploy, against none ever on v1 (`CBJP…25PI`). The deploy reads v2 (`/readiness` `escrow.contract`). Verified live by `tests/dispute-path.spec.ts` DP-01 (9bfc1fb): `tsk_7e1c369cebaf41b3` has a settled charge with a 64-hex `charge_tx`. The asset is native XLM, not USDC.
 - **Affects:** EX-04, EX-05 (stories 2.02, 2.04)
 
 **Failing Given/When/Then (story 6.05)** — *Given the endpoint returns a valid
