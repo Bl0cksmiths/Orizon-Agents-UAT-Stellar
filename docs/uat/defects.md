@@ -2394,7 +2394,7 @@ assert it in a test that does not stub the service.
 ## D-057 — After a 409 whose refetch fails, the step offers Dispute again with no hint it is already disputed
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (b225e057, d3dfee3e, 970e5861; re-checked 2026-10-01). The backend's 409 carries the original dispute, the section adopts it at once ("already had a dispute… shown below"), and an adopted dispute survives a failed re-read. If a 409 arrives with no body, the step can still be offered again. No UAT test pins this. It was verified by code reading and the frontend's dispute suite (707 passed, 1 timeout unrelated to this).
 - **Affects:** IB-02 (story 6.03b)
 
 **Steps to reproduce** — frontend origin/main `e56a07a`, component level:
