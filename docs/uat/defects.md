@@ -3037,7 +3037,7 @@ under each name. `mainnet` exits 1; `pubnet` boots and serves `/health`
 ## D-075 — A failed dispute rating is logged without the credited amount
 
 - **Severity:** Minor (story 6.03: money path, filed as Urgent Bug)
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01** — fixed at backend `6da6da7` (2eb5703, a6b49d5): the rating-outcome line now carries `credited_usdc` and `refund_tx`. Verified by `tools/rating-log-drill/drill.py`: "the error line carries the amount" passes in all three failure modes, and its pin is removed (5182f78). The deploy's own logs cannot be read from outside, so the live line is not observed.
 - **Affects:** SD-08 (story 6.03)
 
 **Steps to reproduce** — backend `08efeda`. Run the real `dispute_svc.uphold` on
