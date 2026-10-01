@@ -417,11 +417,10 @@ const FLOOR_BPS = 5500;
  * and every assertion below would be checking nothing.
  *
  * Fields are written as the live backend writes them today (verified against
- * POST /api/orchestrator/decompose on 2026-09-17): explicit
+ * POST /api/orchestrator/decompose on 2026-10-02): explicit
  * `substituted_for: null` and `degraded: false` on ordinary steps rather than
- * omitted keys. That response carries no `floor_bps` and no
- * `reputation_degraded` on this deployment, so neither is invented here — the
- * applied floor reaches the card only inside the notice `reason` text.
+ * omitted keys, each step's own lower bound, rating count and degraded read,
+ * and the plan's `floor_bps`.
  */
 type SuppliedPlanStep = {
   agent_id: string;
@@ -431,6 +430,10 @@ type SuppliedPlanStep = {
   est_eta_seconds: number;
   rep_bps: number;
   rep_source: "onchain" | "prior";
+  rep_lower_bound_bps: number;
+  rep_count: number;
+  rep_dispute_rate_bps: number;
+  rep_degraded: boolean;
   substituted_for: string | null;
   degraded: boolean;
 };
@@ -451,6 +454,7 @@ type SuppliedPlan = {
   total_usdc: number;
   total_eta: number;
   notices: SuppliedNotice[];
+  floor_bps: number;
 };
 
 /**
@@ -490,6 +494,10 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       est_eta_seconds: 0.6,
       rep_bps: 7000,
       rep_source: "prior",
+      rep_lower_bound_bps: 5677,
+      rep_count: 0,
+      rep_dispute_rate_bps: 0,
+      rep_degraded: false,
       substituted_for: null,
       degraded: false,
     },
@@ -501,6 +509,10 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       est_eta_seconds: 0.4,
       rep_bps: 8150,
       rep_source: "onchain",
+      rep_lower_bound_bps: 6900,
+      rep_count: 9,
+      rep_dispute_rate_bps: 0,
+      rep_degraded: false,
       substituted_for: null,
       degraded: false,
     },
@@ -512,6 +524,10 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       est_eta_seconds: 2.6,
       rep_bps: 7720,
       rep_source: "onchain",
+      rep_lower_bound_bps: 6400,
+      rep_count: 6,
+      rep_dispute_rate_bps: 0,
+      rep_degraded: false,
       substituted_for: null,
       degraded: false,
     },
@@ -523,6 +539,10 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       est_eta_seconds: 1.8,
       rep_bps: 6480,
       rep_source: "onchain",
+      rep_lower_bound_bps: 5600,
+      rep_count: 4,
+      rep_dispute_rate_bps: 0,
+      rep_degraded: false,
       substituted_for: "agt_12r0",
       degraded: false,
     },
@@ -532,8 +552,12 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       rationale: "seal artifact + record on-chain proof",
       est_price_usdc: 0.011,
       est_eta_seconds: 0.4,
-      rep_bps: 5210,
+      rep_bps: 6020,
       rep_source: "onchain",
+      rep_lower_bound_bps: 5210,
+      rep_count: 3,
+      rep_dispute_rate_bps: 0,
+      rep_degraded: false,
       substituted_for: null,
       degraded: true,
     },
@@ -562,6 +586,7 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       reason: `kept by starvation backstop, below routing floor (5210 < ${FLOOR_BPS} bps)`,
     },
   ],
+  floor_bps: FLOOR_BPS,
 };
 
 /**
@@ -588,18 +613,27 @@ async function supplyPlan(page: Page, plan: SuppliedPlan): Promise<void> {
  * the source phrase — kept here for the same reason as
  * tests/evidence-helpers.ts: the suite has no module resolution into the app.
  *
- * The plan card passes the badge neither `count` nor `floorBps`, so neither
- * the "from N rated jobs" clause nor the "below the X network floor" clause
- * can appear on a step. That absence is itself worth pinning: it means a step
- * routed BELOW the floor is announced to a screen reader exactly like any
- * other on-chain score, and only the separate "below floor" chip distinguishes
- * it.
+ * The plan card (execution-plan.tsx:513-523 at frontend 7e292ca8) passes the
+ * badge the step's `rep_count`, its `rep_lower_bound_bps` and — only beside
+ * that bound — the plan's `floor_bps`. So an on-chain step announces how many
+ * rated jobs back it, and every step announces its floor verdict judged on the
+ * lower bound. That verdict is what closes D-035: a step the starvation
+ * backstop kept below the floor now announces "below the 2.75 network floor"
+ * to a screen reader, where it used to read like any other on-chain score.
  */
-function expectedBadgeLabel(step: SuppliedPlanStep): string {
-  const score = (step.rep_bps / 2000).toFixed(2);
-  return step.rep_source === "prior"
-    ? `prior estimate ${score} — no on-chain ratings yet`
-    : `on-chain reputation ${score}`;
+function expectedBadgeLabel(step: SuppliedPlanStep, floorBps: number): string {
+  const score = (bps: number) => (bps / 2000).toFixed(2);
+  const source =
+    step.rep_source === "prior"
+      ? `prior estimate ${score(step.rep_bps)} — no on-chain ratings yet`
+      : step.rep_count > 0
+        ? `on-chain reputation ${score(step.rep_bps)} from ${step.rep_count} rated job${step.rep_count === 1 ? "" : "s"}`
+        : `on-chain reputation ${score(step.rep_bps)}`;
+  const verdict =
+    step.rep_lower_bound_bps < floorBps
+      ? `below the ${score(floorBps)} network floor`
+      : `clears the ${score(floorBps)} network floor`;
+  return `${source} · ${verdict}`;
 }
 
 /**
@@ -708,12 +742,13 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
 
       const badge = row.locator(REP_BADGE);
       await expect(badge, `${where} has no reputation badge`).toHaveCount(1);
-      // Exact, not a pattern: the score AND whether it came from the chain or
-      // the prior both have to survive into the accessible name.
+      // Exact, not a pattern: the score, whether it came from the chain or
+      // the prior, and the floor verdict all have to survive into what a
+      // screen reader announces.
       await expect(
         badgeSpeech(badge),
-        `${where} announces the wrong score or the wrong source`,
-      ).toHaveText(expectedBadgeLabel(step));
+        `${where} announces the wrong score, source or floor verdict`,
+      ).toHaveText(expectedBadgeLabel(step, FLOOR_ACTED_PLAN.floor_bps));
 
       if (step.substituted_for) {
         await expect(
@@ -727,6 +762,12 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
           row,
           `${where} was re-admitted below the floor but is not flagged as such`,
         ).toContainText("below floor");
+        // D-035: the below-floor status is part of what assistive tech
+        // announces, not only of what the page shows.
+        await expect(
+          badgeSpeech(badge),
+          `${where} is kept below the floor but announces as an ordinary step (D-035)`,
+        ).toContainText("below the");
       }
     }
 
