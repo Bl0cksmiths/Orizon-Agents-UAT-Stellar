@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
-from stellar_sdk import Address, scval
+from stellar_sdk import Account, Address, TransactionBuilder, scval
 from stellar_sdk import xdr as stellar_xdr
 
 HORIZON = "https://horizon-testnet.stellar.org"
@@ -154,3 +154,19 @@ class Chain:
             for raw in result.get("events") or []
             if raw.get("txHash") == tx_hash
         ]
+
+    def view(self, contract_id: str, function: str, args: list[stellar_xdr.SCVal], source: str) -> Any:
+        """A contract view, run in simulation from an envelope that is never signed or sent."""
+        tx = (
+            TransactionBuilder(Account(source, 0), network_passphrase=TESTNET_PASSPHRASE, base_fee=100)
+            .append_invoke_contract_function_op(contract_id=contract_id, function_name=function, parameters=args)
+            .set_timeout(30)
+            .build()
+        )
+        result = self.rpc("simulateTransaction", {"transaction": tx.to_xdr()})
+        if result.get("error"):
+            raise ChainError(f"{function}: {str(result['error']).strip().splitlines()[0][:300]}")
+        results = result.get("results") or []
+        if not results or not results[0].get("xdr"):
+            raise ChainError(f"{function}: simulation returned no value")
+        return decode_scval(results[0]["xdr"])
