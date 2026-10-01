@@ -126,7 +126,7 @@ def refused_before_submission_is_failed() -> None:
     """Nothing was signed or sent, so the outcome must say nothing landed, not that it may still."""
     lines = " | ".join(r.getMessage() for r in records if r.levelno >= logging.ERROR)
     check("D-076 a rating refused at simulation is reported as nothing landed",
-          "nothing landed" in lines and "MAY HAVE LANDED" not in lines, lines[:200], defect="D-076")
+          "nothing landed" in lines and "MAY HAVE LANDED" not in lines, lines[:200])
 
 
 async def main() -> int:
