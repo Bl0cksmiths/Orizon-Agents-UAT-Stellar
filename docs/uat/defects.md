@@ -2955,7 +2955,7 @@ to D-072). To be confirmed on a real phone:
 ## D-073 — Malformed JSON on the reject route is answered 422 before the adjudication guard
 
 - **Severity:** Minor
-- **Status:** Open, contested: the backend documents this as a deliberate trade-off (see below)
+- **Status:** Open, contested (re-checked live 2026-10-01). With the key now checked first, reject with malformed JSON is still answered `422 validation_error` (json_invalid) before the guard, while uphold answers `401`, and a wrong-shaped but parseable body gets 401 on both routes. The backend keeps this on purpose (`reject_dispute` docstring; `test_money_route_auth`). Pinned live in `tests/adjudication-door.spec.ts` AD-04, reject only (a693382). The product owner's decision is still needed (backend#80).
 - **Affects:** AD-04 (story 6.03g)
 
 **Steps to reproduce** — on the deploy, with no key:
