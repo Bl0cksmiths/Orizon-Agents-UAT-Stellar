@@ -2279,7 +2279,7 @@ so an anonymous caller gets `401` whatever the flag says.
 ## D-053 — Adjudication concurrency: a money-path defect, held privately
 
 - **Severity:** Critical (story 6.03b: Urgent, stop-the-line)
-- **Status:** Fixed in code, not yet deployed — details held privately
+- **Status:** **Fixed and deployed** — details held privately (re-checked 2026-10-01). The private reproduction still shows a single transfer at backend `6da6da7`. The deploy now runs a build that contains the fix: its OpenAPI carries the `OperatorApiKey` scheme, which `08efeda` introduced. IB-01 has not been exercised live, because it needs two concurrent upholds made with the operator key.
 - **Affects:** IB-01 (story 6.03b)
 
 **Re-check 2026-09-26 (story 6.03)** — the private reproduction was re-run against
