@@ -19,7 +19,8 @@ export type ScValue =
   | string
   | ScValue[]
   | { map: [ScValue, ScValue][] }
-  | { error: [number, number] };
+  | { error: [number, number] }
+  | { instance: { executable: string; storage: [ScValue, ScValue][] } };
 
 class Reader {
   private offset = 0;
@@ -92,6 +93,21 @@ function readAddress(r: Reader): string {
   throw new Error(`unsupported ScAddress type ${kind}`);
 }
 
+function readMap(r: Reader): [ScValue, ScValue][] | null {
+  if (r.u32() !== 1) return null;
+  const entries: [ScValue, ScValue][] = [];
+  for (let n = r.u32(); n > 0; n--) entries.push([readValue(r), readValue(r)]);
+  return entries;
+}
+
+/** A contract instance: its wasm hash (or "stellar_asset") and instance storage. */
+function readInstance(r: Reader): ScValue {
+  const kind = r.u32();
+  const executable = kind === 0 ? hex(r.fixed(32)) : "stellar_asset";
+  if (kind > 1) throw new Error(`unsupported executable type ${kind}`);
+  return { instance: { executable, storage: readMap(r) ?? [] } };
+}
+
 function readValue(r: Reader): ScValue {
   const type = r.u32();
   switch (type) {
@@ -123,13 +139,15 @@ function readValue(r: Reader): ScValue {
     case 16:
       return r.u32() === 1 ? Array.from({ length: r.u32() }, () => readValue(r)) : null;
     case 17: {
-      if (r.u32() !== 1) return null;
-      const entries: [ScValue, ScValue][] = [];
-      for (let n = r.u32(); n > 0; n--) entries.push([readValue(r), readValue(r)]);
-      return { map: entries };
+      const entries = readMap(r);
+      return entries ? { map: entries } : null;
     }
     case 18:
       return readAddress(r);
+    case 19:
+      return readInstance(r);
+    case 20:
+      return null;
     default:
       throw new Error(`unsupported ScVal type ${type}`);
   }
@@ -141,4 +159,20 @@ export function decodeScVal(base64: string): ScValue {
   const value = readValue(r);
   if (!r.done()) throw new Error("trailing bytes after ScVal");
   return value;
+}
+
+/**
+ * The key and value of a contract-data ledger entry, from the base64
+ * `LedgerEntryData` XDR that Stellar RPC's getLedgerEntries returns.
+ */
+export function decodeContractData(base64: string): { key: ScValue; val: ScValue } {
+  const r = new Reader(Buffer.from(base64, "base64"));
+  if (r.u32() !== 6) throw new Error("ledger entry is not contract data");
+  if (r.u32() !== 0) throw new Error("unsupported contract data extension");
+  readAddress(r);
+  const key = readValue(r);
+  r.u32();
+  const val = readValue(r);
+  if (!r.done()) throw new Error("trailing bytes after contract data");
+  return { key, val };
 }
