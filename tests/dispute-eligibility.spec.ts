@@ -4,9 +4,11 @@ import { COLD_START_TIMEOUT } from "./fixtures";
 /**
  * WC — story 6.03c, who may dispute and when: window, wallet and challenge.
  *
- * Every rule here needs a settled step to reach except the reason rules, which
- * the service checks before it looks the job up. Those are asserted live; the
- * window, wallet and challenge rules wait on D-050 and are recorded in
+ * The reason rules are the service's first check, made before it looks the job
+ * up, so they are asserted live against a job that never settled. The window,
+ * wallet and challenge rules sit behind the payer's signature over a settled
+ * step: escrow v2 now settles real runs (dispute-path.spec.ts reads one), but
+ * no spec holds a payer's key, so those rules are recorded in
  * docs/uat/evidence/6.03c-eligibility.md.
  */
 
