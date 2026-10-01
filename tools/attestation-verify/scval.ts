@@ -3,8 +3,8 @@
  * `get(job_id: BytesN<16>)` and
  * `seal(caller, job_id, orchestrator, intent_hash, agents, receipts, total_spent)`.
  */
-import { ACCOUNT_VERSION, CONTRACT_VERSION, decodeStrkey } from "./strkey.ts";
-import { XdrWriter } from "./xdr.ts";
+import { ACCOUNT_VERSION, CONTRACT_VERSION, decodeStrkey, encodeStrkey } from "./strkey.ts";
+import { XdrReader, XdrWriter } from "./xdr.ts";
 
 const SCV_I128 = 10;
 const SCV_BYTES = 13;
@@ -40,4 +40,64 @@ export function scvI128(value: bigint): Buffer {
     .i64(value >> 64n)
     .u64(value & 0xffff_ffff_ffff_ffffn)
     .bytes();
+}
+
+/** A decoded SCVal: maps keyed by their symbol, bytes as lowercase hex, addresses as strkeys. */
+export type ScValue = null | boolean | number | bigint | string | ScValue[] | { [key: string]: ScValue };
+
+/** Reads an SCAddress; only account and contract addresses occur in this registry. */
+export function readScAddress(reader: XdrReader): string {
+  const kind = reader.u32();
+  if (kind === SC_ADDRESS_ACCOUNT) {
+    if (reader.u32() !== 0) throw new Error("account id is not an ed25519 key");
+    return encodeStrkey(reader.fixed(32), ACCOUNT_VERSION);
+  }
+  if (kind === SC_ADDRESS_CONTRACT) return encodeStrkey(reader.fixed(32), CONTRACT_VERSION);
+  throw new Error(`unexpected SCAddress kind ${kind}`);
+}
+
+/** Reads one SCVal of the kinds an Attestation and its storage key are made of. */
+export function readScVal(reader: XdrReader): ScValue {
+  const type = reader.u32();
+  switch (type) {
+    case 0:
+      return reader.u32() === 1;
+    case 1:
+      return null;
+    case 3:
+      return reader.u32();
+    case 4:
+      return reader.i32();
+    case 5:
+    case 7:
+      return reader.u64();
+    case 6:
+      return reader.i64();
+    case SCV_I128: {
+      const hi = reader.i64();
+      return (hi << 64n) | reader.u64();
+    }
+    case SCV_BYTES:
+      return reader.opaque().toString("hex");
+    case 14:
+    case SCV_SYMBOL:
+      return reader.opaque().toString("utf8");
+    case SCV_VEC: {
+      if (reader.u32() !== 1) return null;
+      return Array.from({ length: reader.u32() }, () => readScVal(reader));
+    }
+    case 17: {
+      if (reader.u32() !== 1) return null;
+      const map: { [key: string]: ScValue } = {};
+      for (let i = reader.u32(); i > 0; i--) {
+        const key = readScVal(reader);
+        map[String(key)] = readScVal(reader);
+      }
+      return map;
+    }
+    case SCV_ADDRESS:
+      return readScAddress(reader);
+    default:
+      throw new Error(`unsupported SCVal type ${type}`);
+  }
 }
