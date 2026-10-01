@@ -396,19 +396,20 @@ pass, 1 XFAIL.
 
 ## SD — the story 6.03 card as a whole
 
-Rolled up 2026-09-26; `evidence/6.03-dispute-refund-rating.md`. Live checks:
-the five 6.03 specs, 30 of 30 on `chromium-desktop` (expected failures
-included). Code checks: the sub-story drills, the §3 re-checks at backend
-`08efeda` and frontend `5105a8b`, and `tools/rating-log-drill/drill.py` (16
-pass, 2 XFAIL).
+Rolled up 2026-09-26; **re-rolled 2026-10-01 on the new deploy** (escrow v2;
+backend at or after `6da6da7`). See §6 of `evidence/6.03-dispute-refund-rating.md`.
+Live checks: the five 6.03 specs, 35 of 35 on `chromium-desktop` (D-073 is the
+one expected failure). On-chain: four Horizon-checked transactions. Code: the
+§3 re-checks, re-run at backend `6da6da7` and frontend `7e292ca8`, and
+`tools/rating-log-drill/drill.py` (28 pass).
 
 | criterion | verification | status |
 | --- | --- | --- |
-| SD-01 | DP-01 (`test.fail()`, D-050); DP-05, DP-06, RC-02, DS-02 on the drill ledger: refund `a5baac43…` and rating `7138e4e3…` resolve on testnet | **Blocked**: D-050, D-051 |
-| SD-02 | IB-01..IB-03 (6.03b attacks 1–7, re-run at `08efeda`); DU-03, DU-04 | **Pass in code**; not proven on-chain |
-| SD-03 | WC-01, WC-02, DR-07 | **Fail**: D-060; D-056 fixed in code, not deployed |
-| SD-04 | WC-03, DR-05, DS-04 | **Pass in code** |
-| SD-05 | DU-01, DU-02 (`tools/restart-drill`); DU-05 (**pass** live) | **Pass in code**; D-065 latent |
-| SD-06 | DR-11, IB-05 | **Fail**: D-054, D-055 |
-| SD-07 | RC-01..RC-05 (`tools/reputation-drill`); RC-04 script path XFAIL | **Fail**: D-066 |
-| SD-08 | `rating-log-drill`: credit kept (**pass**); the error line's amount (XFAIL); DS-01 rating-unconfirmed state | **Fail**: D-075 |
+| SD-01 | RC-01 (**pass** live): `dsp_15acee27…` credited; refund `cb2c5792…` and rating `b512135f…` successful on Horizon; second dispute: refund `01c3175a…`, rating `60bc5249…` | **Pass**; the asset is XLM, not USDC |
+| SD-02 | one platform transfer per dispute across the payer's history (Horizon); IB-01..IB-03 in code at `6da6da7` | **Pass**; duplicate attempts not fired live |
+| SD-03 | WC-01 (**pass** live, c622eab): refused after close, "closed at 2026-10-01T09:39:30"; both disputes accepted inside their windows; D-060 fixed in code | **Pass** |
+| SD-04 | live probe 2026-10-01: a stranger on an open step got `403 not_the_payer`; WC-03, DS-04 | **Pass**; UI half not re-checked live |
+| SD-05 | DU-05 (**pass** live, incl. `disputes.store: postgres`); DU-01..DU-04 (`tools/restart-drill`) | **Pass**; D-065 latent |
+| SD-06 | DR-11, IB-05 in code at `6da6da7`; D-054 fixed | **Pass in code**; D-055 open |
+| SD-07 | live: calculatorai `dispute_rate_bps` 3333, `disputed` 2; RC-04 (**pass** live); D-066 fixed in code | **Pass** |
+| SD-08 | `rating-log-drill` 28/28 at `6da6da7`: credit kept, error line carries all four fields | **Pass in code** |
