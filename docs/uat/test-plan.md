@@ -1041,3 +1041,20 @@ on Stellar Expert (testnet).
 | SD-06 | a credit above the settled amount or the refund cap | it is attempted | it is clamped or refused before anything is signed, and the refusal is logged | DR-11, IB-05 |
 | SD-07 | an upheld dispute | the reputation is read and a new plan is built | `dispute_rate_bps` has risen, and the plan uses the new score rather than a cached one | RC-01, RC-03, RC-04 |
 | SD-08 | a refund that lands and a rating write that then fails | the failure is handled | the buyer keeps the credit, and the log line carries the dispute id, job id, payer and amount | DS-01 (rating unconfirmed), DU-04, and a direct log check |
+
+## Acceptance criteria — OV, independent verification of every on-chain claim (story 6.04)
+
+The last gate before submission. The claims under test are the public evidence
+index (`https://orizons.xyz/evidence`, built from the frontend's
+`content/evidence/index.json`), and the SOW v4 §6.2 checklist and §6.3 metrics
+it cites. Every check is made independently: on Horizon testnet and Stellar RPC,
+or as a page with no session. The application's own rendering never counts as
+proof of an on-chain fact. A transaction that resolves but shows something else
+fails, and that is worse than a dead link.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| OV-01 | every explorer link in the evidence index | each is resolved independently on testnet | it resolves, and shows the contract, function, addresses and amounts the index claims |
+| OV-02 | the eleven §6.3 metrics | each is counted from chain data, not the dashboard | each has a verified actual value recorded against its target |
+| OV-03 | each claimed workflow attestation | `AttestationRegistry.get` is called and a re-seal is simulated | the attestation exists, and the re-seal fails `AlreadyExists` |
+| OV-04 | the claimed external operator addresses | each is checked against wallets the team controls | at least two are distinct and demonstrably not team-controlled |
