@@ -2648,7 +2648,7 @@ XFAIL, pinned to D-064); `tools/restart-drill/browser.spec.ts` "DU-04 …"
 ## D-065 — With TASK_AUTH_REQUIRED on, a backend restart hides the payer's receipt and every dispute action
 
 - **Severity:** Minor (latent: production runs with `TASK_AUTH_REQUIRED` off, confirmed live on 2026-09-25)
-- **Status:** Open
+- **Status:** Open (re-checked 2026-10-01 at frontend `7e292ca8`). Narrowed by 6e8d6579: a 404 while a receipt is already on screen is now an error and no longer erases it. But on a first read any 404 still means "no receipt route" (`use-dispute-panel.ts:460-461`), and the new read grant cannot help, because its control lives inside the hidden receipt. This is latent while `TASK_AUTH_REQUIRED` stays off, as it does in production.
 - **Affects:** DU-01, DU-02 (story 6.03d)
 
 **Steps to reproduce** — backend origin/main `3347090` on a real Postgres with
