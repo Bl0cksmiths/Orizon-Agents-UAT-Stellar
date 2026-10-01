@@ -13,6 +13,11 @@ import { COLD_START_TIMEOUT } from "./fixtures";
  */
 
 type Health = { status: string; version: string; uptime_seconds: number };
+type Readiness = { disputes?: { store: string } };
+
+// /readiness is served by the backend itself; the frontend's /api/* proxy
+// does not forward it.
+const BACKEND = "https://orizon-agents-be-stellar.onrender.com";
 
 test.describe("DU — durability (story 6.03d)", () => {
   test("DU-05 the backend reports its uptime, so a restart can be seen from outside", async ({ request }) => {
@@ -37,5 +42,15 @@ test.describe("DU — durability (story 6.03d)", () => {
     const binding = (await response.json()) as { agent_id: string; bound_at: number };
     expect(binding.agent_id).toBe("uat624_ext_op");
     expect(binding.bound_at, "the binding must predate the running process").toBeLessThan(startedAt);
+  });
+
+  test("DU-05 readiness reports the dispute store as postgres, so DATABASE_URL is set", async ({ request }) => {
+    // D-063, fixed: the store chosen at startup is reported, a direct proof
+    // beside the binding proxy above.
+    const response = await request.get(`${BACKEND}/readiness`, { timeout: COLD_START_TIMEOUT });
+    expect(response.status()).toBe(200);
+    const disputes = ((await response.json()) as Readiness).disputes;
+    expect(disputes, "/readiness must report disputes").toBeDefined();
+    expect(disputes?.store).toBe("postgres");
   });
 });
