@@ -2727,7 +2727,7 @@ new score" (XFAIL, pinned to D-066).
 ## D-067 — The payer loses both reasons unless they are in the tab that ran the task
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Fixed in code at backend `6da6da7` and frontend `7e292ca8`** (BE 958c293, 0062fed, 95ccef6; FE 32b9f1d5, 9051f9dc, 23163266 and others; re-checked 2026-10-01). The payer signs a read challenge (`POST /api/disputes/read-challenge`, then `/read-grant`), sends the grant as `X-Dispute-Read-Grant`, and reads both reasons; the receipt shows "Show my reason". Everyone else gets `reason: ""` with `reason_withheld: true`. The deploy has both routes (OpenAPI), and a live dispute answers `reason_withheld: true` to an anonymous read. **Pins not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-07, and `tools/restart-drill/browser.spec.ts` "DU-01 the payer's own reason is on their receipt". Both need a browser run.
 - **Affects:** DS-01, DS-04 (story 6.03f); DU-01, DU-02, DU-03 in the restart drill's browser half (story 6.03d, found 2026-09-26)
 
 **Also breaks the restart drill's browser half (2026-09-26, story 6.03).** At
