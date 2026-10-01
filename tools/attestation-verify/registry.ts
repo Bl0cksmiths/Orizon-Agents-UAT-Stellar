@@ -6,7 +6,7 @@
  * check comes first (Unauthorized = 1), then the existence check
  * (AlreadyExists = 3); `get` returns NotFound = 2 for an unknown job.
  */
-import { readScVal, scAddress, scvBytes, type ScValue } from "./scval.ts";
+import { readScVal, scAddress, scvAddress, scvBytes, scvI128, scvSymbol, scvVec, type ScValue } from "./scval.ts";
 import { XdrReader, XdrWriter } from "./xdr.ts";
 import { rpc } from "./rpc.ts";
 
@@ -81,4 +81,34 @@ export async function getAttestation(jobId: string): Promise<{ ledger: number; a
   const xdr = sim.results?.[0]?.xdr;
   if (sim.error || !xdr) return { ledger: sim.latestLedger, error: sim.error?.split("\n")[0] ?? "no result" };
   return { ledger: sim.latestLedger, attestation: asAttestation(readScVal(new XdrReader(xdr))) };
+}
+
+export type SealProbe = { ledger: number; error?: string; authEntries: number; restoreNeeded: boolean };
+
+/**
+ * `seal(...)` simulated in recording-auth mode with `caller` as both the
+ * transaction source and the `caller` argument, so `caller.require_auth()` is
+ * satisfied by the source account without a signature and the call reaches
+ * the contract's own checks. Never submitted.
+ */
+export async function simulateSeal(caller: string, jobId: string, sealed: Attestation): Promise<SealProbe> {
+  const args = [
+    scvAddress(caller),
+    scvBytes(jobId),
+    scvAddress(sealed.orchestrator),
+    scvBytes(sealed.intent_hash),
+    scvVec(sealed.agents.map(scvSymbol)),
+    scvVec(sealed.receipts.map(scvBytes)),
+    scvI128(sealed.total_spent),
+  ];
+  const sim = await rpc<Simulation>("simulateTransaction", {
+    transaction: invokeEnvelope(caller, "seal", args),
+    authMode: "record",
+  });
+  return {
+    ledger: sim.latestLedger,
+    error: sim.error?.split("\n")[0],
+    authEntries: sim.results?.[0]?.auth?.length ?? 0,
+    restoreNeeded: sim.restorePreamble !== undefined,
+  };
 }
