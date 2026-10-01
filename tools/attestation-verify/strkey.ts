@@ -44,3 +44,22 @@ export function decodeStrkey(strkey: string, version: number): Buffer {
   if (crc16Xmodem(decoded.subarray(0, 33)) !== decoded.readUInt16LE(33)) throw new Error(`strkey ${strkey} checksum mismatch`);
   return decoded.subarray(1, 33);
 }
+
+/** The strkey of a raw 32-byte payload: how `get` results are compared with the addresses the evidence names. */
+export function encodeStrkey(raw: Uint8Array, version: number): string {
+  const payload = Buffer.concat([Buffer.from([version]), Buffer.from(raw)]);
+  const checksum = Buffer.alloc(2);
+  checksum.writeUInt16LE(crc16Xmodem(payload));
+  let out = "";
+  let buffer = 0;
+  let bits = 0;
+  for (const byte of Buffer.concat([payload, checksum])) {
+    buffer = ((buffer << 8) | byte) & 0xffff;
+    bits += 8;
+    while (bits >= 5) {
+      bits -= 5;
+      out += ALPHABET[(buffer >> bits) & 31];
+    }
+  }
+  return bits > 0 ? out + ALPHABET[(buffer << (5 - bits)) & 31] : out;
+}
