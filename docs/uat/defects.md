@@ -2541,7 +2541,7 @@ field's own message, and choose the copy from the refusal rather than the code.
 ## D-062 — A reason that contains a prompt-fence marker is stored altered and truncated
 
 - **Severity:** Minor
-- **Status:** Open — the backend documents it as an accepted edge
+- **Status:** **Fixed in code at backend `6da6da7`** (f857b43, e2a8e8f; re-checked 2026-10-01). Nothing in a reason is redacted or cut any more. A reason over 500 characters is refused instead. Verified live for the cap by `tests/dispute-eligibility.spec.ts` WC-06 (1f80c5a): 500 × "é" passes to `unknown_job`, and 501 gets `422 reason_invalid`. That a fence-marker reason is stored unchanged is not exercisable live, because it needs a payer's signature to open a dispute.
 - **Affects:** WC-06 (story 6.03c)
 
 **Steps to reproduce** — backend origin/main `3347090`, run locally with a
