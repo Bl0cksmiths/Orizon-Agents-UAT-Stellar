@@ -9,6 +9,7 @@ simulation, which executes nothing on the ledger.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -92,3 +93,34 @@ class Chain:
         response = self.client.get(FRIENDBOT, params={"addr": public_key}, timeout=60.0)
         response.raise_for_status()
         return str(response.json()["hash"])
+
+    def horizon_call(self, tx_hash: str, wait: float = 60.0) -> HorizonCall:
+        """`tx_hash` read from Horizon, waiting up to `wait` seconds for ingestion."""
+        deadline = time.monotonic() + wait
+        record = self.horizon_json(f"/transactions/{tx_hash}")
+        while record is None and time.monotonic() < deadline:
+            time.sleep(2.0)
+            record = self.horizon_json(f"/transactions/{tx_hash}")
+        if record is None:
+            raise ChainError(f"Horizon has no transaction {tx_hash}")
+        ops = (self.horizon_json(f"/transactions/{tx_hash}/operations") or {})["_embedded"]["records"]
+        if len(ops) != 1 or ops[0].get("type") != "invoke_host_function":
+            raise ChainError(f"{tx_hash} carries {len(ops)} operation(s), not one contract call")
+        params = [decode_scval(p["value"]) for p in ops[0].get("parameters") or []]
+        transfers = [
+            Transfer(c["from"], c["to"], to_stroops(c["amount"]))
+            for c in ops[0].get("asset_balance_changes") or []
+            if c.get("type") == "transfer"
+        ]
+        return HorizonCall(
+            tx_hash=tx_hash,
+            successful=record.get("successful") is True,
+            ledger=int(record["ledger"]),
+            created_at=str(record["created_at"]),
+            source_account=str(record["source_account"]),
+            fee_charged=int(record["fee_charged"]),
+            contract=str(params[0]) if params else "",
+            function=str(params[1]) if len(params) > 1 else "",
+            args=params[2:],
+            transfers=transfers,
+        )
