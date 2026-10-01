@@ -2828,7 +2828,7 @@ D-068).
 ## D-069 — The receipt stops polling once the refund confirms, so a rating that lands after it never shows
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (8e91f0ee, 3483e49d, 23096d91; re-checked 2026-10-01). `ratingStillComing` keeps a credited receipt polling while its rating is pending, with `rating_confirmed` null or false. Polling is every 5 s for 90 s, then every 30 s up to 15 min, then "stopped checking — reload". **Pin not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-10 needs a browser run.
 - **Affects:** DS-05 (story 6.03f)
 
 **Steps to reproduce** — with `tools/dispute-ui-drill/`: open the payer's trace
