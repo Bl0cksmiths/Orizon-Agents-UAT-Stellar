@@ -5,7 +5,7 @@
  * unexpected shape fails loudly instead of decoding into something plausible.
  */
 
-import { encodeStrkey, STRKEY_VERSION } from "./strkey.ts";
+import { decodeStrkey, encodeStrkey, STRKEY_VERSION } from "./strkey.ts";
 
 /**
  * A decoded value. Symbols and strings are text, addresses their strkey,
@@ -175,4 +175,34 @@ export function decodeContractData(base64: string): { key: ScValue; val: ScValue
   const val = readValue(r);
   if (!r.done()) throw new Error("trailing bytes after contract data");
   return { key, val };
+}
+
+/** A storage key to encode: a symbol, bytes as hex, an address, or a vec of keys. */
+export type ScKey = { sym: string } | { bytes: string } | { address: string } | ScKey[];
+
+const u32 = (n: number) => {
+  const out = Buffer.alloc(4);
+  out.writeUInt32BE(n);
+  return out;
+};
+
+const padded = (bytes: Buffer) =>
+  Buffer.concat([u32(bytes.length), bytes, Buffer.alloc((4 - (bytes.length % 4)) % 4)]);
+
+/** `ScAddress` XDR (no ScVal tag) for a G… account or a C… contract. */
+export function encodeAddress(strkey: string): Buffer {
+  if (strkey.startsWith("G")) {
+    return Buffer.concat([u32(0), u32(0), decodeStrkey(STRKEY_VERSION.account, strkey)]);
+  }
+  return Buffer.concat([u32(1), decodeStrkey(STRKEY_VERSION.contract, strkey)]);
+}
+
+/** `ScVal` XDR for a storage key, the way a `#[contracttype]` enum key is laid out. */
+export function encodeScKey(key: ScKey): Buffer {
+  if (Array.isArray(key)) {
+    return Buffer.concat([u32(16), u32(1), u32(key.length), ...key.map(encodeScKey)]);
+  }
+  if ("sym" in key) return Buffer.concat([u32(15), padded(Buffer.from(key.sym, "utf8"))]);
+  if ("bytes" in key) return Buffer.concat([u32(13), padded(Buffer.from(key.bytes, "hex"))]);
+  return Buffer.concat([u32(18), encodeAddress(key.address)]);
 }
