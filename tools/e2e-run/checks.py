@@ -8,7 +8,9 @@ is what is being checked.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
+from typing import Any
 
 from chain import HorizonCall
 
@@ -49,3 +51,69 @@ def check_authorize(call: HorizonCall, escrow: str, payer: str, plan_id: str, ma
             f"transfers {call.transfers}",
         ),
     ]
+
+
+def check_settle(
+    call: HorizonCall,
+    events: list[dict[str, Any]],
+    escrow: str,
+    settler: str,
+    auth_id: str,
+    job_id: str,
+    owners: dict[str, str],
+    payer: str,
+    max_stroops: int,
+) -> tuple[list[Check], Counter[str]]:
+    """PaymentEscrow.settle(settler, auth_id, job_id, payouts): each payout lands
+    with its agent's on-chain owner as a `charged` event and a transfer, and the
+    rest of the custody goes back to the payer. Returns (checks, paid per agent)."""
+    args = call.args
+    payouts = args[3] if len(args) > 3 and isinstance(args[3], list) else []
+    paid: Counter[str] = Counter()
+    for p in payouts:
+        paid[str(p.get("agent_id"))] += int(p.get("amount") or 0)
+    spent = sum(paid.values())
+    expected_to_owner: Counter[str] = Counter()
+    for agent, amount in paid.items():
+        expected_to_owner[owners.get(agent, f"<no owner for {agent}>")] += amount
+    to_owner: Counter[str] = Counter()
+    returned = 0
+    for t in call.transfers:
+        if t.source != escrow:
+            continue
+        if t.to == payer:
+            returned += t.stroops
+        else:
+            to_owner[t.to] += t.stroops
+    charged = [e for e in events if e["topics"][:1] == ["charged"]]
+    charged_paid: Counter[str] = Counter()
+    for e in charged:
+        value = e["value"] if isinstance(e["value"], list) else []
+        charged_paid[str(e["topics"][1]) if len(e["topics"]) > 1 else ""] += int(value[2]) if len(value) > 2 else 0
+    settled = [e for e in events if e["topics"][:1] == ["settled"]]
+    settled_value = settled[0]["value"] if len(settled) == 1 and isinstance(settled[0]["value"], list) else []
+    checks = [
+        *_call("settle", call, escrow, "settle"),
+        Check(
+            "settle_signed_by_settler",
+            call.source_account == settler == (args[:1] or [""])[0],
+            f"source {call.source_account}",
+        ),
+        Check("settle_auth_id", args[1:2] == [auth_id], f"auth id {args[1:2]}, authorized {auth_id}"),
+        Check("settle_job_id", args[2:3] == [job_id], f"job id {args[2:3]}, settlement {job_id}"),
+        Check("settle_pays_someone", spent > 0, f"payouts {payouts}"),
+        Check("settle_payouts_have_owners", all(a in owners for a in paid), f"owners {owners}"),
+        Check("settle_transfers_to_owners", to_owner == expected_to_owner, f"to owners {dict(to_owner)}"),
+        Check("settle_charged_events", charged_paid == paid, f"charged {dict(charged_paid)}, payouts {dict(paid)}"),
+        Check(
+            "settle_returned_remainder",
+            returned == max_stroops - spent,
+            f"returned {returned} to the payer; max {max_stroops} - spent {spent} = {max_stroops - spent}",
+        ),
+        Check(
+            "settle_settled_event",
+            settled_value[2:4] == [spent, max_stroops - spent],
+            f"settled event {settled_value}",
+        ),
+    ]
+    return checks, paid
