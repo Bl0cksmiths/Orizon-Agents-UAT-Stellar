@@ -65,8 +65,9 @@ test.describe("AD — adjudication door (story 6.03g)", () => {
   }
 
   test("AD-06 the buyer's routes never ask for the operator key", async ({ request }) => {
-    // No run settles on the deploy (D-050), so a dispute cannot be accepted here; that half runs
-    // in tools/adjudication-drill/. What holds live: neither route answers invalid_api_key.
+    // Accepting a dispute needs the payer's signature over a settled run, which this suite does
+    // not hold; that half runs in tools/adjudication-drill/. What holds live: neither route
+    // answers invalid_api_key.
     const job = { job_id_hex: "7fc5bc5ea95f15fc7fc5bc5ea95f15fc", step_index: 0 };
     const challenge = await request.post("/api/disputes/challenge", { timeout: COLD_START_TIMEOUT, data: job });
     expect(challenge.status()).toBe(404);
