@@ -9,6 +9,7 @@ simulation, which executes nothing on the ledger.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from stellar_sdk import Address, scval
@@ -42,3 +43,30 @@ def to_stroops(amount: str) -> int:
     """A Horizon decimal amount ("0.0100000") in stroops, without float rounding."""
     whole, _, frac = amount.partition(".")
     return int(whole) * STROOPS_PER_UNIT + int((frac + "0000000")[:7])
+
+
+@dataclass(frozen=True)
+class Transfer:
+    source: str
+    to: str
+    stroops: int
+
+
+@dataclass(frozen=True)
+class HorizonCall:
+    """One transaction as Horizon reports it, reduced to its single contract call."""
+
+    tx_hash: str
+    successful: bool
+    ledger: int
+    created_at: str
+    source_account: str
+    fee_charged: int
+    contract: str
+    function: str
+    args: list[Any]
+    transfers: list[Transfer]
+
+
+class ChainError(Exception):
+    """Horizon or the RPC gave no usable answer."""
