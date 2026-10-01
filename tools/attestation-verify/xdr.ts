@@ -47,3 +47,51 @@ export class XdrWriter {
     return Buffer.concat(this.parts);
   }
 }
+
+/** Big-endian XDR reader over one decoded base64 blob; throws past its end. */
+export class XdrReader {
+  private offset = 0;
+  private readonly buf: Buffer;
+
+  constructor(base64: string) {
+    this.buf = Buffer.from(base64, "base64");
+  }
+
+  u32(): number {
+    const value = this.buf.readUInt32BE(this.offset);
+    this.offset += 4;
+    return value;
+  }
+
+  i32(): number {
+    const value = this.buf.readInt32BE(this.offset);
+    this.offset += 4;
+    return value;
+  }
+
+  u64(): bigint {
+    const value = this.buf.readBigUInt64BE(this.offset);
+    this.offset += 8;
+    return value;
+  }
+
+  i64(): bigint {
+    const value = this.buf.readBigInt64BE(this.offset);
+    this.offset += 8;
+    return value;
+  }
+
+  fixed(length: number): Buffer {
+    if (this.offset + length > this.buf.length) throw new Error("XDR ended early");
+    const value = this.buf.subarray(this.offset, this.offset + length);
+    this.offset += length;
+    return value;
+  }
+
+  opaque(): Buffer {
+    const length = this.u32();
+    const value = this.fixed(length);
+    this.offset += (4 - (length % 4)) % 4;
+    return value;
+  }
+}
