@@ -119,8 +119,7 @@ def sd08_failure_logged(opened) -> None:
     for field, value in (("dispute id", opened.id), ("job id", opened.job_id_hex),
                          ("payer", opened.payer)):
         check(f"SD-08 the error line carries the {field}", value in line, line)
-    check("SD-08 the error line carries the amount", str(PRICE) in line,
-          line, defect="D-075")
+    check("SD-08 the error line carries the amount", str(PRICE) in line, line)
 
 
 def refused_before_submission_is_failed() -> None:
