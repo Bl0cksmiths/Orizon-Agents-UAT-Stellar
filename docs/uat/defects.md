@@ -2901,7 +2901,7 @@ transfer on record …" (`test.fail()`, pinned to D-070).
 ## D-071 — The dispute dialog states the credit as exact; the receipt says "Up to"
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (1a8c56dd, cf7482a5; re-checked 2026-10-01). The dialog reads "Credited if upheld: Up to X", and the step row reads "credits up to X if upheld". Amounts now print in the network's asset, which is XLM on testnet (3359fede). **Pin not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-14 needs a browser run, and its "USDC" wording must change to XLM.
 - **Affects:** DS-01 (story 6.03f)
 
 **Steps to reproduce** — open a settled task's trace page as the payer and
