@@ -55,17 +55,28 @@ test.describe.configure({ mode: "serial" });
 const EVIDENCE_INTENT = "tetris game in html";
 
 /**
- * ReputationBadge renders its whole meaning into `aria-label` (and the
- * identical `title`) — "prior estimate 3.50 — no on-chain ratings yet" or
- * "on-chain reputation 4.08 from 9 rated jobs". That string, not the chip's
- * colour, is what carries score AND source to a buyer and to assistive
- * tech, so every assertion in this file reads it.
+ * ReputationBadge renders its whole meaning as a sentence — "prior estimate
+ * 3.50 — no on-chain ratings yet" or "on-chain reputation 3.50 from 10 rated
+ * jobs · clears the 2.75 network floor". That sentence, not the chip's colour,
+ * is what carries score AND source to a buyer and to assistive tech, so every
+ * assertion in this file reads it.
+ *
+ * The deployed chip (components/ui/reputation-badge.tsx at frontend 7e292ca8)
+ * carries it twice: as the text of an `.sr-only` span, which is what a screen
+ * reader announces, and as the chip's `title`. It no longer rides on
+ * `aria-label`, which ARIA prohibits on a role-less span. The chip is found by
+ * its `title` and its announced text is read from the sr-only span.
  */
-const REP_BADGE = '[aria-label^="prior estimate "], [aria-label^="on-chain reputation "]';
+const REP_BADGE = '[title^="prior estimate "], [title^="on-chain reputation "], [title^="estimate "]';
 
-/** The accessible label must always open with the source phrase and a 0–5
+/** The text a screen reader announces for a badge. */
+function badgeSpeech(badge: Locator): Locator {
+  return badge.locator(".sr-only");
+}
+
+/** The announced sentence must always open with the source phrase and a 0–5
  * score to two decimals (`bps / 2000` in reputation-badge.tsx). */
-const REP_LABEL_SHAPE = /^(prior estimate|on-chain reputation) \d+\.\d{2}\b/;
+const REP_LABEL_SHAPE = /^(prior estimate|on-chain reputation|estimate) \d+\.\d{2}\b/;
 
 /**
  * Drives the orchestrator form with a preset intent and waits for the card.
@@ -150,9 +161,7 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
       ).toHaveCount(1);
     }
 
-    const labels = await page.locator(REP_BADGE).evaluateAll((els) =>
-      els.map((el) => el.getAttribute("aria-label") ?? ""),
-    );
+    const labels = await badgeSpeech(page.locator(REP_BADGE)).allTextContents();
     expect(labels).toHaveLength(stepCount);
     for (const label of labels) {
       expect(label, "reputation badge label does not name a source and a score").toMatch(
@@ -524,9 +533,9 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
       // Exact, not a pattern: the score AND whether it came from the chain or
       // the prior both have to survive into the accessible name.
       await expect(
-        badge,
+        badgeSpeech(badge),
         `${where} announces the wrong score or the wrong source`,
-      ).toHaveAttribute("aria-label", expectedBadgeLabel(step));
+      ).toHaveText(expectedBadgeLabel(step));
 
       if (step.substituted_for) {
         await expect(
