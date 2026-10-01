@@ -7,8 +7,9 @@ import { COLD_START_TIMEOUT } from "./fixtures";
  * Durability is tested by restarting. On the deploy the restart is Render's own
  * — the free tier stops an idle service — so what can be asserted live is that
  * a restart is visible and that state written before it is still served after
- * it. Opening, restarting and reading back a dispute needs a settled step
- * (D-050); that half ran locally on a real Postgres and is recorded in
+ * it, and that /readiness names the store. Opening, restarting and reading
+ * back a dispute needs the payer's key, which no spec holds; that half ran
+ * locally on a real Postgres and is recorded in
  * docs/uat/evidence/6.03d-durability.md with the drill in tools/restart-drill/.
  */
 
