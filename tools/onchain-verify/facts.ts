@@ -129,3 +129,17 @@ export const TX_FACTS = new Map([
   ...ESCROW_V2_RUNS,
   ...ESCROW_V1_AND_TRANSFERS,
 ].map((t) => [t.hash, t]));
+
+/**
+ * The roles the index gives each contract, as instance storage must hold
+ * them: the team admin administers all five, the platform key scores, seals
+ * and settles v2, the admin wallet settled v1, and both escrows pay in native
+ * XLM through the same AgentRegistry.
+ */
+export const CONTRACT_FACTS = new Map<string, Record<string, ScValue>>([
+  [REGISTRY, { Admin: ADMIN }],
+  [LEDGER, { Admin: ADMIN, Scorer: PLATFORM }],
+  [ATTESTATION, { Admin: ADMIN, Sealer: PLATFORM }],
+  [ESCROW_V1, { Admin: ADMIN, Settler: ADMIN, Usdc: XLM_SAC, Registry: REGISTRY }],
+  [ESCROW_V2, { Admin: ADMIN, Settler: PLATFORM, Usdc: XLM_SAC, Registry: REGISTRY }],
+]);
