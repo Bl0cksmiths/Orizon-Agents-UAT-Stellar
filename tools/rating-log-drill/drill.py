@@ -61,7 +61,8 @@ class Capture(logging.Handler):
             records.append(record)
 
 
-async def execute_refund(buyer: str, amount_usdc: float) -> dict:
+async def execute_refund(buyer: str, amount_usdc: float, *, dispute_id: str | None = None) -> dict:
+    """The transfer lands. `dispute_id` (backend 6da6da7 on) only muxes the payer's address."""
     return {"status": "SUCCESS", "hash": REFUND_TX, "ledger": 4242}
 
 
