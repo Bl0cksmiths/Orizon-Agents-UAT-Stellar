@@ -3002,7 +3002,7 @@ JSON on reject …" (`test.fail()`, pinned to D-073).
 ## D-074 — `STELLAR_NETWORK=pubnet` is not recognised as mainnet by the boot guards
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Fixed in code at backend `6da6da7`** (ec75b03, 0f4dc64, f9a7f8a; re-checked 2026-10-01). `is_mainnet()` reads the network passphrase (`config.py:1174`), and `pubnet` is in `MAINNET_LABELS`. **Pin not yet lifted:** `tools/adjudication-drill/drill.py d074` needs a re-run.
 - **Affects:** AD-02 (story 6.03g), found beside it; the refund door itself holds
 
 **Steps to reproduce** — backend `08efeda`, loading the settings only
