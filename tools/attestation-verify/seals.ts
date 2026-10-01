@@ -15,6 +15,8 @@ export type ClaimedSeal = {
   agents: string[];
   receipts: string[];
   totalSpent: bigint;
+  /** Ledger close time (unix seconds) the claim records for the seal. */
+  sealedAt: bigint;
 };
 
 export const CLAIMED_SEALS: ClaimedSeal[] = [
@@ -28,5 +30,6 @@ export const CLAIMED_SEALS: ClaimedSeal[] = [
     agents: ["calculatorai"],
     receipts: ["00000000000000000000000000000001"],
     totalSpent: 100_000n,
+    sealedAt: 1_790_760_582n,
   },
 ];
