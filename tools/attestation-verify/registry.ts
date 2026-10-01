@@ -6,7 +6,7 @@
  * check comes first (Unauthorized = 1), then the existence check
  * (AlreadyExists = 3); `get` returns NotFound = 2 for an unknown job.
  */
-import { readScVal, scAddress, scvAddress, scvBytes, scvI128, scvSymbol, scvVec, type ScValue } from "./scval.ts";
+import { readScAddress, readScVal, scAddress, scvAddress, scvBytes, scvI128, scvSymbol, scvVec, type ScValue } from "./scval.ts";
 import { XdrReader, XdrWriter } from "./xdr.ts";
 import { rpc } from "./rpc.ts";
 
@@ -110,5 +110,45 @@ export async function simulateSeal(caller: string, jobId: string, sealed: Attest
     error: sim.error?.split("\n")[0],
     authEntries: sim.results?.[0]?.auth?.length ?? 0,
     restoreNeeded: sim.restorePreamble !== undefined,
+  };
+}
+
+const LEDGER_ENTRY_CONTRACT_DATA = 6;
+const PERSISTENT = 1;
+
+type LedgerEntries = {
+  latestLedger: number;
+  entries?: { xdr: string; lastModifiedLedgerSeq: number; liveUntilLedgerSeq?: number }[];
+};
+
+export type EntryLifetime = {
+  latestLedger: number;
+  lastModified: number;
+  /** 0 (or absent from the RPC) once the entry has been archived. */
+  liveUntil: number;
+  stored: Attestation;
+};
+
+/**
+ * The persistent `DataKey::Job(job_id)` entry read straight from the ledger:
+ * its live-until ledger (the registry never extends it) and the stored value.
+ * Undefined when the RPC returns no entry at all.
+ */
+export async function jobEntry(jobId: string): Promise<EntryLifetime | undefined> {
+  const storageKey = scvVec([scvSymbol("Job"), scvBytes(jobId)]);
+  const key = new XdrWriter().u32(LEDGER_ENTRY_CONTRACT_DATA).raw(scAddress(REGISTRY)).raw(storageKey).u32(PERSISTENT).bytes();
+  const result = await rpc<LedgerEntries>("getLedgerEntries", { keys: [key.toString("base64")] });
+  const entry = result.entries?.[0];
+  if (!entry) return undefined;
+  const reader = new XdrReader(entry.xdr);
+  if (reader.u32() !== LEDGER_ENTRY_CONTRACT_DATA || reader.u32() !== 0) throw new Error("not a v0 contract-data entry");
+  if (readScAddress(reader) !== REGISTRY) throw new Error("entry belongs to another contract");
+  readScVal(reader); // the key, already known
+  if (reader.u32() !== PERSISTENT) throw new Error("job entry is not persistent");
+  return {
+    latestLedger: result.latestLedger,
+    lastModified: entry.lastModifiedLedgerSeq,
+    liveUntil: entry.liveUntilLedgerSeq ?? 0,
+    stored: asAttestation(readScVal(reader)),
   };
 }
