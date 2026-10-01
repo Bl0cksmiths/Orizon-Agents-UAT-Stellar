@@ -31,6 +31,11 @@ type Stamp = {
 
 const AGENT = "agt_09l5";
 
+const HORIZON = "https://horizon-testnet.stellar.org";
+const TX_HASH = /^[0-9a-f]{64}$/;
+const UPHELD = "dsp_15acee279ac02852a5877ac1696ec4b5";
+type Upheld = { status: string; refund_tx: string; rating_tx: string; rating_confirmed: boolean };
+
 test.describe("RC — reputation consequence (story 6.03e)", () => {
   test("RC prerequisite: the deployment's signer is the ledger's authorised scorer", async ({ request }) => {
     const response = await request.get(`${BACKEND}/readiness`, { timeout: COLD_START_TIMEOUT });
@@ -65,12 +70,20 @@ test.describe("RC — reputation consequence (story 6.03e)", () => {
     expect(plan?.rep_bps).toBe(rep.smoothed_bps);
   });
 
-  test("RC-01 an upheld dispute can be reached on the deploy", async ({ request }) => {
-    // D-051: DISPUTE_REFUNDS_ENABLED is off, so adjudication answers 503 before
-    // anything else, and D-050 leaves no settled run to dispute. Remove the
-    // marker once the route answers with the adjudicator guard instead.
-    test.fail();
-    const response = await request.post("/api/disputes/dsp_uat_probe/uphold", { timeout: COLD_START_TIMEOUT, data: {} });
-    expect((await response.json()).error?.code).not.toBe("dispute_refunds_disabled");
+  test("RC-01 an upheld dispute exists on the deploy, its refund and rating on chain", async ({ request }) => {
+    // Upheld on 2026-09-30 while refunds were on. This reads what happened then; it says nothing
+    // about how the refund switch is set now.
+    const response = await request.get(`/api/disputes/${UPHELD}`, { timeout: COLD_START_TIMEOUT });
+    expect(response.status()).toBe(200);
+    const dispute = (await response.json()) as Upheld;
+    expect(dispute.status).toBe("credited");
+    expect(dispute.refund_tx).toMatch(TX_HASH);
+    expect(dispute.rating_tx).toMatch(TX_HASH);
+    expect(dispute.rating_confirmed).toBe(true);
+    for (const hash of [dispute.refund_tx, dispute.rating_tx]) {
+      const tx = await request.get(`${HORIZON}/transactions/${hash}`, { timeout: COLD_START_TIMEOUT });
+      expect(tx.status(), `Horizon has ${hash}`).toBe(200);
+      expect((await tx.json()).successful, `${hash} succeeded`).toBe(true);
+    }
   });
 });
