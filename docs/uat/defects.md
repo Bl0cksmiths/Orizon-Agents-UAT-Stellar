@@ -2868,7 +2868,7 @@ poll happened to land after both writes.
 ## D-070 — An upheld dispute with no transfer says the transfer "is queued", under a success tick
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (ac25c57e, 086110c0, 23a05e8e; re-checked 2026-10-01). An upheld dispute with no transfer now reads "the credit has not been paid… the platform has to send it", under a grey ○ rather than a cyan ✓. **Pin not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-13 needs a browser run.
 - **Affects:** DS-01 (story 6.03f)
 
 **Steps to reproduce** — with `tools/dispute-ui-drill/`: open the payer's
