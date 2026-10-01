@@ -28,14 +28,15 @@ const SETTLED_TASK_ID = "tsk_7e1c369cebaf41b3";
 const SETTLED_JOB_HEX = "dd9089ab7791c4293baf87745d1ea0b6";
 
 test.describe("DP — dispute path (story 6.03a)", () => {
-  test("DP-04 a finished run answers the dispute endpoint with a task-shaped payload", async ({ request }) => {
+  test("DP-04 a finished run with no settlement answers the dispute endpoint with an empty, windowless payload", async ({ request }) => {
     const response = await request.get(`/api/tasks/${DP_TASK_ID}/disputes`, { timeout: COLD_START_TIMEOUT });
     expect(response.status()).toBe(200);
     const body = await response.json();
     expect(body.task_id).toBe(DP_TASK_ID);
-    expect(Array.isArray(body.disputes), "disputes is always a list, even when empty").toBe(true);
-    expect(body).toHaveProperty("settlement");
-    expect(body).toHaveProperty("window_closes_at");
+    expect(body.disputes, "disputes is always a list, even when empty").toEqual([]);
+    expect(body.settlement, "nothing settled, so nothing to dispute").toBeNull();
+    expect(body.settlement_state).toBeNull();
+    expect(body.window_closes_at, "and no window to dispute in").toBeNull();
   });
 
   test("DP-03 a dispute challenge for a job that never settled is refused as unknown_job", async ({ request }) => {
