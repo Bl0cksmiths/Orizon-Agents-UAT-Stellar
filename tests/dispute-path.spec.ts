@@ -6,12 +6,13 @@ import { COLD_START_TIMEOUT } from "./fixtures";
  *
  * The story's flow starts from a settled payment: pay, watch the receipt
  * appear, dispute a step, have it upheld, then resolve both transactions on
- * Stellar Expert. None of that can run today — the escrow charge never lands,
- * so no settlement is recorded and there is nothing to dispute
- * (docs/uat/evidence/6.03a-dispute-path.md). What these tests hold is the
- * reachability of the path itself: the routes answer, they refuse what they
- * should refuse, and the one gate that blocks the story is pinned as an
- * expected failure so it turns green the moment settlement works.
+ * Stellar Expert. Escrow v2 settles real runs on the deploy, and one of them
+ * was disputed and credited on 2026-09-30. Opening and upholding a dispute
+ * needs the payer's key and the adjudicator's, which no spec holds, so those
+ * steps are recorded in docs/uat/evidence/6.03a-dispute-path.md. What these
+ * tests hold is the path as the deploy serves it: a settled run exposes its
+ * settlement and window, a run with none answers empty, and the routes refuse
+ * what they should refuse.
  */
 
 // The 2026-09-24 attempt: two seeded agents, both delivered, run finalized
