@@ -2798,7 +2798,7 @@ returning without the task's tab still reads why it was rejected"
 ## D-068 — A withheld reason is drawn as an empty "Your reason" quote
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (699ab458, 712b57a6; re-checked 2026-10-01). A reason that is empty after trimming is treated as absent (`lib/disputes.ts:829`), so no empty quote is drawn. **Pin not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-08 needs a browser run.
 - **Affects:** DS-01 (story 6.03f)
 
 **Steps to reproduce** — as for D-067: open any dispute's trace page with the
