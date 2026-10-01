@@ -66,4 +66,18 @@ test.describe("WC — dispute eligibility (story 6.03c)", () => {
     expect(response.status()).toBe(422);
     expect((await response.json()).error?.code).toBe("reason_invalid");
   });
+
+  test("WC-01 a dispute after the window closes is refused, stating the closing time", async ({ request }) => {
+    // The first run escrow v2 settled on the deploy (dispute-path.spec.ts DP-01):
+    // its 24 h window closed at 2026-10-01T09:39:30Z and stays closed, so this
+    // answer is permanent. The challenge is refused before anyone signs.
+    const response = await request.post("/api/disputes/challenge", {
+      timeout: COLD_START_TIMEOUT,
+      data: { job_id_hex: "dd9089ab7791c4293baf87745d1ea0b6", step_index: 0 },
+    });
+    expect(response.status()).toBe(409);
+    const error = (await response.json()).error;
+    expect(error?.code).toBe("dispute_window_closed");
+    expect(error?.message, "the refusal states when the window closed").toContain("closed at 2026-10-01T09:39:30");
+  });
 });
