@@ -2571,7 +2571,7 @@ redact without exceeding the cap, so what is stored is what was sent.
 ## D-063 — The startup log does not name the dispute store; it is named only at first use
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01** — fixed at backend 1e200bf and 33b4160. The store is created at startup (`main.py:198-204`), and `/readiness` reports it. Verified live by `tests/durability.spec.ts` DU-05 (cd160fb): `disputes.store` is `postgres`. **Pin not yet lifted:** `tools/restart-drill/drill.py` (the boot-log check) needs a Postgres drill run.
 - **Affects:** DU-05 (story 6.03d)
 
 **Steps to reproduce** — backend origin/main `3347090`, `DATABASE_URL` set to a
