@@ -34,7 +34,25 @@ const AGENT = "agt_09l5";
 const HORIZON = "https://horizon-testnet.stellar.org";
 const TX_HASH = /^[0-9a-f]{64}$/;
 const UPHELD = "dsp_15acee279ac02852a5877ac1696ec4b5";
-type Upheld = { status: string; refund_tx: string; rating_tx: string; rating_confirmed: boolean };
+type Upheld = { agent_id: string; status: string; refund_tx: string; rating_tx: string; rating_confirmed: boolean };
+type Invoke = { type: string; parameters: { value: string }[] };
+const LEDGER = "CDCSOBEVZUPQZV5GV4D6KYHZCLNGW2KXY74RUHSZ3EZUXF34DPW422ZT";
+
+/** The 32-byte contract id inside a C... strkey (base32: version byte, id, checksum). */
+function contractId(strkey: string): string {
+  const bits = [...strkey].map((c) => "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".indexOf(c).toString(2).padStart(5, "0")).join("");
+  return Buffer.from((bits.match(/.{8}/g) ?? []).map((byte) => parseInt(byte, 2))).subarray(1, 33).toString("hex");
+}
+
+/** An XDR ScVal as Horizon gives it: a contract address (tag 18, kind 1) or a symbol (tag 15). */
+function scAddress(b64: string): string {
+  const xdr = Buffer.from(b64, "base64");
+  return xdr.readUInt32BE(0) === 18 && xdr.readUInt32BE(4) === 1 ? xdr.subarray(8, 40).toString("hex") : "";
+}
+function scSymbol(b64: string): string {
+  const xdr = Buffer.from(b64, "base64");
+  return xdr.readUInt32BE(0) === 15 ? xdr.subarray(8, 8 + xdr.readUInt32BE(4)).toString("utf8") : "";
+}
 
 test.describe("RC — reputation consequence (story 6.03e)", () => {
   test("RC prerequisite: the deployment's signer is the ledger's authorised scorer", async ({ request }) => {
@@ -85,5 +103,15 @@ test.describe("RC — reputation consequence (story 6.03e)", () => {
       expect(tx.status(), `Horizon has ${hash}`).toBe(200);
       expect((await tx.json()).successful, `${hash} succeeded`).toBe(true);
     }
+    const ops = await request.get(`${HORIZON}/transactions/${dispute.rating_tx}/operations`, { timeout: COLD_START_TIMEOUT });
+    const records = (await ops.json())._embedded.records as Invoke[];
+    expect(records).toHaveLength(1);
+    expect(records[0]?.type).toBe("invoke_host_function");
+    const values = (records[0]?.parameters ?? []).map((parameter) => parameter.value);
+    const symbols = values.map(scSymbol);
+    expect(values.map(scAddress)[0], "the rating went to the ReputationLedger").toBe(contractId(LEDGER));
+    expect(symbols[1]).toBe("submit");
+    expect(symbols[3]).toBe(dispute.agent_id);
+    expect(symbols.at(-1), "the rating's kind").toBe("dispute");
   });
 });
