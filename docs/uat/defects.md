@@ -2511,7 +2511,7 @@ switch to the closed message at the close, before any signature.
 ## D-061 — A reason refused as a validation error is shown as a generic, retryable failure
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (e96d3d95, d3be1207; re-checked 2026-10-01). A reason refusal (`validation_error` naming `reason`, `reason_required` or the backend's new `reason_invalid`) is shown with the server's own sentence, the field is marked `aria-invalid`, and focus moves to it. No UAT test pins this. It was verified by code reading and the frontend's dispute suite.
 - **Affects:** WC-05, WC-06 (story 6.03c)
 
 **Steps to reproduce** — frontend origin/main `e56a07a`, component level:
