@@ -524,25 +524,24 @@ observed response shape, since the deployment exposes no build identifier.
 
 # Story 6.03 — dispute, refund and negative-rating path
 
-## Recommendation for story 6.03: NO-GO
+## Recommendation for story 6.03: GO on the criteria; the story stays open for the recording
 
-Rolled up 2026-09-26 from 6.03a–g and a re-check against today's code. The full
-record is `evidence/6.03-dispute-refund-rating.md`.
+Re-rolled 2026-10-01 on the new deploy (escrow v2; backend at or after `6da6da7`).
+The 2026-09-26 roll-up was NO-GO, with one criterion blocked and four failing.
+The full record is §6 of `evidence/6.03-dispute-refund-rating.md`.
 
-| criterion | verdict | holding it back |
+| criterion | verdict | caveat |
 | --- | --- | --- |
-| SD-01 both on-chain artifacts | Blocked | D-050 (no settlement, behind D-039), D-051 (refunds off) |
-| SD-02 one transfer across four duplicate paths | Pass in code | on-chain proof waits on SD-01 |
-| SD-03 window edges, closing time stated | Fail | D-060; D-056 fixed at `08efeda`, not deployed |
-| SD-04 non-payer refused | Pass in code | live waits on D-050 |
-| SD-05 survives a restart | Pass in code | D-065 latent |
-| SD-06 credit bounded before signing | Fail | D-054, D-055 |
-| SD-07 reputation moves, not cached | Fail | D-066 |
-| SD-08 failed rating keeps credit, logged | Fail | D-075 (new) |
+| SD-01 both on-chain artifacts | Pass, live | two upheld disputes, each with one refund and one `dispute` rating; the asset is XLM, not USDC |
+| SD-02 one transfer across duplicate paths | Pass | one transfer per dispute on-chain; the duplicate attempts were not fired live |
+| SD-03 window edges, closing time stated | Pass, live | the dialog's close handling is confirmed in code only |
+| SD-04 non-payer refused | Pass, live | the UI half was not re-checked live |
+| SD-05 survives a restart | Pass | D-065 latent while task auth is off |
+| SD-06 credit bounded before signing | Pass in code | D-055: the refusal names neither amount nor cap |
+| SD-07 reputation moves, not cached | Pass, live | the script path's drill pin is not lifted |
+| SD-08 failed rating keeps credit, logged | Pass in code | the deploy's logs cannot be read from outside |
 
-Deliverable 3 is **not captured**. The drill's testnet refund and dispute rating
-prove the code path, but they are neither USDC nor the platform's ledger.
-
-Refunds stay off until the deploy runs backend `08efeda` or later, and
-`MAX_REFUND_USDC` is confirmed finite. The ordered steps are in §5 of the
-evidence.
+Deliverable 3: the refund tx (`cb2c5792…`) and the dispute rating tx
+(`b512135f…`) are on the deploy and resolve on Stellar Expert. **The recording
+of the dispute UI is still missing**, and the story closes when it exists. Both
+disputes are the team's own run, and both refunds paid the whole step.
