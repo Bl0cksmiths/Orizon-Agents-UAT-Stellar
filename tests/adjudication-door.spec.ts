@@ -47,13 +47,14 @@ test.describe("AD — adjudication door (story 6.03g)", () => {
   }
 
   for (const action of ["uphold", "reject"] as const) {
-    test(`AD-04 no key and a wrong-shaped body on ${action}: the door answers, not the validator`, async ({ request }) => {
+    test(`AD-04 no key and a wrong-shaped body on ${action}: the guard's 401, not the validator's 422`, async ({ request }) => {
       await expectGuardRefusal(await request.post(`${PROBE}/${action}`, { timeout: COLD_START_TIMEOUT, data: { note: 5, extra: [] } }));
     });
-    test(`AD-04 no key and malformed JSON on ${action}: the door answers, not the parser`, async ({ request }) => {
-      // D-073: FastAPI parses a JSON body before it runs the route's dependencies, so on reject
-      // (the one of the two with a body) malformed JSON is answered 422 json_invalid ahead of
-      // the guard. Remove the marker once the guard answers first.
+    test(`AD-04 no key and malformed JSON on ${action}: the guard's 401, not the parser's 422`, async ({ request }) => {
+      // D-073: FastAPI decodes a JSON body before it runs the route's dependencies, so on reject
+      // (the one of the two with a body) malformed JSON is still answered 422 json_invalid ahead
+      // of the guard, live as of 2026-10-01. A well-formed body of the wrong shape is not: field
+      // validation waits for the guard. Remove the marker once the guard answers first.
       if (action === "reject") test.fail();
       await expectGuardRefusal(await request.post(`${PROBE}/${action}`, {
         timeout: COLD_START_TIMEOUT,
