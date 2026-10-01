@@ -113,16 +113,14 @@ async function decomposeIntent(page: Page, intent: string): Promise<void> {
 }
 
 /**
- * Heading of the floor panel, read from the DEPLOYED markup rather than from
- * the frontend repo's working tree — the two have diverged. The live build
- * renders the panel as a collapsed `<details>` whose `<summary>` carries
- * `<h3>Reputation floor · N changes</h3>`; the source checkout still shows an
- * always-open `<div>` headed "reputation floor — why this plan changed shape",
- * a string that appears nowhere on the deployment. Asserting the old string
- * was absent could therefore never fail, whatever the card did.
+ * Heading of the floor panel. The deployed card
+ * (app/app/orchestrator/_components/exclusions-panel.tsx:368 at frontend
+ * 7e292ca8) renders it as a collapsed `<details>` whose `<summary>` carries
+ * `<h3>Reputation floor · N changes</h3>`, or "· no changes" when every
+ * notice is an unbound endpoint rather than a floor action.
  *
- * The panel renders only when `plan.notices` is non-empty, so this handle is
- * both how a test asserts the panel IS there and how it asserts it is NOT.
+ * The panel renders whenever `plan.notices` is non-empty, unbound-endpoint
+ * notices included, so on today's registry it is present on every live plan.
  */
 const FLOOR_PANEL_HEADING = "Reputation floor";
 
@@ -175,7 +173,16 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
     ).toEqual([]);
   });
 
-  test("RF-14 a live plan reporting no floor actions does not render the floor panel", async ({
+  /**
+   * The kit pipeline's six agents all clear the floor on the live registry
+   * (lower bounds 5679–5718 against 5500 on 2026-10-02), so the floor acts on
+   * none of them. The live response still carries notices — one
+   * `unbound_endpoint` exclusion per on-chain agent with no endpoint bound —
+   * and the panel renders for them. What it must not do is credit those to
+   * the floor: the summary has to read "no changes" and count the unbound
+   * agents separately.
+   */
+  test("RF-14 a live kit plan the floor did not act on says 'no changes' and counts unbound agents apart", async ({
     page,
   }) => {
     // Registered before the navigation, so it spans BOTH the shell hydration
@@ -187,27 +194,38 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
       { timeout: COLD_START_TIMEOUT * 2 },
     );
     await decomposeIntent(page, EVIDENCE_INTENT);
-    const plan = (await (await decomposed).json()) as { notices?: unknown[] };
+    const plan = (await (await decomposed).json()) as {
+      notices: { reason_code?: string }[];
+    };
 
-    // The premise, asserted rather than assumed. If this ever fails because
-    // the live registry gained on-chain evidence and a real agent fell below
-    // the floor, the honest negative below is no longer the right assertion —
-    // and the RF-17 provenance note stops being true. Both must be revisited
-    // together, which is why this is a hard assertion and not a branch.
+    // The premise, asserted rather than assumed: every live notice is an
+    // unbound endpoint, none is a floor action. If a kit agent ever falls
+    // below the floor this fails first, and the assertions below have to be
+    // revisited with it.
+    const floorActions = plan.notices.filter(
+      (n) => n.reason_code !== "unbound_endpoint",
+    );
     expect(
-      plan.notices,
-      "the live backend reported floor actions — the cold-start premise behind this file no longer holds",
+      floorActions,
+      "the live backend reported a floor action on the kit plan — the premise behind this test no longer holds",
     ).toEqual([]);
+    const unbound = plan.notices.length;
+    expect(
+      unbound,
+      "the live plan carries no unbound-endpoint notice, so there is no panel to read",
+    ).toBeGreaterThan(0);
 
-    // A panel that renders when nothing happened is as wrong as one that
-    // stays hidden when something did.
+    const panel = floorPanel(page);
     await expect(
-      floorPanel(page),
-      "the floor panel rendered for a plan with no floor actions",
-    ).toHaveCount(0);
+      panel.getByRole("heading", { name: `${FLOOR_PANEL_HEADING} · no changes` }),
+      "the floor panel credits the floor with changes it did not make",
+    ).toBeVisible();
+    await expect(panel.locator("summary")).toContainText(
+      `${unbound} with no endpoint bound`,
+    );
 
-    // ...and the card itself did render, so the count above is a real absence
-    // and not a plan that never arrived.
+    // ...and the card itself did render, so the summary above describes a
+    // plan that arrived.
     await expect(stepRows(page).first()).toBeVisible();
   });
 });
