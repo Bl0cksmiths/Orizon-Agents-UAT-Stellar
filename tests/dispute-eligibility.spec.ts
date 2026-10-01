@@ -34,7 +34,12 @@ test.describe("WC — dispute eligibility (story 6.03c)", () => {
     expect((await response.json()).error?.code).toBe("reason_invalid");
   });
 
-  for (const [name, reason] of [["a zero-width space", "​"], ["a right-to-left override", "‮"]]) {
+  for (const [name, reason] of [
+    ["a zero-width space", "​"],
+    ["a right-to-left override", "‮"],
+    ["an empty bidi isolate", "⁦⁩"],
+    ["a Hangul filler", "ㅤ"],
+  ]) {
     test(`WC-05 a reason of only ${name} is refused as reason_invalid`, async ({ request }) => {
       // D-059, fixed: a reason that displays as nothing is empty, so it is
       // refused before the job lookup rather than reaching 404 unknown_job.
