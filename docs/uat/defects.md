@@ -2686,7 +2686,7 @@ once the backend is known to have it.
 ## D-066 — A dispute upheld with the uphold script leaves the running server on the pre-dispute score
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Fixed in code at backend `6da6da7`** (4f13175, 15c8cf4, c6876f7; re-checked 2026-10-01). `scripts/uphold_dispute.py` now POSTs `/api/stellar/reputation/{id}/invalidate` to the running service. That needs `UPHOLD_SERVICE_URL` (or `--service-url`) and `API_KEY`; without them it prints "NOT TOLD" with the TTL warning. **Pin not yet lifted:** `tools/reputation-drill/drill.py` `phase_script` must be re-run on the testnet drill.
 - **Affects:** RC-04 (story 6.03e)
 
 **Steps to reproduce** — backend origin/main `08efeda`, run on testnet with
