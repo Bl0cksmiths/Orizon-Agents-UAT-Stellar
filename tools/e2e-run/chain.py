@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
 from stellar_sdk import Address, scval
 from stellar_sdk import xdr as stellar_xdr
 
@@ -70,3 +71,24 @@ class HorizonCall:
 
 class ChainError(Exception):
     """Horizon or the RPC gave no usable answer."""
+
+
+@dataclass
+class Chain:
+    client: httpx.Client
+    horizon: str = HORIZON
+    rpc_url: str = RPC
+
+    def horizon_json(self, path: str) -> dict[str, Any] | None:
+        """A Horizon resource, or None on 404 (an answer, not an outage)."""
+        response = self.client.get(f"{self.horizon}{path}", timeout=30.0)
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return response.json()
+
+    def fund(self, public_key: str) -> str:
+        """Friendbot funds a fresh testnet account; returns the funding tx hash."""
+        response = self.client.get(FRIENDBOT, params={"addr": public_key}, timeout=60.0)
+        response.raise_for_status()
+        return str(response.json()["hash"])
