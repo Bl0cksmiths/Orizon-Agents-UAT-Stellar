@@ -35,13 +35,12 @@ test.describe("WC — dispute eligibility (story 6.03c)", () => {
   });
 
   for (const [name, reason] of [["a zero-width space", "​"], ["a right-to-left override", "‮"]]) {
-    test(`WC-05 a reason of only ${name} is refused as reason_required`, async ({ request }) => {
-      // D-059: invisible characters pass the reason check today and the request
-      // reaches the job lookup (404 unknown_job) instead of being refused.
-      test.fail();
+    test(`WC-05 a reason of only ${name} is refused as reason_invalid`, async ({ request }) => {
+      // D-059, fixed: a reason that displays as nothing is empty, so it is
+      // refused before the job lookup rather than reaching 404 unknown_job.
       const response = await request.post("/api/disputes", { timeout: COLD_START_TIMEOUT, data: { ...OPEN, reason } });
       expect(response.status()).toBe(422);
-      expect((await response.json()).error?.code).toBe("reason_required");
+      expect((await response.json()).error?.code).toBe("reason_invalid");
     });
   }
 
