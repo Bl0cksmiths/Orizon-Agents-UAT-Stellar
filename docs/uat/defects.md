@@ -2310,7 +2310,7 @@ regression test is part of the private hand-off.
 ## D-054 — `MAX_REFUND_USDC` is not validated, so a bad value silently removes the refund cap
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Fixed in code at backend `6da6da7`** (7d5e3e8, dbc2f7d, d232eb7; re-checked 2026-10-01). The service refuses to boot with a non-finite or non-positive `MAX_REFUND_USDC` (`config.py:742`), and the credit path refuses one again. No UAT test pins this. It was verified by code reading and the backend's own refund tests (190 passed in the selection run).
 - **Affects:** IB-05 (story 6.03b)
 
 **Steps to reproduce** — backend origin/main `3347090`, locally, no network:
