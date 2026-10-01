@@ -230,6 +230,71 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
   });
 });
 
+/**
+ * D-031 recorded a split stack: a current frontend against a backend whose
+ * decompose response carried no `floor_bps` and no `reputation_degraded`, and
+ * whose reputation route carried no `degraded`. RF-11 (an outage told apart
+ * from a cold start) and the applied-floor half of RF-14 could not be met on
+ * the deployed surface at all. These read the deployed backend directly.
+ *
+ * An outage cannot be induced from UAT, so RF-11 is checked as far as the
+ * live surface allows: the signal is served, and it reads `false` on a
+ * healthy read, so it does not cry wolf on a cold start.
+ */
+test.describe("RF-11 live — the reputation signals the split deploy withheld (D-031)", () => {
+  test("RF-11 a live decompose carries the applied floor and a plan-level and per-step degraded signal, false on a healthy read", async ({
+    request,
+  }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 3);
+    const paramsRes = await request.get("/api/stellar/reputation/params", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(paramsRes.ok()).toBe(true);
+    const floorBps = ((await paramsRes.json()) as { floor_bps: number }).floor_bps;
+
+    const res = await request.post("/api/orchestrator/decompose", {
+      data: { intent: EVIDENCE_INTENT },
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(res.ok(), `decompose answered ${res.status()}`).toBe(true);
+    const plan = (await res.json()) as {
+      floor_bps?: number;
+      reputation_degraded?: boolean;
+      steps: { agent_id: string; rep_lower_bound_bps?: number; rep_degraded?: boolean }[];
+    };
+
+    expect(plan.floor_bps, "the plan does not state the floor it was built under").toBe(
+      floorBps,
+    );
+    expect(
+      plan.reputation_degraded,
+      "the plan carries no outage signal, or reports one on a healthy read",
+    ).toBe(false);
+    expect(plan.steps.length).toBeGreaterThan(0);
+    for (const step of plan.steps) {
+      expect(
+        step.rep_degraded,
+        `step ${step.agent_id} carries no per-step outage signal`,
+      ).toBe(false);
+      expect(
+        typeof step.rep_lower_bound_bps,
+        `step ${step.agent_id} carries no lower bound, so the card cannot judge it against the floor`,
+      ).toBe("number");
+    }
+
+    const repRes = await request.get(
+      `/api/stellar/reputation/${plan.steps[0]?.agent_id ?? ""}`,
+      { timeout: COLD_START_TIMEOUT },
+    );
+    expect(repRes.ok()).toBe(true);
+    const rep = (await repRes.json()) as { degraded?: boolean };
+    expect(
+      rep.degraded,
+      "the reputation route still drops the degraded flag at the API boundary (D-024)",
+    ).toBe(false);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Part 2 — a decompose response supplied by the test
 // ---------------------------------------------------------------------------
