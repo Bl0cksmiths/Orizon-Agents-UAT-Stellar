@@ -4,12 +4,12 @@ import { COLD_START_TIMEOUT } from "./fixtures";
 /**
  * AD — story 6.03g, the adjudication door and the refund switch, on the deployed service.
  *
- * Refunds are off on the deploy (DISPUTE_REFUNDS_ENABLED=false) and must stay off until the
- * private money-path defect D-053 is fixed, so nothing here toggles anything. What holds live is
- * the switch's answer to every kind of caller: 503, never a 500, and never a validation error
- * that would tell a stranger what the route expects. The refunds-on half — the boot refusal,
- * the 401s with a key configured, and the rejection-reason rules — runs against a real local
- * backend in tools/adjudication-drill/.
+ * The guard checks the operator key before it reads the refund switch, so every caller without
+ * the key gets the same answer whichever way the switch is set: 401 invalid_api_key, never a
+ * 500, and never a 503 or a validation error that would tell a stranger how the route is set
+ * or what it expects. Nothing here toggles the switch or holds the key. The keyed half — the
+ * boot refusal, the switch's 503 to a keyed caller, and the rejection-reason rules — runs
+ * against a real local backend in tools/adjudication-drill/.
  */
 
 const PROBE = "/api/disputes/dsp_uat_probe";
