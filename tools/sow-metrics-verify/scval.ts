@@ -157,3 +157,10 @@ export function escrowId(n: number): ScArg {
 export function writeContractAddress(w: XdrWriter, contractId: string): XdrWriter {
   return w.u32(1).fixed(decodeStrkey(contractId, CONTRACT_VERSION));
 }
+
+/** The ledger key of a contract's instance entry (persistent). */
+export function instanceLedgerKey(contractId: string): string {
+  const w = new XdrWriter().u32(6);
+  writeContractAddress(w, contractId);
+  return w.u32(T.LedgerKeyContractInstance).u32(1).base64();
+}
