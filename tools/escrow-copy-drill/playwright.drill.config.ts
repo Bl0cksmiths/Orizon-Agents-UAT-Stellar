@@ -7,6 +7,8 @@ import { defineConfig, devices } from "@playwright/test";
  * GET /api/stellar/network intercepted. See README.md beside this file.
  */
 const frontend = process.env.DRILL_FRONTEND;
+// DRILL_SERVE=0 runs the production part alone: the checkout is still read for its pin, but no server starts.
+const serve = frontend && process.env.DRILL_SERVE !== "0";
 
 export default defineConfig({
   testDir: ".",
@@ -23,7 +25,7 @@ export default defineConfig({
     ...(process.env.DRILL_CHROMIUM ? { launchOptions: { executablePath: process.env.DRILL_CHROMIUM } } : {}),
   },
   // Only the local cases need a frontend server; the production part runs without one.
-  ...(frontend
+  ...(serve
     ? {
         webServer: {
           command: "npx next dev -p 3100 -H 127.0.0.1",
