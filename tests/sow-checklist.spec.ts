@@ -136,3 +136,27 @@ test("OV-07 D4-a: the demo video is marked missing, and /demo has no player", as
   expect(html, "D-082").toContain('data-demo="unpublished"');
   expect(html, "D-082").not.toMatch(/<video|<iframe/);
 });
+
+const BACKEND = "https://orizon-agents-be-stellar.onrender.com";
+const DISPUTE = "dsp_15acee279ac02852a5877ac1696ec4b5";
+
+test("OV-07 D3-a/D3-b: the dispute is credited with a confirmed rating, and its refund is the whole charge (D-080)", async ({
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const res = await request.get(`${BACKEND}/api/disputes/${DISPUTE}`, { timeout: 120_000 });
+  expect(res.status()).toBe(200);
+  const d = (await res.json()) as {
+    status: string;
+    rating_confirmed: boolean;
+    refund_tx: string;
+    rating_tx: string;
+    charged_usdc: number;
+    credited_usdc: number;
+  };
+  expect(d.status).toBe("credited");
+  expect(d.rating_confirmed).toBe(true);
+  expect(d.rating_tx).toBe("b512135ffade2d6518fd8cf1628f20787846ed0e311750043b87723dee453a49");
+  expect(d.refund_tx).toBe("cb2c57929006470f9f554989dd8071e8539d245df529df956693944a78e1e25f");
+  expect(d.credited_usdc, "D-080: the 'partial' refund returns the whole charge").toBe(d.charged_usdc);
+});
