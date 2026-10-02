@@ -31,3 +31,8 @@ async function postJson(path: string, payload: unknown): Promise<Answer> {
 export function buildReclaim(payer: string, authIdHex: string): Promise<Answer> {
   return postJson("/api/stellar/build/reclaim", { payer, auth_id_hex: authIdHex });
 }
+
+/** `POST /api/orchestrator/execute` for a paid run, exactly as the plan card sends it. */
+export function executePaid(planId: string, authIdHex: string, payer: string): Promise<Answer> {
+  return postJson("/api/orchestrator/execute", { plan_id: planId, auth_id_hex: authIdHex, payer });
+}
