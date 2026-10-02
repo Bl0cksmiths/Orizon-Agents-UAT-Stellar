@@ -137,4 +137,43 @@ test.describe("OV-05 the integration guide, with no wallet and no session", () =
       ).toHaveCount(0);
     });
   });
+
+  /**
+   * Every internal link on both guide pages resolves: each same-origin page
+   * answers below 400 to a client with no session, and each in-page anchor
+   * names an element that exists. External links (GitHub, Stellar Expert,
+   * friendbot) are not this site's to keep and are left out.
+   */
+  for (const path of ["/guide", GUIDE_PATH]) {
+    test(`OV-05 every internal link on ${path} resolves`, async ({ browser }) => {
+      test.setTimeout(COLD_START_TIMEOUT * 3);
+      await visitFresh(browser, path, async (page) => {
+        const origin = new URL(page.url()).origin;
+        const hrefs = await page
+          .locator("a[href]")
+          .evaluateAll((els) => els.map((el) => (el as HTMLAnchorElement).href));
+        const internal = hrefs.map((h) => new URL(h)).filter((u) => u.origin === origin);
+        expect(internal.length, `${path} carries no internal link at all`).toBeGreaterThan(0);
+
+        const here = new URL(page.url()).pathname;
+        const anchors = new Set(
+          internal.filter((u) => u.pathname === here && u.hash).map((u) => u.hash.slice(1)),
+        );
+        for (const id of anchors) {
+          await expect(
+            page.locator(`[id="${decodeURIComponent(id)}"]`),
+            `${path} links to #${id}, which names no element`,
+          ).toHaveCount(1);
+        }
+
+        const pages = new Set(internal.map((u) => u.pathname));
+        const broken: string[] = [];
+        for (const target of pages) {
+          const res = await page.request.get(target, { timeout: COLD_START_TIMEOUT });
+          if (res.status() >= 400) broken.push(`${target} → ${res.status()}`);
+        }
+        expect(broken, `${path} links to pages that do not resolve`).toEqual([]);
+      });
+    });
+  }
 });
