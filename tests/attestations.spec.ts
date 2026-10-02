@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { getAttestation, jobEntry, simulateSeal, SEALER, type EntryLifetime } from "../tools/attestation-verify/registry.ts";
-import { CLAIMED_SEALS } from "../tools/attestation-verify/seals.ts";
+import { getAttestation, jobEntry, simulateSeal, SEALER, type Attestation, type EntryLifetime } from "../tools/attestation-verify/registry.ts";
+import { CLAIMED_SEALS, type ClaimedSeal } from "../tools/attestation-verify/seals.ts";
 
 /**
  * OV-03 — story 6.04: every workflow attestation the sprint claims is on the
@@ -29,6 +29,18 @@ async function liveEntry(jobId: string): Promise<EntryLifetime> {
   return entry;
 }
 
+/** The attestation a claim says was sealed, in the shape `get` returns. */
+function claimed(seal: ClaimedSeal): Attestation {
+  return {
+    orchestrator: seal.orchestrator,
+    intent_hash: seal.intentHash,
+    agents: seal.agents,
+    receipts: seal.receipts,
+    total_spent: seal.totalSpent,
+    sealed_at: seal.sealedAt,
+  };
+}
+
 test.describe("OV-03 — claimed workflow attestations (story 6.04)", () => {
   for (const seal of CLAIMED_SEALS) {
     test(`OV-03 ${seal.run}: get returns the claimed attestation for job ${seal.jobId}`, async () => {
@@ -36,28 +48,14 @@ test.describe("OV-03 — claimed workflow attestations (story 6.04)", () => {
       const entry = await liveEntry(seal.jobId);
       const read = await getAttestation(seal.jobId);
       expect(read.error, `get(${seal.jobId}) failed`).toBeUndefined();
-      expect(read.attestation).toEqual({
-        orchestrator: seal.orchestrator,
-        intent_hash: seal.intentHash,
-        agents: seal.agents,
-        receipts: seal.receipts,
-        total_spent: seal.totalSpent,
-        sealed_at: seal.sealedAt,
-      });
+      expect(read.attestation).toEqual(claimed(seal));
       expect(entry.stored, "the stored ledger entry and the get result disagree").toEqual(read.attestation);
     });
 
     test(`OV-03 ${seal.run}: a re-seal of job ${seal.jobId} by the sealer fails AlreadyExists`, async () => {
       test.setTimeout(RPC_TIMEOUT);
       await liveEntry(seal.jobId);
-      const probe = await simulateSeal(SEALER, seal.jobId, {
-        orchestrator: seal.orchestrator,
-        intent_hash: seal.intentHash,
-        agents: seal.agents,
-        receipts: seal.receipts,
-        total_spent: seal.totalSpent,
-        sealed_at: seal.sealedAt,
-      });
+      const probe = await simulateSeal(SEALER, seal.jobId, claimed(seal));
       expect(probe.restoreNeeded, "the re-seal simulation asked for a restore: seal archived, restore needed").toBe(false);
       expect(probe.error, "a re-seal by the sealer must reach the existence check and fail AlreadyExists (#3)").toContain(
         "Error(Contract, #3)",
@@ -69,14 +67,7 @@ test.describe("OV-03 — claimed workflow attestations (story 6.04)", () => {
     test.setTimeout(RPC_TIMEOUT);
     const [seal] = CLAIMED_SEALS;
     if (!seal) throw new Error("no claimed seals to probe");
-    const probe = await simulateSeal(FORMER_SEALER, seal.jobId, {
-      orchestrator: seal.orchestrator,
-      intent_hash: seal.intentHash,
-      agents: seal.agents,
-      receipts: seal.receipts,
-      total_spent: seal.totalSpent,
-      sealed_at: seal.sealedAt,
-    });
+    const probe = await simulateSeal(FORMER_SEALER, seal.jobId, claimed(seal));
     expect(probe.error, "the former sealer must no longer be able to seal").toContain("Error(Contract, #1)");
   });
 });
