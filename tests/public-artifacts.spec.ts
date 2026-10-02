@@ -197,6 +197,27 @@ test.describe("OV-05 the integration guide, with no wallet and no session", () =
       ).toContainText("· draft");
     });
   });
+
+  /**
+   * SOW m09 wants the guide "published". It is public, but by its own words
+   * it is not finished: no newcomer has followed it end to end
+   * (D-NEW-PUB-2). The page drops the draft note once the frontmatter reads
+   * `status: validated`, so that is what a published guide looks like here.
+   *
+   * Marked `test.fail()`: when the guide is validated this passes
+   * unexpectedly, which is the signal to drop the marker.
+   */
+  test("OV-05 the integration guide is published as validated, not as a draft", async ({
+    browser,
+  }) => {
+    test.fail();
+    await visitFresh(browser, GUIDE_PATH, async (page) => {
+      await expect(
+        page.getByRole("heading", { level: 1, name: GUIDE_TITLE }),
+      ).toBeVisible();
+      await expect(page.locator('[data-guide-status="draft"]')).toHaveCount(0);
+    });
+  });
 });
 
 /**
