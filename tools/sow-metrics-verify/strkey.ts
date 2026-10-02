@@ -1,0 +1,54 @@
+/**
+ * Stellar strkeys (G… accounts, C… contracts, M… muxed accounts), dependency-free.
+ *
+ * The verifier reads the chain with raw RPC and Horizon calls rather than the
+ * backend's SDK, so that what it counts does not inherit the backend's own
+ * decoding. Every decode enforces the length, the version byte and the CRC16
+ * checksum.
+ */
+
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+export const ACCOUNT_VERSION = 6 << 3;
+export const CONTRACT_VERSION = 2 << 3;
+export const MUXED_VERSION = 12 << 3;
+
+function crc16Xmodem(bytes: Uint8Array): number {
+  let crc = 0;
+  for (const byte of bytes) {
+    crc ^= byte << 8;
+    for (let i = 0; i < 8; i++) {
+      crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+    }
+  }
+  return crc;
+}
+
+function base32Decode(text: string): Uint8Array {
+  const out: number[] = [];
+  let buffer = 0;
+  let bits = 0;
+  for (const char of text) {
+    const value = ALPHABET.indexOf(char);
+    if (value < 0) throw new Error(`invalid strkey character ${JSON.stringify(char)}`);
+    buffer = ((buffer << 5) | value) & 0xffff;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push((buffer >> bits) & 0xff);
+    }
+  }
+  return Uint8Array.from(out);
+}
+
+/** The payload of a strkey (32 bytes for G… and C…, 40 for M…); throws on any malformation. */
+export function decodeStrkey(text: string, version: number, length = 32): Uint8Array {
+  if (text.length !== Math.ceil(((length + 3) * 8) / 5)) throw new Error(`not a strkey of this kind: ${text}`);
+  const decoded = base32Decode(text);
+  if (decoded.length !== length + 3 || decoded[0] !== version) {
+    throw new Error(`strkey version byte mismatch: ${text}`);
+  }
+  const body = decoded.subarray(0, length + 1);
+  const checksum = decoded[length + 1]! | (decoded[length + 2]! << 8);
+  if (crc16Xmodem(body) !== checksum) throw new Error(`strkey checksum mismatch: ${text}`);
+  return decoded.slice(1, length + 1);
+}
