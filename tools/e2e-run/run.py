@@ -13,6 +13,7 @@ import json
 import os
 import sys
 import time
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -388,10 +389,50 @@ def verify(chain: Chain, record: dict[str, Any]) -> list[Check]:
         return checks
 
     seal_call = chain.horizon_call(art["seal"]["tx_hash"])
-    return [
-        *checks,
+    checks += [
         *check_seal(seal_call, registry, settler, job, buyer, paid),
         check_captured("seal", art["seal"], seal_call),
+    ]
+    if "settlement" in art:
+        checks += consistency(chain, record, paid, (auth_call, settle_call, seal_call))
+    return checks
+
+
+def consistency(
+    chain: Chain, record: dict[str, Any], paid: Counter[str], calls: tuple[HorizonCall, HorizonCall, HorizonCall]
+) -> list[Check]:
+    """The API's settlement against the escrow's and the registry's own views, and the order of the three."""
+    art = {a["kind"]: a for a in record["artifacts"]}
+    s, buyer, contracts = art["settlement"], record["buyer"], record["contracts"]
+    total = sum(paid.values())
+    step_paid: Counter[str] = Counter()
+    for step in s["steps"]:
+        step_paid[step["agent_id"]] += to_stroops(step.get("paid_usdc") or 0)
+    auth_id = scval.to_bytes(bytes.fromhex(art["authorize"]["auth_id_hex"]))
+    view = chain.view(contracts["payment_escrow"], "authorization", [auth_id], buyer)
+    job_id = scval.to_bytes(bytes.fromhex(s["job_id_hex"]))
+    sealed = chain.view(contracts["attestation_registry"], "get", [job_id], buyer)
+    ledgers = [c.ledger for c in calls]
+    return [
+        Check(
+            "settlement_names_the_captured_hashes",
+            (s["charge_tx"], s["proof_tx"]) == (art["settle"]["tx_hash"], art["seal"]["tx_hash"]),
+            f"settlement charge {s['charge_tx']}, proof {s['proof_tx']}",
+        ),
+        Check("settlement_payer_is_buyer", s["payer"] == buyer, f"payer {s['payer']}"),
+        Check("settlement_total_is_paid_sum", to_stroops(s["settled_usdc"]) == total, f"settled {s['settled_usdc']}"),
+        Check("settlement_steps_match_payouts", +step_paid == paid, f"steps {dict(step_paid)}, payouts {dict(paid)}"),
+        Check(
+            "escrow_authorization_settled",
+            view.get("settled") is True and int(view.get("spent") or 0) == total and view.get("payer") == buyer,
+            f"authorization view {view}",
+        ),
+        Check(
+            "registry_attestation_matches",
+            int(sealed.get("total_spent") or -1) == total and sorted(sealed.get("agents") or []) == sorted(paid),
+            f"attestation {sealed}",
+        ),
+        Check("ledger_order", ledgers[0] < ledgers[1] <= ledgers[2], f"authorize, settle, seal ledgers {ledgers}"),
     ]
 
 
