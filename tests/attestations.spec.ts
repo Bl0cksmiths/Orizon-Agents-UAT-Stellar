@@ -15,6 +15,8 @@ import { CLAIMED_SEALS } from "../tools/attestation-verify/seals.ts";
  */
 
 const RPC_TIMEOUT = 120_000;
+/** The team admin key, the registry's sealer until set_sealer of 2026-09-19 (tx c965980f…). */
+const FORMER_SEALER = "GA7AI5TAJEZA27I666DSJC4MUJYBEWUYNNZWPU7R2ONA7IZQVO6R5OQV";
 
 /** The job's ledger entry, failing loudly once it is missing or past its live-until ledger. */
 async function liveEntry(jobId: string): Promise<EntryLifetime> {
@@ -62,4 +64,19 @@ test.describe("OV-03 — claimed workflow attestations (story 6.04)", () => {
       );
     });
   }
+
+  test("OV-03: a seal by anyone but the sealer is refused Unauthorized, before the existence check", async () => {
+    test.setTimeout(RPC_TIMEOUT);
+    const [seal] = CLAIMED_SEALS;
+    if (!seal) throw new Error("no claimed seals to probe");
+    const probe = await simulateSeal(FORMER_SEALER, seal.jobId, {
+      orchestrator: seal.orchestrator,
+      intent_hash: seal.intentHash,
+      agents: seal.agents,
+      receipts: seal.receipts,
+      total_spent: seal.totalSpent,
+      sealed_at: seal.sealedAt,
+    });
+    expect(probe.error, "the former sealer must no longer be able to seal").toContain("Error(Contract, #1)");
+  });
 });
