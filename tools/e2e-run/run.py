@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from chain import TESTNET_PASSPHRASE, Chain
+from chain import TESTNET_PASSPHRASE, Chain, ChainError
 from stellar_sdk import Address, Keypair, TransactionEnvelope, scval
 from stellar_sdk.operation import InvokeHostFunction
 
@@ -33,6 +33,19 @@ class Refused(Exception):
 
 def now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def to_stroops(amount: float) -> int:
+    """The backend's `usdc_to_i128`: `round(amount * 10_000_000)`."""
+    return round(amount * 10_000_000)
+
+
+def owner_of(chain: Chain, registry: str, agent_id: str, source: str) -> str | None:
+    """The agent's owner on the AgentRegistry itself, not the API's word for it."""
+    try:
+        return str(chain.view(registry, "owner_of", [scval.to_symbol(agent_id)], source))
+    except ChainError:
+        return None
 
 
 def state_dir() -> Path:
@@ -183,6 +196,24 @@ class Run:
             settler=self.chain.view(contracts["payment_escrow"], "settler", [], source),
         )
         self.save()
+
+    def decompose(self) -> None:
+        """The plan, refused before anything is signed unless every step's agent has
+        an on-chain owner, the total is the sum of the steps, and it is under the cap."""
+        plan = self.api.call("POST", "/api/orchestrator/decompose", body={"intent": self.record["intent"]})
+        steps = [{"agent_id": s["agent_id"], "est_price_usdc": s["est_price_usdc"]} for s in plan["steps"]]
+        registry = self.record["contracts"]["agent_registry"]
+        owners = {s["agent_id"]: owner_of(self.chain, registry, s["agent_id"], self.buyer.public_key) for s in steps}
+        cap = float(os.environ.get("E2E_MAX_TOTAL_XLM", "0.05"))
+        self.capture("plan", plan_id=plan["plan_id"], total_usdc=plan["total_usdc"], steps=steps, owners=owners)
+        if not steps or any(o is None for o in owners.values()):
+            raise Refused(f"the plan routes to an agent with no on-chain owner {owners}; nothing was signed")
+        if to_stroops(plan["total_usdc"]) != sum(to_stroops(s["est_price_usdc"]) for s in steps):
+            raise Refused("the plan's total is not the sum of its steps; nothing was signed")
+        if plan["total_usdc"] > cap:
+            raise Refused(f"the plan costs {plan['total_usdc']} XLM, over E2E_MAX_TOTAL_XLM={cap}; nothing was signed")
+        self.record["plan"] = {"plan_id": plan["plan_id"], "total_usdc": plan["total_usdc"], "steps": steps}
+        self.record["owners"] = owners
 
 
 def main(argv: list[str]) -> int:
