@@ -231,3 +231,14 @@ export async function readRatings(ledger: string, scorer: string, since: string)
   }
   return out;
 }
+
+/** The ledger's lifetime dispute count for one agent (`rep_state(id).disputed`), or 0 when it holds no state. */
+export async function lifetimeDisputes(ledger: string, agentId: string): Promise<number> {
+  try {
+    const state = obj(await simulate(ledger, "rep_state", [scSymbol(agentId)]), `rep_state(${agentId})`);
+    return Number(int(state.disputed, "disputed"));
+  } catch (error) {
+    if (error instanceof SimulationFailed) return 0;
+    throw error;
+  }
+}
