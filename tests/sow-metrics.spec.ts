@@ -3,6 +3,7 @@ import { liveStatuses, measuredAt, readIndex, type EvidenceIndex } from "../tool
 import {
   charges,
   countedCharges,
+  disputeRefunds,
   endOfDay,
   externalAgents,
   externalOwners,
@@ -142,4 +143,27 @@ test("OV-02 m04 USDC settlements: none in USDC; the 3 counted at 10:42 are XLM, 
   // D-NEW-METRICS-2: the index marks the USDC settlement target met on XLM charges between team wallets.
   expect(index.claims.get("m04")?.achieved).toBe(String(counted.length));
   expect(index.claims.get("m04")?.status, "D-NEW-METRICS-2").toBe("met");
+});
+
+test("OV-02 m05 dispute to partial-refund settlements: 0 partial; the refund returned the whole workflow", async ({}, info) => {
+  const refunds = disputeRefunds(chain, measuredAt(index, "15:30"));
+  const today = disputeRefunds(chain, now());
+  const partial = refunds.filter((r) => r.partial);
+  const partialToday = today.filter((r) => r.partial);
+  info.annotations.push({ type: "m05 today", description: `${today.length} refunds, ${partialToday.length} partial` });
+  record(info, "m05", `${partial.length} partial; ${refunds.length} dispute refunded in full`, "not met");
+  expect(refunds).toHaveLength(1);
+  for (const r of today) {
+    expect(r.charge, `dispute rating ${r.rating.txHash} traces to a counted charge`).not.toBeNull();
+    expect(r.transfer, `dispute rating ${r.rating.txHash} has a platform refund`).not.toBeNull();
+    expect(r.transfer!.amount).toBe(r.charge!.amount);
+    expect(r.transfer!.amount).toBe(r.jobTotal);
+  }
+  expect(partial).toHaveLength(0);
+  expect(partialToday).toHaveLength(0);
+  // Every dispute the ledger has ever counted is one the platform keys' histories show.
+  expect(chain.lifetimeDisputes).toBe(chain.ratings.filter((r) => r.kind === "dispute").length);
+  // D-NEW-METRICS-3: the index marks it met on a refund of 100% of what the buyer paid.
+  expect(index.claims.get("m05")?.achieved).toBe(String(refunds.length));
+  expect(index.claims.get("m05")?.status, "D-NEW-METRICS-3").toBe("met");
 });
