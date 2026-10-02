@@ -83,3 +83,8 @@ export function charges(s: Snapshot, cutoff: number): Charge[] {
   }
   return out;
 }
+
+/** m04 as the backend counts it: every in-sprint charge that is not a self-payment, whatever the asset. */
+export function countedCharges(s: Snapshot, cutoff: number): Charge[] {
+  return charges(s, cutoff).filter((c) => !c.selfPayment);
+}
