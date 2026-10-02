@@ -3,7 +3,9 @@
 "$BACKEND/.venv/Scripts/python.exe" -m pytest tools/escrow-path-operator -q -p no:cacheprovider
 """
 
+import base64
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -81,3 +83,35 @@ def test_bind_stops_at_the_endpoint_check(operator_state: Keypair, monkeypatch: 
     with pytest.raises(qa_operator.Refused, match="rule non_public_address"):
         qa_operator.bind("qa607_ok", "https://127.0.0.1/")
     assert seen == ["/api/agents/bind/endpoint-check"]
+
+
+def test_bind_signs_the_challenge_per_sep53(operator_state: Keypair, monkeypatch: pytest.MonkeyPatch) -> None:
+    url = "https://agent.example.com"
+    message = f"orizon-bind:v1:qa607_ok:{url}:nonce1"
+    seen = backend(
+        monkeypatch,
+        {
+            "/api/agents/bind/endpoint-check": {"allowed": True, "rule": None, "message": None},
+            "/api/agents/qa607_ok/bind/challenge": {"message": message, "expires_at": 2.0},
+            "/api/agents/qa607_ok/bind": {
+                "endpoint_url": url,
+                "owner": operator_state.public_key,
+                "bound_at": 1.0,
+                "replaced": False,
+            },
+        },
+    )
+    signed: list[dict[str, str]] = []
+    real_call = qa_operator.Api.call
+
+    def spy(self: qa_operator.Api, method: str, path: str, **kw: Any) -> Any:
+        if path.endswith("/bind"):
+            signed.append(kw["body"])
+        return real_call(self, method, path, **kw)
+
+    monkeypatch.setattr(qa_operator.Api, "call", spy)
+    assert qa_operator.bind("qa607_ok", url) == 0
+    assert seen[-1] == "/api/agents/qa607_ok/bind"
+    operator_state.verify_message(message, base64.b64decode(signed[0]["signature"]))
+    recorded = json.loads((Path(os.environ["OPERATOR_STATE"]) / "operator-run.json").read_text())
+    assert recorded["agents"]["qa607_ok"]["endpoint"] == url
