@@ -3550,3 +3550,36 @@ owner they name. Evidence: `docs/uat/evidence/6.04-onchain-verification.md`
 (OV-07).
 
 ---
+## D-090 — §6.2 D3-c links a "live receipt" whose task the deployed API no longer knows
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** OV-07 (story 6.04); §6.2 D3-c
+
+**Steps to reproduce** — follow the D3-c link "Open the live receipt for team
+run 3", `https://orizons.xyz/app/trace?task=tsk_7e1c369cebaf41b3`. Read the
+routes that page loads: `GET /api/tasks/tsk_7e1c369cebaf41b3`,
+`/api/trace/tsk_7e1c369cebaf41b3`, `/api/tasks/tsk_7e1c369cebaf41b3/artifact`
+and `/api/tasks/tsk_7e1c369cebaf41b3/disputes`.
+
+**Expected** — the link shows what the recording shows: the receipt marked
+Settled with its charge and seal, and the step's dispute refunded.
+
+**Actual** — the page answers 200, but the task, trace and artifact routes
+answer 404 `unknown_task`: the task was lost when the backend restarted
+(D-041). Only the disputes route still answers, from the durable store, with
+the settlement (`charge_tx 785428bf…554b`, `proof_tx efca274f…c0a8`) and the
+window. The page builds its trace and its on-chain receipt panel from the
+missing routes (`app/app/trace/page.tsx`), so the settled receipt cannot render
+today. What the page draws was not observed: no browser was run.
+
+**Impact** — the item's evidence stands, because the committed recording and
+screenshots are real and on GitHub. The live link no longer backs them.
+
+**Resolution path** — relabel the link as historical, or point it at a
+receipt the API can still serve.
+
+**Verified by** — the four routes read over HTTP on 2026-10-02. Evidence:
+`docs/uat/evidence/6.04-onchain-verification.md` (OV-07).
+
+---
