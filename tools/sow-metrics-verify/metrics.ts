@@ -1,4 +1,4 @@
-import type { Agent, Receipt } from "./chain.ts";
+import type { Agent, Rating, Receipt, Transfer } from "./chain.ts";
 import { SPRINT_START, type Snapshot } from "./snapshot.ts";
 import { isTeam } from "./team.ts";
 
@@ -31,6 +31,10 @@ export const SPRINT_START_S = Date.parse(SPRINT_START) / 1000;
 /** The last second of a UTC day ("2026-09-30" → 2026-09-30T23:59:59Z). */
 export function endOfDay(day: string): number {
   return Date.parse(`${day}T23:59:59Z`) / 1000;
+}
+
+function seconds(iso: string): number {
+  return Date.parse(iso) / 1000;
 }
 
 /** m01: agents registered by the cut-off whose owner is neither in the team register nor a platform key. */
@@ -97,4 +101,54 @@ export function usdcCharges(s: Snapshot, cutoff: number): Charge[] {
 /** m03: distinct settled jobs with a counted charge to an agent whose owner is outside the team. */
 export function externalWorkflows(s: Snapshot, cutoff: number): string[] {
   return [...new Set(countedCharges(s, cutoff).filter((c) => !c.ownerIsTeam).map((c) => c.jobId))];
+}
+
+export interface DisputeRefund {
+  rating: Rating;
+  charge: Charge | null;
+  transfer: Transfer | null;
+  /** Everything the payer paid on the disputed job: the whole workflow. */
+  jobTotal: bigint;
+  /** A refund of more than nothing and less than the whole workflow the payer paid for. */
+  partial: boolean;
+}
+
+/**
+ * m05: each `kind=dispute` rating, traced to the charge it disputes and the
+ * refund that answered it. The ledger files a dispute under a job id whose
+ * first eight bytes are the disputed job's; the charge is the counted charge
+ * on that job to the rated agent; the refund is the first platform-key
+ * transfer to that charge's payer after the charge, no larger than it.
+ */
+export function disputeRefunds(s: Snapshot, cutoff: number): DisputeRefund[] {
+  const counted = countedCharges(s, cutoff);
+  const used = new Set<string>();
+  const out: DisputeRefund[] = [];
+  for (const rating of s.ratings) {
+    if (rating.kind !== "dispute" || seconds(rating.closedAt) > cutoff) continue;
+    const charge =
+      counted.find((c) => c.agentId === rating.agentId && c.jobId.slice(0, 16) === rating.jobId.slice(0, 16)) ?? null;
+    const transfer = charge
+      ? (s.transfers.find(
+          (t) =>
+            !used.has(t.txHash) &&
+            t.to === charge.payer &&
+            seconds(t.createdAt) >= charge.settledAt &&
+            seconds(t.createdAt) <= cutoff &&
+            t.amount <= charge.amount,
+        ) ?? null)
+      : null;
+    if (transfer) used.add(transfer.txHash);
+    const jobTotal = charge
+      ? counted.filter((c) => c.jobId === charge.jobId && c.payer === charge.payer).reduce((sum, c) => sum + c.amount, 0n)
+      : 0n;
+    out.push({
+      rating,
+      charge,
+      transfer,
+      jobTotal,
+      partial: transfer !== null && transfer.amount > 0n && transfer.amount < jobTotal,
+    });
+  }
+  return out;
 }
