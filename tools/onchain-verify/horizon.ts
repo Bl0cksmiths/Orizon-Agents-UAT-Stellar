@@ -103,3 +103,22 @@ export async function observeTx(get: GetJson, hash: string): Promise<ObservedTx 
     ops: records.map(toOp),
   };
 }
+
+export type ObservedAccount = {
+  id: string;
+  /** ISO timestamp of the create_account that funded it, when Horizon still has it. */
+  createdAt: string | null;
+};
+
+/** The account as Horizon testnet has it, or null when the account does not exist. */
+export async function observeAccount(get: GetJson, account: string): Promise<ObservedAccount | null> {
+  const res = await get(`${HORIZON_TESTNET}/accounts/${account}`);
+  if (res.status === 404) return null;
+  if (res.status !== 200) throw new Error(`Horizon /accounts/${account} answered ${res.status}`);
+  const ops = await get(`${HORIZON_TESTNET}/accounts/${account}/operations?order=asc&limit=1`);
+  if (ops.status !== 200) throw new Error(`Horizon operations of ${account} answered ${ops.status}`);
+  const [first] = (ops.body as { _embedded: { records: { type: string; account?: string; created_at: string }[] } })
+    ._embedded.records;
+  const created = first?.type === "create_account" && first.account === account;
+  return { id: (res.body as { id: string }).id, createdAt: created ? first.created_at : null };
+}
