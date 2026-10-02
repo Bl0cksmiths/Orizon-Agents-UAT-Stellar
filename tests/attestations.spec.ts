@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { randomBytes } from "node:crypto";
-import { contractLifetime, getAttestation, jobEntry, simulateSeal, SEALER, type Attestation, type EntryLifetime } from "../tools/attestation-verify/registry.ts";
+import { contractLifetime, getAttestation, jobEntry, sealEvents, simulateSeal, SEALER, type Attestation, type EntryLifetime } from "../tools/attestation-verify/registry.ts";
 import { CLAIMED_SEALS, type ClaimedSeal } from "../tools/attestation-verify/seals.ts";
 
 /**
@@ -63,6 +63,20 @@ test.describe("OV-03 — claimed workflow attestations (story 6.04)", () => {
       );
     });
   }
+
+  test("OV-03: each claimed seal tx is the registry's one sealed event for its job", async () => {
+    test.setTimeout(RPC_TIMEOUT);
+    const events = await sealEvents();
+    for (const seal of CLAIMED_SEALS) {
+      await liveEntry(seal.jobId);
+      const forJob = events.filter((event) => event.jobId === seal.jobId);
+      expect(forJob.length, `job ${seal.jobId}: no sealed event in the RPC's ~7-day event window`).toBeGreaterThan(0);
+      expect(
+        forJob.map(({ txHash, orchestrator, totalSpent }) => ({ txHash, orchestrator, totalSpent })),
+        `job ${seal.jobId}: sealed once, by the claimed tx`,
+      ).toEqual([{ txHash: seal.sealTx, orchestrator: seal.orchestrator, totalSpent: seal.totalSpent }]);
+    }
+  });
 
   test("OV-03: a seal by anyone but the sealer is refused Unauthorized, before the existence check", async () => {
     test.setTimeout(RPC_TIMEOUT);
