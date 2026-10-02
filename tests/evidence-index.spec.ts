@@ -3,6 +3,7 @@ import { COLD_START_TIMEOUT } from "./fixtures";
 import { ACCOUNT_FACTS, CONTRACT_FACTS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
 import { txDifferences } from "../tools/onchain-verify/compare.ts";
 import { observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
+import { readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
 
 /**
  * OV-01 (story 6.04): every explorer link in the public evidence index
@@ -37,6 +38,12 @@ const horizon = (request: APIRequestContext): GetJson => async (url) => {
   return { status: res.status(), body: await res.json() };
 };
 
+/** Stellar RPC calls through the same request context. */
+const rpc = (request: APIRequestContext): PostJson => async (url, data) => {
+  const res = await request.post(url, { data, timeout: 30_000 });
+  return { status: res.status(), body: await res.json() };
+};
+
 const sorted = (ids: Iterable<string>) => [...ids].sort();
 
 test.describe("OV-01 — the evidence index's explorer links", () => {
@@ -53,6 +60,15 @@ test.describe("OV-01 — the evidence index's explorer links", () => {
     test(`tx ${claim.hash.slice(0, 12)} is ${claim.fn} on ${claim.contract.slice(0, 6)} as the index claims`, async ({ request }) => {
       const observed = await observeTx(horizon(request), claim.hash);
       expect(txDifferences(observed, claim), `what Horizon testnet shows for ${claim.hash}`).toEqual([]);
+    });
+  }
+
+  for (const [contract, roles] of CONTRACT_FACTS) {
+    test(`contract ${contract.slice(0, 6)} is live and holds the roles the index gives it`, async ({ request }) => {
+      const storage = await readInstance(rpc(request), contract);
+      expect(storage, `contract ${contract} on the testnet ledger`).not.toBeNull();
+      const held = Object.fromEntries(Object.keys(roles).map((name) => [name, storage?.get(name)]));
+      expect(held, `instance storage of ${contract}`).toEqual(roles);
     });
   }
 });
