@@ -619,3 +619,20 @@ the chain shows, and no outside operator has yet been paid.
 D-085, D-086, D-087, D-088 and D-090 do not block GO, but each should be fixed
 or disclosed in the index before submission. Every item above is pinned by a
 spec or the run tool, so each fix shows up as a test to revisit.
+
+# Epic 6 status, 2026-10-02
+
+- **6.01 is partial.** The automated suites ran, but the manual wallet × browser
+  matrix (`wallet-browser-matrix.md`) was never run, so no real wallet has been
+  shown to sign on any browser.
+- **6.02 is GO on RF-01..RF-17** after the 2026-10-02 re-check: 15 pass,
+  2 partial, 0 fail. D-027 and D-025 stay open as process items, and D-026 and
+  D-034 as Minor.
+- **6.03 is GO on its criteria** (SD-01..SD-08) and stays open until the
+  recording of the dispute UI exists.
+- **6.04 is NO-GO.** OV-05 fails (no demo video) and OV-08 is blocked (no live
+  outside operator), and five Urgent defects are open against the evidence
+  index and the money path.
+
+The epic is not ready to submit. The shortest path is 6.04's four GO items. The
+first one, a live outside operator, also unblocks the demo video.
