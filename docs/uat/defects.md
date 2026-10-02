@@ -3289,3 +3289,33 @@ labels, and `e7885bf1…` decodes to the call above with no lower bound.
 Evidence: `docs/uat/evidence/6.04-evidence-links.md` §4, §8.
 
 ---
+## D-082 — The demo video is not recorded, so /demo has nothing to play
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** OV-05 (story 6.04); SOW §6.3 m10, §6.2 D4-a
+
+**Steps to reproduce** — open `https://orizons.xyz/demo` with no wallet and no
+session; read `content/demo/demo.json` on the frontend's `origin/main`.
+
+**Expected** — a 3–5 minute video, operator and buyer perspectives, in a player.
+
+**Actual** — the page answers 200 and is honest about it: `data-demo="unpublished"`,
+no `<video>` or `<iframe>`, and the notice "The demo video has not been recorded
+yet." The manifest reads `"status": "unpublished"`, `"video": null`. The script,
+shot list and narration are merged; the recording is not. The index marks
+§6.2 D4-a `missing`, so the index does not overstate it.
+
+**Impact** — OV-05 fails on one of its three artifacts; m10 is not met; §6.2 D4
+is incomplete. The video also depends on D-077: it needs a live outside agent
+and a settled payment to show.
+
+**Resolution path** — record the video once D-077 is cleared, publish the
+manifest, and the `test.fail()` pin turns into an unexpected pass.
+
+**Verified by** — re-checked over HTTP on 2026-10-02; pinned by
+`tests/public-artifacts.spec.ts`
+`OV-05 the demo video is published on /demo and its player is on the page`.
+Evidence: `docs/uat/evidence/6.04-public-artifacts.md`.
+
+---
