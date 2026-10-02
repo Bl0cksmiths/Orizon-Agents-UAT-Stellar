@@ -117,3 +117,22 @@ def check_settle(
         ),
     ]
     return checks, paid
+
+
+def check_seal(
+    call: HorizonCall, registry: str, settler: str, job_id: str, payer: str, paid: Counter[str]
+) -> list[Check]:
+    """AttestationRegistry.seal(settler, job_id, orchestrator, intent_hash, agents,
+    receipts, total_spent): the job the settle paid, the agents it paid, and the
+    sum it paid."""
+    args = call.args
+    agents = args[4] if len(args) > 4 and isinstance(args[4], list) else []
+    total = int(args[6]) if len(args) > 6 else -1
+    return [
+        *_call("seal", call, registry, "seal"),
+        Check("seal_signed_by_settler", call.source_account == settler, f"source {call.source_account}"),
+        Check("seal_job_id", args[1:2] == [job_id], f"job id {args[1:2]}"),
+        Check("seal_orchestrator_is_payer", args[2:3] == [payer], f"orchestrator {args[2:3]}"),
+        Check("seal_agents_are_paid_agents", sorted(agents) == sorted(paid), f"sealed {agents}, paid {sorted(paid)}"),
+        Check("seal_total_is_paid_sum", total == sum(paid.values()), f"total_spent {total}, paid {sum(paid.values())}"),
+    ]
