@@ -28,12 +28,16 @@ export type ShimOptions = {
   keyFile?: string;
   /** The interpreter with stellar_sdk (the backend's venv); "python" when unset. */
   python?: string;
+  /** Answer signature requests as a user who pressed Reject (flip it later on the returned shim). */
+  decline?: boolean;
 };
 
 /** One SUBMIT_TRANSACTION the page made, and what the wallet did with it. */
 export type SignRequest = { xdr: string; outcome: "signed" | "declined" | "refused"; detail?: string };
 
 export type FreighterShim = {
+  /** While true, every signature request is declined, as Freighter's Reject button answers it. */
+  decline: boolean;
   readonly requests: SignRequest[];
 };
 
@@ -56,11 +60,16 @@ function runSigner(opts: ShimOptions, xdr: string, passphrase: string): Promise<
 }
 
 export async function installFreighterShim(page: Page, opts: ShimOptions): Promise<FreighterShim> {
-  const shim: FreighterShim = { requests: [] };
+  const shim: FreighterShim = { decline: opts.decline ?? false, requests: [] };
 
   // SUBMIT_TRANSACTION is signed with the buyer's real key by signer.py, which
   // refuses anything but an escrow `authorize` or `reclaim` paid by the buyer.
   await page.exposeFunction("escrowDrillSign", async (xdr: string, passphrase: string) => {
+    if (shim.decline) {
+      shim.requests.push({ xdr, outcome: "declined" });
+      // Freighter's own words when the user presses Reject in its popup.
+      return { apiError: { code: -4, message: "The user rejected this request." } };
+    }
     const answer = await runSigner(opts, xdr, passphrase);
     if (answer.signed) {
       shim.requests.push({ xdr, outcome: "signed" });
