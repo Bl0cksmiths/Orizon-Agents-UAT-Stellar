@@ -956,9 +956,11 @@ type ProvenanceFacts = {
   priorBps: number;
   agentCount: number;
   agentsWithOnchainEvidence: number;
-  lowerBoundsBps: number[];
+  subFloorAgents: string[];
+  kitLowerBoundsBps: number[];
   liveDecomposeKeys: string[];
   liveNoticeCount: number;
+  liveFloorActionCount: number;
   healthVersion: string;
   reputationHasDegradedKey: boolean;
 };
@@ -973,9 +975,7 @@ type ProvenanceFacts = {
  * heading for exactly that reason.
  */
 function buildProvenanceNote(f: ProvenanceFacts): string {
-  const uniqueLowerBounds = Array.from(new Set(f.lowerBoundsBps)).sort(
-    (a, b) => a - b,
-  );
+  const kitBounds = [...f.kitLowerBoundsBps].sort((a, b) => a - b);
   return [
     "# RF-17 — reputation floor evidence frame",
     "",
@@ -994,13 +994,20 @@ function buildProvenanceNote(f: ProvenanceFacts): string {
     "floor notices (one excluded, one substituted, one kept below the floor).",
     "",
     "It had to. On the day of capture the live testnet registry held",
-    `${f.agentCount} agents and **${f.agentsWithOnchainEvidence} of them had any`,
-    "on-chain rating at all** — every agent reads `count: 0`, `source: \"prior\"`,",
-    `with a Wilson lower bound of ${uniqueLowerBounds.join(" / ")} bps against a`,
-    `routing floor of ${f.floorBps} bps. Nothing on that registry sits below the`,
-    "floor, so the real backend has no floor action to report and cannot produce",
-    "a floor-acted plan on this target. A live decompose of the same intent, run",
-    `in the same session, returned \`notices: []\` (${f.liveNoticeCount} notices).`,
+    `${f.agentCount} agents; ${f.agentsWithOnchainEvidence} of them carried on-chain`,
+    `ratings, and ${f.subFloorAgents.length} sat below the routing floor of ${f.floorBps} bps`,
+    `(${f.subFloorAgents.join(", ") || "none"}). None of those is in the demo-kit`,
+    "pipeline: the kit agents read Wilson lower bounds of",
+    `${kitBounds.join(" / ")} bps, every one clear of the floor, so the`,
+    "deterministic kit path has no floor action to report and cannot produce a",
+    "floor-acted plan on this target. A live decompose of the same intent, run in",
+    `the same session, returned ${f.liveNoticeCount} notices and`,
+    `**${f.liveFloorActionCount} floor actions** — every notice was an agent with no`,
+    "endpoint bound, which the floor did not decide.",
+    "",
+    "The free-form path does exclude a real sub-floor agent live (the RF-05 live",
+    "test in the same file proves it), but its plan is written by a language model",
+    "and is not the same plan twice, so it cannot back a reproducible frame.",
     "",
     "Everything else in the frame is real: the deployed frontend, its markup, its",
     "accessibility semantics, its wording, and every request other than the",
@@ -1034,12 +1041,14 @@ function buildProvenanceNote(f: ProvenanceFacts): string {
     "",
     "**In the picture (supplied by the test):** five steps — one scored on the",
     "prior at 7000 bps, four on claimed on-chain evidence at 8150 / 7720 / 6480 /",
-    "5210 bps — plus three floor actions: `seo.brief` excluded at 4200 bps,",
-    "`code.critic` substituted by `code.review.pro` at 5090 bps, and `deploy.v0`",
-    "kept below the floor at 5210 bps by the starvation backstop.",
+    "6020 bps — plus three floor actions, each judged on its lower bound:",
+    "`seo.brief` excluded at 4200 bps, `code.critic` substituted by",
+    "`code.review.pro` at 5090 bps, and `deploy.v0` kept below the floor at",
+    "5210 bps by the starvation backstop.",
     "",
-    "**On the live target (measured this run):** every agent on the prior, no",
-    "on-chain evidence anywhere, no agent below the floor, no notices.",
+    `**On the live target (measured this run):** ${f.agentsWithOnchainEvidence} of`,
+    `${f.agentCount} agents rated on-chain, ${f.subFloorAgents.length} below the floor and`,
+    `outside the kit pipeline, ${f.liveFloorActionCount} floor actions on the kit plan.`,
     "",
     "## Which build this is",
     "",
@@ -1138,7 +1147,7 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
 
     // ---- provenance -----------------------------------------------------
     // Read from the deployment in this same run, and asserted, not narrated:
-    // the note's central claim is that no agent here can be below the floor,
+    // the note's central claim is that the kit plan cannot show a floor action,
     // and a note that states that without checking is just a nicer-looking
     // guess. `request` bypasses the page's route, so the decompose below is
     // the real backend answering.
@@ -1181,11 +1190,9 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
     const withEvidence = reputations.filter(
       (r) => r.source !== "prior" || r.count > 0,
     ).length;
-    // The premise of the whole note.
-    expect(
-      withEvidence,
-      "an agent now carries on-chain evidence, so the note's claim that this registry cannot produce a sub-floor agent is no longer true",
-    ).toBe(0);
+    const subFloorAgents = Object.entries(batch.reputations)
+      .filter(([, r]) => r.lower_bound_bps < params.floor_bps)
+      .map(([id, r]) => `${id} at ${r.lower_bound_bps} bps`);
 
     const healthRes = await request.get("/api/health", {
       timeout: COLD_START_TIMEOUT,
@@ -1199,8 +1206,20 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
     });
     expect(liveRes.ok()).toBe(true);
     const live = (await liveRes.json()) as Record<string, unknown> & {
-      notices?: unknown[];
+      notices: { reason_code?: string }[];
+      steps: { rep_lower_bound_bps: number }[];
     };
+    // The premise of the whole note: the deterministic kit path, which the
+    // frame's intent drives, has no floor action to show on this registry.
+    // If a kit agent ever falls below the floor this fails, and the frame can
+    // then be captured live instead of supplied.
+    const liveFloorActions = live.notices.filter(
+      (n) => n.reason_code !== "unbound_endpoint",
+    );
+    expect(
+      liveFloorActions,
+      "the live kit plan now carries a floor action, so the note's claim that this target cannot produce a floor-acted kit plan is no longer true",
+    ).toEqual([]);
 
     const note = buildProvenanceNote({
       capturedAt: new Date().toISOString(),
@@ -1210,9 +1229,11 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
       priorBps: params.prior_bps,
       agentCount: reputations.length,
       agentsWithOnchainEvidence: withEvidence,
-      lowerBoundsBps: reputations.map((r) => r.lower_bound_bps),
+      subFloorAgents,
+      kitLowerBoundsBps: live.steps.map((s) => s.rep_lower_bound_bps),
       liveDecomposeKeys: Object.keys(live).sort(),
-      liveNoticeCount: live.notices?.length ?? 0,
+      liveNoticeCount: live.notices.length,
+      liveFloorActionCount: liveFloorActions.length,
       healthVersion: health.version ?? "(absent)",
       reputationHasDegradedKey: reputations.some((r) => "degraded" in r),
     });
