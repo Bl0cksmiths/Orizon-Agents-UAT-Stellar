@@ -11,14 +11,17 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 from chain import Chain
 from stellar_sdk import Keypair
 
 REPO = Path(__file__).resolve().parents[2]
+TASK_TOKEN_HEADER = "X-Task-Token"
 
 
 class Refused(Exception):
@@ -56,6 +59,40 @@ def fund() -> int:
     funding = Chain(http()).fund(kp.public_key)
     print(f"buyer {kp.public_key} funded by friendbot in {funding}")
     return 0
+
+
+def load_buyer() -> Keypair:
+    source = state_dir() / "buyer.json"
+    if not source.exists():
+        raise Refused(f"no buyer in {source}; run `run.py fund` first")
+    return Keypair.from_secret(json.loads(source.read_text(encoding="utf-8"))["secret"])
+
+
+class Api:
+    """The deployed API, called the way the dApp calls it."""
+
+    def __init__(self, client: httpx.Client, base: str) -> None:
+        self.client = client
+        self.base = base.rstrip("/")
+
+    def call(self, method: str, path: str, *, body: Any = None, token: str | None = None) -> Any:
+        headers = {TASK_TOKEN_HEADER: token} if token else None
+        response = self.client.request(method, f"{self.base}{path}", json=body, headers=headers, timeout=105.0)
+        if not response.is_success:
+            raise Refused(f"{method} {path} answered {response.status_code}: {response.text[:300]}")
+        return response.json()
+
+    def wake(self) -> None:
+        """Render's free tier sleeps; /api/health answers once it is up."""
+        deadline = time.monotonic() + 180
+        while True:
+            try:
+                self.call("GET", "/api/health")
+                return
+            except (httpx.TransportError, Refused):
+                if time.monotonic() > deadline:
+                    raise
+                time.sleep(5)
 
 
 def main(argv: list[str]) -> int:
