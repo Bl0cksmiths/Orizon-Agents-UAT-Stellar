@@ -30,6 +30,9 @@ const ADMIN = "GA7AI5TAJEZA27I666DSJC4MUJYBEWUYNNZWPU7R2ONA7IZQVO6R5OQV";
 const SETTLER = "GDB4N25UYM3YNTTAWX7LSGI2P7OR62QZQXRNQWAGF5TFVENDKCTTCDHP";
 const DISPATCH = "GB5MKHDFLJZ6OFPAHM7R4HGBUPFV5PZYL3W27VTIUZZ25JMQSDZBKCMR";
 
+const POWERBOT_OWNER = "GCVOWZY5SII2HZSYL6I5VFOOYPOJXHMATXRJVKBE227GBW45L7UAKQKX";
+const POWERBOT_PAYEE = "GDZQLMJZVHGYBOBFTFJM4LLEL4ID27YMMOVE2BQ3OMDYITCWQ6DJ4FHT";
+
 let chain: Snapshot;
 let asOf: OperatorTrace[];
 let today: OperatorTrace[];
@@ -94,4 +97,15 @@ test("OV-04 at least two claimed wallets are distinct and show no on-chain link 
   expect(clean).toHaveLength(6);
   expect(new Set(clean.map((t) => t.address)).size).toBe(clean.length);
   expect(cleanToday.length).toBeGreaterThanOrEqual(2);
+});
+
+test("OV-04 the Powerbot owner is one hop from the team admin (D-NEW-METRICS-5)", async () => {
+  const powerbot = asOf.find((t) => t.address === POWERBOT_OWNER);
+  expect(powerbot?.agents).toEqual(["Powerbot"]);
+  expect(powerbot?.verdict, "D-NEW-METRICS-5").toBe("team-linked (one hop)");
+  expect(powerbot?.counterparties).toEqual([POWERBOT_PAYEE]);
+  expect(powerbot?.links).toHaveLength(3);
+  expect(powerbot?.links.every((l) => l.via === POWERBOT_PAYEE && l.team === ADMIN && l.type === "payment")).toBe(true);
+  // The intermediary is in neither the team register nor the platform keys.
+  expect(isTeam(chain.team, POWERBOT_PAYEE)).toBe(false);
 });
