@@ -52,3 +52,32 @@ export function decodeStrkey(text: string, version: number, length = 32): Uint8A
   if (crc16Xmodem(body) !== checksum) throw new Error(`strkey checksum mismatch: ${text}`);
   return decoded.slice(1, length + 1);
 }
+
+function base32Encode(bytes: Uint8Array): string {
+  let out = "";
+  let buffer = 0;
+  let bits = 0;
+  for (const byte of bytes) {
+    buffer = ((buffer << 8) | byte) & 0xffff;
+    bits += 8;
+    while (bits >= 5) {
+      bits -= 5;
+      out += ALPHABET[(buffer >> bits) & 31];
+    }
+  }
+  if (bits > 0) out += ALPHABET[(buffer << (5 - bits)) & 31];
+  return out;
+}
+
+/** A strkey for a payload under a version byte. */
+export function encodeStrkey(payload: Uint8Array, version: number): string {
+  const body = new Uint8Array(payload.length + 1);
+  body[0] = version;
+  body.set(payload, 1);
+  const crc = crc16Xmodem(body);
+  const full = new Uint8Array(body.length + 2);
+  full.set(body);
+  full[body.length] = crc & 0xff;
+  full[body.length + 1] = crc >> 8;
+  return base32Encode(full);
+}
