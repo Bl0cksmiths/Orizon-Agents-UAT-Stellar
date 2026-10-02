@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
-import { ACCOUNT_FACTS, ATTESTATION, CONTRACT_FACTS, LEDGER, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
+import { ACCOUNT_FACTS, ADMIN, ATTESTATION, CONTRACT_FACTS, ESCROW_V1, LEDGER, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
 import { txDifferences } from "../tools/onchain-verify/compare.ts";
 import { contractCallsBy, observeAccount, observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
 import { readAgents, readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
@@ -130,5 +130,16 @@ test.describe("OV-01 — the evidence index's explorer links", () => {
       preSprint,
       sinceSprint: Array.from({ length: runs }, () => runDay),
     });
+  });
+
+  test("the v1 escrow link's charges are all pre-sprint, none since", async ({ request }) => {
+    test.slow();
+    const { sprintStart, total } = SNAPSHOT.v1Charges;
+    const charges = (await contractCallsBy(horizon(request), ADMIN))
+      .filter((c) => c.contract === ESCROW_V1 && c.fn === "charge");
+    expect({
+      total: charges.length,
+      sinceSprint: charges.filter((c) => c.createdAt >= sprintStart).length,
+    }, "charges the v1 settler (the admin wallet) has made, to date").toEqual({ total, sinceSprint: 0 });
   });
 });
