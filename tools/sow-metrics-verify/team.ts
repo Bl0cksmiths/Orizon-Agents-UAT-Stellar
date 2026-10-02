@@ -1,4 +1,5 @@
 import { getJson } from "./http.ts";
+import { simulate } from "./rpc.ts";
 import { isAccountId } from "./strkey.ts";
 
 /**
@@ -52,4 +53,11 @@ export async function readRegister(): Promise<Map<string, string>> {
   }
   if (out.size === 0) throw new Error("team register is empty");
   return out;
+}
+
+/** The AgentRegistry's admin, from its own `admin()` view. */
+export async function registryAdmin(registry: string = CONTRACTS.registry): Promise<string> {
+  const admin = await simulate(registry, "admin");
+  if (!isAccountId(admin)) throw new Error(`registry admin() is not an account: ${String(admin)}`);
+  return admin;
 }
