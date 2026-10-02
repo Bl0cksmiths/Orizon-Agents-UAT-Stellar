@@ -25,6 +25,7 @@ from stellar_sdk.operation import InvokeHostFunction
 REPO = Path(__file__).resolve().parents[2]
 TASK_TOKEN_HEADER = "X-Task-Token"
 EXPLORER = "https://stellar.expert/explorer/testnet/tx/"
+AUTHORIZE_TTL_SECONDS = 1800
 
 
 class Refused(Exception):
@@ -228,6 +229,35 @@ class Run:
             raise Refused(f"the plan costs {plan['total_usdc']} XLM, over E2E_MAX_TOTAL_XLM={cap}; nothing was signed")
         self.record["plan"] = {"plan_id": plan["plan_id"], "total_usdc": plan["total_usdc"], "steps": steps}
         self.record["owners"] = owners
+
+    def authorize(self) -> None:
+        """The API builds the authorize; the buyer signs it only after reading it back."""
+        plan = self.record["plan"]
+        max_stroops = to_stroops(plan["total_usdc"])
+        built = self.api.call(
+            "POST",
+            "/api/stellar/build/authorize",
+            body={
+                "payer": self.buyer.public_key,
+                "agent_id": plan["plan_id"],
+                "max_amount_usdc": plan["total_usdc"],
+                "ttl_seconds": AUTHORIZE_TTL_SECONDS,
+            },
+        )
+        escrow = self.record["contracts"]["payment_escrow"]
+        env = inspect_authorize(built["xdr"], self.buyer.public_key, escrow, plan["plan_id"], max_stroops)
+        env.sign(self.buyer)
+        result = self.api.call("POST", "/api/stellar/submit", body={"signed_xdr": env.to_xdr()})
+        self.capture(
+            "authorize",
+            tx_hash=result["hash"],
+            api_status=result.get("status"),
+            auth_id_hex=auth_id_from(result.get("return_value")),
+            max_stroops=max_stroops,
+            expires_at=built.get("expires_at"),
+        )
+        if result.get("status") != "SUCCESS":
+            raise Refused(f"the authorize submit answered {result.get('status')}")
 
     def reachability(self, agent_id: str) -> dict[str, Any]:
         """The backend's own readiness probe of the agent's bound endpoint: its
