@@ -25,8 +25,12 @@ type ExplorerLink = { network: string; kind: string; id: string };
 async function liveLinks(request: APIRequestContext): Promise<ExplorerLink[]> {
   const res = await request.get("/evidence", { timeout: COLD_START_TIMEOUT });
   expect(res.status(), "the evidence page answers").toBe(200);
+  const html = await res.text();
+  const explorerUrls = html.match(/stellar\.expert\/explorer\//g) ?? [];
+  expect([...html.matchAll(EXPLORER_LINK)].length, "every explorer link is a tx, contract or account link")
+    .toBe(explorerUrls.length);
   const seen = new Map<string, ExplorerLink>();
-  for (const [url, network = "", kind = "", id = ""] of (await res.text()).matchAll(EXPLORER_LINK)) {
+  for (const [url, network = "", kind = "", id = ""] of html.matchAll(EXPLORER_LINK)) {
     seen.set(url, { network, kind, id });
   }
   return [...seen.values()];
