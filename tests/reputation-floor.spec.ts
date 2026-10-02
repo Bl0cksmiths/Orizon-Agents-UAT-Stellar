@@ -20,19 +20,21 @@ import {
  * says which it belongs to:
  *
  *   1. LIVE — nothing intercepted. A kit intent is decomposed by the real
- *      backend and the card is asserted as rendered. Includes the honest
- *      negative: today's live registry produces `notices: []`, so the
- *      "reputation floor" panel must NOT render.
+ *      backend and the card is asserted as rendered, the reputation fields
+ *      the backend serves are read directly (RF-11), and a free-form intent
+ *      naming a real sub-floor agent is decomposed (RF-05). Includes the
+ *      honest negative: every kit agent clears the floor, so the kit plan's
+ *      panel must credit the floor with no changes.
  *
  *   2. SUPPLIED PLAN — only `POST /api/orchestrator/decompose` is fulfilled
  *      by the test, with a body shaped exactly like the backend's
  *      `DecomposeResponse`. Everything downstream (the deployed frontend,
  *      its rendering, its accessibility semantics) is real. This exists
- *      because the live testnet registry holds no on-chain evidence for any
- *      of its 12 agents — every one reads `source: "prior"`,
- *      `lower_bound_bps: 5677` against a `floor_bps: 5500` — so no agent can
- *      be below the floor and the real backend cannot produce a
- *      floor-acted plan on this target at all.
+ *      because the deterministic kit path cannot produce a floor-acted plan
+ *      on the live registry: every kit agent clears the floor (lower bounds
+ *      5679–5718 against 5500 on 2026-10-02), and the one real sub-floor
+ *      agent sits outside the kit pipeline, reachable only through the
+ *      model-written free-form path.
  *
  *   3. EVIDENCE — the single-frame capture for SOW §6.1 Deliverable 2,
  *      written to docs/evidence/ with a provenance note that says, in
