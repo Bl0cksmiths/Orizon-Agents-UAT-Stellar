@@ -1,7 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
+import { installFreighterShim } from "../escrow-path-drill/freighter-shim.ts";
 import { buildReclaim } from "./api.ts";
-import { readAuthorization } from "./chain.ts";
+import { escrowEventsOf, feeCharged, readAuthorization } from "./chain.ts";
+import { acquireLock, progress, recordFact, releaseLock } from "./state.ts";
 
 /**
  * EP-04 — an authorization that was never executed, reclaimed from the console
@@ -37,4 +41,90 @@ test("a settled authorization is refused with the code the console reads", async
   const answer = await buildReclaim(SETTLED.payer, SETTLED.authIdHex);
   expect(answer.status).toBe(409);
   expect(answer.code).toBe("authorization_settled");
+});
+
+// The QA buyer: its key file stays outside the repository and only its public
+// key is read here. The signer reads the secret itself (escrow-path-drill/signer.py).
+const KEY_FILE = process.env.ESCROW_DRILL_KEY ?? "";
+const BUYER = KEY_FILE ? (JSON.parse(readFileSync(KEY_FILE, "utf8")) as { public_key: string }).public_key : "";
+const EVIDENCE = path.resolve(__dirname, "..", "..", "docs", "uat", "evidence", "6.07");
+
+/** What the run learned, in the order it learned it; later tests read it. */
+const run = { authorizeHash: "", authIdHex: "", planId: "", maxAmount: 0n, expiresAt: 0 };
+
+test.describe("EP-04 in the console", () => {
+  let context: BrowserContext;
+  let page: Page;
+
+  test.beforeAll(async ({ browser }) => {
+    expect(BUYER, "set ESCROW_DRILL_KEY to the buyer.json written by escrow-path-drill/buyer.py").toMatch(/^G[A-Z2-7]{55}$/);
+    context = await browser.newContext();
+    page = await context.newPage();
+    await installFreighterShim(page, { address: BUYER, keyFile: KEY_FILE, python: process.env.ESCROW_DRILL_PYTHON });
+  });
+
+  test.afterAll(async () => {
+    await context.close();
+  });
+
+  test("authorize confirms and an aborted execute leaves the held-funds notice", async () => {
+    test.setTimeout(600_000);
+    await acquireLock();
+    try {
+      // The drill's one interception: the request that would start the run is
+      // dropped, as a lost connection drops it. It never reaches the backend,
+      // so no run starts and nothing is released; the escrow is untouched.
+      let aborted = 0;
+      await page.route("**/api/orchestrator/execute", async (route) => {
+        aborted += 1;
+        await route.abort("connectionreset");
+      });
+      const submitted = page.waitForResponse(
+        (r) => r.url().endsWith("/api/stellar/submit") && r.request().method() === "POST",
+        { timeout: 300_000 },
+      );
+      await page.goto("/app/orchestrator");
+      await page.getByRole("textbox", { name: /intent/i }).fill("write me a haiku about an escrow");
+      await page.getByRole("button", { name: /decompos/i }).click();
+      const authorize = page.getByRole("button", { name: /Authorize & Execute/ });
+      await expect(authorize).toBeEnabled();
+      await authorize.click();
+
+      const submit = (await (await submitted).json()) as { hash: string; status: string };
+      expect(submit.status).toBe("SUCCESS");
+      run.authorizeHash = submit.hash;
+      recordFact("authorize_tx", submit.hash);
+      progress(`authorize confirmed: ${submit.hash}`);
+
+      await expect(page.getByText("The authorization confirmed, but the run was not started.")).toBeVisible();
+      const notice = page.getByRole("region", { name: "Your funds are held in escrow" });
+      await expect(notice).toBeVisible();
+      expect(aborted).toBe(1);
+
+      // Custody, read from the chain rather than the page.
+      const [authd] = (await escrowEventsOf(run.authorizeHash)).filter((e) => e.topic[0] === "authd");
+      expect(authd, "the authorize transaction emitted no authd event").toBeDefined();
+      const [authId, payer, maxAmount] = authd!.value as [string, string, bigint];
+      expect(payer).toBe(BUYER);
+      run.authIdHex = authId;
+      run.planId = String(authd!.topic[1]);
+      run.maxAmount = maxAmount;
+      const record = await readAuthorization(authId);
+      expect(record).toMatchObject({ payer: BUYER, agentId: run.planId, maxAmount, spent: 0n, settled: false, revoked: false });
+      run.expiresAt = record!.expiresAt;
+      await expect(notice).toContainText(authId);
+
+      // The session keeps nothing for a run that never got a task id.
+      expect(await page.evaluate(() => window.sessionStorage.getItem("orizon.held-authorizations"))).toBeNull();
+
+      const { closedAt } = await feeCharged(run.authorizeHash);
+      for (const [name, value] of Object.entries({
+        auth_id: authId, plan_id: run.planId, max_amount: String(maxAmount),
+        expires_at: String(run.expiresAt), authorize_closed_at: closedAt,
+      })) recordFact(name, value);
+      await page.screenshot({ path: path.join(EVIDENCE, "ep04-held-notice.png"), fullPage: true });
+    } finally {
+      releaseLock();
+    }
+  });
 });
