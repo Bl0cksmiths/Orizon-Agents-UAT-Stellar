@@ -1,6 +1,7 @@
 """The escrow path drill's wallet signer (story 6.07): signs what the dApp asks Freighter to sign.
 
     python signer.py sign PASSPHRASE < envelope.xdr > signed.xdr
+    python signer.py verify PASSPHRASE G... < signed.xdr       exactly one signature, G...'s, over the hash
 
 The key is read from the file named by $ESCROW_DRILL_KEY (a buyer.json written
 by buyer.py), never from an argument. Only one kind of envelope is signed: a
@@ -70,10 +71,28 @@ def sign(passphrase: str) -> int:
     return 0
 
 
+def verify(passphrase: str, public_key: str) -> int:
+    """A signed envelope on stdin carries exactly one signature, and it is `public_key`'s over its hash."""
+    try:
+        env = TransactionEnvelope.from_xdr(sys.stdin.read().strip(), passphrase)
+    except (ValueError, EOFError) as e:
+        raise Refused(f"the input is not a transaction envelope: {e!r}") from e
+    if len(env.signatures) != 1:
+        raise Refused(f"the envelope carries {len(env.signatures)} signatures, not one")
+    try:
+        Keypair.from_public_key(public_key).verify(env.hash(), env.signatures[0].signature)
+    except Exception as e:
+        raise Refused(f"the signature is not {public_key}'s over the envelope hash") from e
+    print(f"signed by {public_key}: {env.hash_hex()}")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     try:
         if len(argv) == 2 and argv[0] == "sign":
             return sign(argv[1])
+        if len(argv) == 3 and argv[0] == "verify":
+            return verify(argv[1], argv[2])
     except Refused as e:
         print(f"refused: {e}", file=sys.stderr)
         return 1
