@@ -3187,3 +3187,36 @@ counter read live the same day. Evidence:
 `docs/uat/evidence/6.04-metrics-and-operators.md` §2.
 
 ---
+## D-079 — m04 "On-chain USDC settlements" is marked met on three XLM charges between team wallets
+
+- **Severity:** Critical (story 6.04: Urgent, evidence misstatement)
+- **Status:** Open
+- **Affects:** OV-02, OV-06 (story 6.04); SOW §6.3 m04, §6.2 D4-d
+
+**Steps to reproduce** — read m04 in the evidence index; `GET
+/api/stellar/network` on the deployed backend; read every escrow v2 receipt
+(`receipt(0..Nonce-1)`) and its transfer on Horizon.
+
+**Expected** — m04 is met only on USDC settlements, or the row is marked not
+met (or disputed) with the XLM substitution stated in its status, not only in
+the prose.
+
+**Actual** — the index reads "3, met". The network document reports
+`asset: native`. All three charges counted at 10:42 UTC on 2026-09-30
+(`f0674419…1235`, `19f3420d…3397`, `785428bf…554b`), and the two after it, move
+native XLM, and each is a team buyer key (GB4K6…AYKK or GCNQA…A2GP, both in the
+team register) paying an agent the team admin GA7AI…5OQV owns (`calculatorai`,
+`keyboardai`). **0 USDC settlements exist.** The backend's method note says
+"USDC settles as native XLM on testnet"; that is a team decision, not the SOW.
+
+**Impact** — the SOW's settlement target reads as met when no USDC moved and no
+outside party took part.
+
+**Resolution path** — mark m04 not met (or disputed), stating "0 USDC; 3 XLM
+charges between team wallets" in the status itself.
+
+**Verified by** — `tests/sow-metrics.spec.ts` `OV-02 m04 …`, passing on
+2026-10-02; `/api/stellar/network` read live the same day. Evidence:
+`docs/uat/evidence/6.04-metrics-and-operators.md` §2.
+
+---
