@@ -629,7 +629,9 @@ spec or the run tool, so each fix shows up as a test to revisit.
   2 partial, 0 fail. D-027 and D-025 stay open as process items, and D-026 and
   D-034 as Minor.
 - **6.03 is GO on its criteria** (SD-01..SD-08) and stays open until the
-  recording of the dispute UI exists.
+  UI recording 6.03 asks for exists. The 13-second recording in the evidence
+  index (§6.2 D3-c) shows the live receipt, but its dispute was opened through
+  the API by the team's harness, not with the Dispute button.
 - **6.04 is NO-GO.** OV-05 fails (no demo video) and OV-08 is blocked (no live
   outside operator), and five Urgent defects are open against the evidence
   index and the money path.
