@@ -1,6 +1,7 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type TestInfo } from "@playwright/test";
 import { liveStatuses, measuredAt, readIndex, type EvidenceIndex } from "../tools/sow-metrics-verify/claims.ts";
-import { SOW_ROWS } from "../tools/sow-metrics-verify/metrics.ts";
+import { endOfDay, externalAgents, externalOwners, SOW_ROWS } from "../tools/sow-metrics-verify/metrics.ts";
+import { traceOperator, type OperatorTrace } from "../tools/sow-metrics-verify/operators.ts";
 import { snapshot, type Snapshot } from "../tools/sow-metrics-verify/snapshot.ts";
 import { isAccountId } from "../tools/sow-metrics-verify/strkey.ts";
 
@@ -26,11 +27,30 @@ test.describe.configure({ mode: "default" });
 
 let chain: Snapshot;
 let index: EvidenceIndex;
+let traces: OperatorTrace[];
+
+const now = (): number => Date.now() / 1000;
+
+/** Records metric, target, index claim, independent actual and verdict on the test, for the report. */
+function record(info: TestInfo, id: string, actual: string, verdict: "met" | "not met" | "disputed"): void {
+  const sow = SOW_ROWS.find((r) => r.id === id);
+  if (!sow) throw new Error(`no SOW row ${id}`);
+  const claim = index.claims.get(id);
+  const claimed = claim ? `${claim.achieved} (${claim.status})` : index.removed.has(id) ? "removed" : "absent";
+  info.annotations.push({
+    type: id,
+    description: `${sow.metric} | target ${sow.target} | index ${claimed} | actual ${actual} | ${verdict}`,
+  });
+}
 
 test.beforeAll(async () => {
   test.setTimeout(600_000);
   chain = await snapshot();
   index = await readIndex();
+  const owners = externalOwners(chain, measuredAt(index, "15:48"));
+  const claimed = new Set(owners);
+  traces = [];
+  for (const owner of owners) traces.push(await traceOperator(owner, chain.agents, chain.team, claimed));
 });
 
 test("OV-02 the claims under test are the ones the live /evidence page shows", async () => {
@@ -49,4 +69,20 @@ test("OV-02 the verifier refuses a corrupted address and a measurement time the 
   expect(isAccountId(corrupted)).toBe(false);
   expect(isAccountId("calculatorai")).toBe(false);
   expect(() => measuredAt(index, "00:01")).toThrow(/names no measurement/);
+});
+
+test("OV-02 m01 externally-operated agents: 11 outside the register at 15:48, 10 with no on-chain team link", async ({}, info) => {
+  const agents = externalAgents(chain, measuredAt(index, "15:48"));
+  const linked = new Set(traces.filter((t) => t.verdict !== "no on-chain team link").map((t) => t.address));
+  const evidenced = agents.filter((a) => !linked.has(a.owner));
+  const today = externalAgents(chain, now());
+  info.annotations.push({ type: "m01 today", description: `${today.length} agents outside the register` });
+  record(info, "m01", `${agents.length} outside the register; ${evidenced.length} with no on-chain team link`, "met");
+  expect(index.claims.get("m01")?.achieved).toBe("11");
+  expect(agents).toHaveLength(11);
+  expect(externalAgents(chain, endOfDay(index.asOf))).toHaveLength(11);
+  // D-NEW-METRICS-5: Powerbot's owner is one hop from the team admin, so it is not demonstrably external.
+  expect(evidenced, "D-NEW-METRICS-5").toHaveLength(10);
+  expect(evidenced.length).toBeGreaterThanOrEqual(2);
+  expect(today.length).toBeGreaterThanOrEqual(agents.length);
 });
