@@ -205,15 +205,38 @@ class Run:
         registry = self.record["contracts"]["agent_registry"]
         owners = {s["agent_id"]: owner_of(self.chain, registry, s["agent_id"], self.buyer.public_key) for s in steps}
         cap = float(os.environ.get("E2E_MAX_TOTAL_XLM", "0.05"))
-        self.capture("plan", plan_id=plan["plan_id"], total_usdc=plan["total_usdc"], steps=steps, owners=owners)
+        reachable = {a: self.reachability(a) for a in owners}
+        self.capture(
+            "plan",
+            plan_id=plan["plan_id"],
+            total_usdc=plan["total_usdc"],
+            steps=steps,
+            owners=owners,
+            reachable=reachable,
+        )
         if not steps or any(o is None for o in owners.values()):
             raise Refused(f"the plan routes to an agent with no on-chain owner {owners}; nothing was signed")
+        dead = {a: r for a, r in reachable.items() if r["status"] == "failed"}
+        if dead and os.environ.get("E2E_ALLOW_UNREACHABLE") != "1":
+            raise Refused(
+                f"the plan routes to an agent whose endpoint fails the backend's own probe {dead}; "
+                "nothing was signed (E2E_ALLOW_UNREACHABLE=1 runs it anyway, to watch the failure path)"
+            )
         if to_stroops(plan["total_usdc"]) != sum(to_stroops(s["est_price_usdc"]) for s in steps):
             raise Refused("the plan's total is not the sum of its steps; nothing was signed")
         if plan["total_usdc"] > cap:
             raise Refused(f"the plan costs {plan['total_usdc']} XLM, over E2E_MAX_TOTAL_XLM={cap}; nothing was signed")
         self.record["plan"] = {"plan_id": plan["plan_id"], "total_usdc": plan["total_usdc"], "steps": steps}
         self.record["owners"] = owners
+
+    def reachability(self, agent_id: str) -> dict[str, Any]:
+        """The backend's own readiness probe of the agent's bound endpoint: its
+        `reachable` step, as `{status, detail}`."""
+        readiness = self.api.call("GET", f"/api/agents/{agent_id}/readiness")
+        step = next((s for s in readiness.get("steps") or [] if s.get("key") == "reachable"), None)
+        if step is None:
+            return {"status": "unknown", "detail": "the readiness answer has no `reachable` step"}
+        return {"status": step.get("status"), "detail": step.get("detail")}
 
 
 def main(argv: list[str]) -> int:
