@@ -3453,3 +3453,33 @@ delivered/failed split to the attestation.
 `docs/uat/evidence/6.04-attestations.md` §4.
 
 ---
+## D-087 — A rating link is labelled "research.pro", a name the chain does not hold
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** OV-01 (story 6.04)
+
+**Steps to reproduce** — on `https://orizons.xyz/evidence`, find the link
+labelled "Rating of research.pro (agt_09l5)" (`cfc0b964…b201`). Decode its
+operation on Horizon, and look up `agt_09l5` in the AgentRegistry.
+
+**Expected** — the agent named beside the link is the agent the chain shows.
+
+**Actual** — the call is `ReputationLedger.submit(GDB4N…CDHP, agt_09l5,
+a285accc…1acf, 70, 240000, GA7AI…5OQV, auto)`. `agt_09l5` has no
+`Agent(agt_09l5)` record in the AgentRegistry: it is one of the backend's seeded
+catalogue agents (`GET /api/agents`: `source: "seeded"`, `owner: null`). The
+name "research.pro" comes from that catalogue and is nowhere on chain. Score,
+amount, signer and day all match.
+
+**Impact** — small: the link shows a real rating, but of an id with no
+on-chain agent behind it, under a name the reviewer cannot find.
+
+**Resolution path** — label it "Rating of agt_09l5 (a seeded catalogue agent,
+not registered on-chain)".
+
+**Verified by** — re-checked on 2026-10-02: the live label, the decoded call,
+and the seeded record. Evidence: `docs/uat/evidence/6.04-evidence-links.md` §4,
+§8.
+
+---
