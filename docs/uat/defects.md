@@ -3254,3 +3254,38 @@ passing on 2026-10-02; the dispute record read live the same day. Evidence:
 `docs/uat/evidence/6.04-metrics-and-operators.md` §2.
 
 ---
+## D-081 — Three faulty-run rating links quote "lower bound" values the chain does not carry
+
+- **Severity:** Critical (story 6.04: Urgent, evidence misstatement)
+- **Status:** Open
+- **Affects:** OV-01 (story 6.04); §6.2 D2-b
+
+**Steps to reproduce** — open `https://orizons.xyz/evidence` and find the three
+links labelled "Rating of faulty_test_v2 after failed run n of 3". Decode each
+transaction's operation on Horizon (`/transactions/{hash}/operations`):
+`e7885bf1…9663`, `2980361e…a388`, `cc83982b…e30f`.
+
+**Expected** — every value beside an explorer link is one the link shows.
+
+**Actual** — the labels state "lower bound 5677 to 5596", "5596 to 5518" and
+"5518 to 5443". Each call is
+`ReputationLedger.submit(GDB4N…CDHP, faulty_test_v2, <workflow id>, 20, 2000000, GA7AI…5OQV, auto)`,
+and its contract event carries the same fields. No lower bound appears in
+either: those figures are the platform's own Wilson computation, made off-chain.
+Score, amount, signer and day all match.
+
+**Impact** — a reviewer who follows the link to check the floor story cannot
+find the numbers the label gives. Under this story's rule a misstated piece of
+evidence is Urgent, even when the contract, function, addresses and amounts are
+right.
+
+**Resolution path** — drop the lower-bound figures from the link labels, or
+move them to the item's note, marked as computed by the platform from these
+ratings.
+
+**Verified by** — re-checked on 2026-10-02: the live page carries the three
+labels, and `e7885bf1…` decodes to the call above with no lower bound.
+`tests/evidence-index.spec.ts` (64 of 64 passed) pins each call's arguments.
+Evidence: `docs/uat/evidence/6.04-evidence-links.md` §4, §8.
+
+---
