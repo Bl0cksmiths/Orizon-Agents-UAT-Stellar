@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
 
@@ -17,6 +18,23 @@ const CLOSED = [
   { task: "tsk_7e1c369cebaf41b3", job: "dd9089ab7791c4293baf87745d1ea0b6", closedAt: "2026-10-01T09:39:30" },
   { task: "tsk_fcd544e62f0f0958", job: "b263f1ebde6bebbde5f8b99b71e74f7c", closedAt: "2026-10-01T17:48:30" },
 ];
+
+// Every credited dispute under test. The console disputes from this story are
+// added here as they are upheld.
+const CREDITED = ["dsp_15acee279ac02852a5877ac1696ec4b5", "dsp_d87167ccf384e41c7cc48b1e78c78e42"];
+
+const HORIZON = "https://horizon-testnet.stellar.org";
+const SIGNING_KEY = "GDB4N25UYM3YNTTAWX7LSGI2P7OR62QZQXRNQWAGF5TFVENDKCTTCDHP";
+
+type Dispute = { status: string; payer: string; credited_usdc: number; refund_tx: string; rating_tx: string; agent_id: string };
+type BalanceChange = { asset_type: string; from: string; to: string; amount: string; destination_muxed_id?: string };
+type Operation = { source_account: string; transaction_successful: boolean; asset_balance_changes?: BalanceChange[] };
+
+/** The muxed id a dispute's refund is paid under: refund_svc.refund_muxed_id. */
+function refundMuxedId(disputeId: string): string {
+  const digest = createHash("sha256").update(`${disputeId}orizon-refund:v1`, "utf8").digest();
+  return digest.readBigUInt64BE(0).toString();
+}
 
 test.describe("DE — dispute and refund on escrow v2 (story 6.08)", () => {
   for (const { job, closedAt } of CLOSED) {
@@ -42,6 +60,30 @@ test.describe("DE — dispute and refund on escrow v2 (story 6.08)", () => {
       // A finished task's trace stream keeps reconnecting and holds the context
       // open past teardown; leaving the page closes it.
       await page.goto("about:blank");
+    });
+  }
+
+  for (const id of CREDITED) {
+    test(`DE-03 ${id.slice(0, 12)}…'s refund is one transfer from the signing key to its payer, tagged with the dispute`, async ({ request }) => {
+      const response = await request.get(`/api/disputes/${id}`, { timeout: COLD_START_TIMEOUT });
+      expect(response.status()).toBe(200);
+      const dispute = (await response.json()) as Dispute;
+      expect(dispute.status).toBe("credited");
+      const ops = await request.get(`${HORIZON}/transactions/${dispute.refund_tx}/operations`, { timeout: COLD_START_TIMEOUT });
+      expect(ops.status(), `Horizon has ${dispute.refund_tx}`).toBe(200);
+      const records = (await ops.json())._embedded.records as Operation[];
+      expect(records).toHaveLength(1);
+      expect(records[0]?.transaction_successful).toBe(true);
+      expect(records[0]?.source_account, "signed by the platform's signing key").toBe(SIGNING_KEY);
+      expect(records[0]?.asset_balance_changes).toEqual([
+        expect.objectContaining({
+          type: "transfer",
+          from: SIGNING_KEY,
+          to: dispute.payer,
+          amount: dispute.credited_usdc.toFixed(7),
+          destination_muxed_id: refundMuxedId(id),
+        }),
+      ]);
     });
   }
 });
