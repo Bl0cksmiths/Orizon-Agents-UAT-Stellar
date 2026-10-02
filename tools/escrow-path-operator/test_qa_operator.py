@@ -146,3 +146,10 @@ def test_plan_keeps_only_a_fitting_plan(
     run = qa_operator.load_run()
     assert run["attempts"][-1]["fits"] is fits
     assert (kind in run["intents"]) is fits
+
+
+def test_publish_refuses_an_unchecked_agent(operator_state: Keypair) -> None:
+    qa_operator.record_agent("qa607_ok", register_tx="ab" * 32, endpoint="https://agent.example.com")
+    with pytest.raises(qa_operator.Refused, match="checked reachable"):
+        qa_operator.publish()
+    assert not (Path(os.environ["OPERATOR_STATE"]) / "ops" / "agents.json").exists()
