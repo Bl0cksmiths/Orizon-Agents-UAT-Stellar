@@ -1,6 +1,9 @@
 """Story 6.07: the QA agents UAT owns for the escrow v2 payment path (EP-02, EP-03).
 
     python qa_operator.py fund                a NEW operator key in $OPERATOR_STATE, funded by friendbot
+    python qa_operator.py register ID NAME SKILLS PRICE
+                                              register ID on the AgentRegistry, owned by the operator;
+                                              SKILLS is comma-separated, PRICE is per step in XLM
 
 The operator's secret lives only in $OPERATOR_STATE/operator.json, which must be
 outside the repository. Everything else this tool writes holds public keys, ids,
@@ -11,17 +14,23 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import httpx
-from stellar_sdk import Keypair
+from stellar_sdk import Keypair, TransactionEnvelope
 
 REPO = Path(__file__).resolve().parents[2]
 FRIENDBOT = "https://friendbot.stellar.org"
 DEFAULT_API = "https://orizon-agents-be-stellar.onrender.com"
+TESTNET_PASSPHRASE = "Test SDF Network ; September 2015"
+# A Soroban Symbol, as the backend's AGENT_ID_PATTERN; "-" is not in it.
+SYMBOL = re.compile(r"^[A-Za-z0-9_]{1,32}$")
+# QA agents are paid real testnet XLM per step; anything dearer is a typo.
+MAX_STEP_PRICE_XLM = 0.05
 
 
 class Refused(Exception):
@@ -85,8 +94,71 @@ def api() -> Api:
     return Api(http(), os.environ.get("OPERATOR_API", DEFAULT_API))
 
 
+def symbol(value: str, what: str) -> str:
+    if not SYMBOL.fullmatch(value):
+        raise Refused(f"{what} {value!r} is not a Soroban Symbol: use 1-32 of [A-Za-z0-9_]")
+    return value
+
+
+def load_run() -> dict[str, Any]:
+    """$OPERATOR_STATE/operator-run.json: every public fact this tool has observed."""
+    source = state_dir() / "operator-run.json"
+    if not source.exists():
+        return {"agents": {}, "intents": {}}
+    loaded: dict[str, Any] = json.loads(source.read_text(encoding="utf-8"))
+    return loaded
+
+
+def record_agent(agent_id: str, **facts: Any) -> None:
+    run = load_run()
+    run["agents"].setdefault(agent_id, {}).update(facts)
+    (state_dir() / "operator-run.json").write_text(json.dumps(run, indent=2), encoding="utf-8")
+
+
+def register(agent_id: str, name: str, skills: str, price: str) -> int:
+    """Build the registration with the backend, sign it as the operator, submit it, record the hash."""
+    symbol(agent_id, "agent id")
+    if agent_id.startswith("agt_"):
+        raise Refused(f"agent id {agent_id!r} is in the seeded agt_ namespace, which the backend reserves")
+    skill_list = [symbol(skill, "skill") for skill in skills.split(",")]
+    try:
+        price_xlm = float(price)
+    except ValueError:
+        raise Refused(f"price {price!r} is not a number") from None
+    if not 0 < price_xlm <= MAX_STEP_PRICE_XLM:
+        raise Refused(f"price {price_xlm} XLM is outside (0, {MAX_STEP_PRICE_XLM}] for a QA agent")
+    owner = load_operator()
+    client = api()
+    built = client.call(
+        "POST",
+        "/api/stellar/build/register-agent",
+        body={
+            "owner": owner.public_key,
+            "agent_id": agent_id,
+            "name": name,
+            "skills": skill_list,
+            "price_usdc": price_xlm,
+        },
+    )
+    envelope = TransactionEnvelope.from_xdr(built["xdr"], TESTNET_PASSPHRASE)
+    envelope.sign(owner)
+    result = client.call("POST", "/api/stellar/submit", body={"signed_xdr": envelope.to_xdr()})
+    if result.get("status") != "SUCCESS":
+        raise Refused(f"registration {result.get('hash')} ended {result.get('status')}: {result.get('diagnostic')}")
+    record_agent(
+        agent_id,
+        name=name,
+        skills=skill_list,
+        price_xlm=price_xlm,
+        register_tx=result["hash"],
+        register_ledger=result.get("ledger"),
+    )
+    print(f"registered {agent_id} owned by {owner.public_key} in {result['hash']}")
+    return 0
+
+
 # name -> (command, how many positional arguments it takes)
-COMMANDS: dict[str, tuple[Callable[..., int], int]] = {"fund": (fund, 0)}
+COMMANDS: dict[str, tuple[Callable[..., int], int]] = {"fund": (fund, 0), "register": (register, 4)}
 
 
 def main(argv: list[str]) -> int:
