@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process";
+import path from "node:path";
 import type { Page } from "@playwright/test";
 
 /**
@@ -12,13 +14,20 @@ import type { Page } from "@playwright/test";
 
 export const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015";
 
+// Playwright loads specs and their imports as CommonJS, so __dirname, not import.meta.
+const SIGNER = path.join(__dirname, "signer.py");
+
 export type ShimOptions = {
   /** The buyer's public key: what the wallet reports as connected. */
   address: string;
-  /** Path to the buyer.json that holds the secret; handed to signer.py by env var. */
-  keyFile: string;
-  /** The interpreter with stellar_sdk (the backend's venv). */
-  python: string;
+  /**
+   * Path to the buyer.json that holds `address`'s secret, handed to signer.py
+   * by env var. Leave it out for a connect-only wallet: it reports `address`
+   * as connected and refuses every signature.
+   */
+  keyFile?: string;
+  /** The interpreter with stellar_sdk (the backend's venv); "python" when unset. */
+  python?: string;
 };
 
 /** One SUBMIT_TRANSACTION the page made, and what the wallet did with it. */
@@ -28,8 +37,38 @@ export type FreighterShim = {
   readonly requests: SignRequest[];
 };
 
+/** signer.py's answer: the signed envelope, or why it refused. */
+function runSigner(opts: ShimOptions, xdr: string, passphrase: string): Promise<{ signed?: string; refused?: string }> {
+  const keyFile = opts.keyFile;
+  if (!keyFile) return Promise.resolve({ refused: "this wallet is connect-only and holds no key" });
+  return new Promise((resolve) => {
+    const child = spawn(opts.python ?? "python", [SIGNER, "sign", passphrase], {
+      env: { ...process.env, ESCROW_DRILL_KEY: keyFile },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let out = "";
+    let err = "";
+    child.stdout.on("data", (d: Buffer) => (out += d.toString()));
+    child.stderr.on("data", (d: Buffer) => (err += d.toString()));
+    child.on("close", (code) => resolve(code === 0 ? { signed: out.trim() } : { refused: err.trim() || `signer exited ${code}` }));
+    child.stdin.end(xdr);
+  });
+}
+
 export async function installFreighterShim(page: Page, opts: ShimOptions): Promise<FreighterShim> {
   const shim: FreighterShim = { requests: [] };
+
+  // SUBMIT_TRANSACTION is signed with the buyer's real key by signer.py, which
+  // refuses anything but an escrow `authorize` or `reclaim` paid by the buyer.
+  await page.exposeFunction("escrowDrillSign", async (xdr: string, passphrase: string) => {
+    const answer = await runSigner(opts, xdr, passphrase);
+    if (answer.signed) {
+      shim.requests.push({ xdr, outcome: "signed" });
+      return { signedTransaction: answer.signed, signerAddress: opts.address };
+    }
+    shim.requests.push({ xdr, outcome: "refused", detail: answer.refused });
+    return { apiError: { code: -1, message: `drill signer refused: ${answer.refused}` } };
+  });
 
   await page.addInitScript(
     ({ address, passphrase }: { address: string; passphrase: string }) => {
@@ -65,6 +104,11 @@ export async function installFreighterShim(page: Page, opts: ShimOptions): Promi
                 networkPassphrase: passphrase,
               },
             });
+          case "SUBMIT_TRANSACTION": {
+            // Looked up per request: the exposed binding may land after this script runs.
+            const drill = window as unknown as { escrowDrillSign: (x: string, p: string) => Promise<Record<string, unknown>> };
+            return reply(await drill.escrowDrillSign(request.transactionXdr ?? "", request.networkPassphrase || passphrase));
+          }
           default:
             return reply({ apiError: { code: -1, message: `the drill wallet does not answer ${String(request.type)}` } });
         }
