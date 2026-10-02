@@ -1,4 +1,5 @@
 import { getJson } from "./http.ts";
+import { readPage } from "./web.ts";
 
 /**
  * What the evidence index claims. The /evidence page renders the frontend's
@@ -50,4 +51,11 @@ export function measuredAt(index: EvidenceIndex, time: string): number {
     throw new Error(`the index's method names no measurement at ${time} UTC`);
   }
   return Date.parse(`${index.asOf}T${time}:59Z`) / 1000;
+}
+
+/** The metric statuses the live /evidence page renders, in page order. */
+export async function liveStatuses(): Promise<string[]> {
+  const page = await readPage("/evidence");
+  if (page.status !== 200) throw new Error(`/evidence answered ${page.status}`);
+  return [...page.html.matchAll(/data-metric-status="([a-z_]+)"/g)].map((m) => m[1]!);
 }
