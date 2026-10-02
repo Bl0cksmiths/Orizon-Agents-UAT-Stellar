@@ -41,7 +41,7 @@ import {
  * asserted, since anyone may register an agent at any time.
  *
  * A metric that is not met is asserted at its true value. A claim the chain
- * contradicts is pinned with its defect draft id (D-NEW-METRICS-n), so the
+ * contradicts is pinned with its defect id (D-078 to D-080, D-085), so the
  * test fails, and must be revisited, when the index or the chain changes.
  */
 
@@ -105,8 +105,8 @@ test("OV-02 m01 externally-operated agents: 11 outside the register at 15:48, 10
   expect(index.claims.get("m01")?.achieved).toBe("11");
   expect(agents).toHaveLength(11);
   expect(externalAgents(chain, endOfDay(index.asOf))).toHaveLength(11);
-  // D-NEW-METRICS-4: Powerbot's owner is one hop from the team admin, so it is not demonstrably external.
-  expect(evidenced, "D-NEW-METRICS-4").toHaveLength(10);
+  // D-085: Powerbot's owner is one hop from the team admin, so it is not demonstrably external.
+  expect(evidenced, "D-085").toHaveLength(10);
   expect(evidenced.length).toBeGreaterThanOrEqual(2);
   expect(today.length).toBeGreaterThanOrEqual(agents.length);
 });
@@ -120,7 +120,7 @@ test("OV-02 m02 unique external operator wallets: 7 outside the register at 15:4
   expect(index.claims.get("m02")?.achieved).toBe("7");
   expect(owners).toHaveLength(7);
   expect(new Set(owners).size).toBe(owners.length);
-  expect(evidenced, "D-NEW-METRICS-4").toHaveLength(6);
+  expect(evidenced, "D-085").toHaveLength(6);
   expect(evidenced.length).toBeGreaterThanOrEqual(2);
 });
 
@@ -129,9 +129,9 @@ test("OV-02 m03 workflows routed to external agents and settled: 0 of 3, and the
   info.annotations.push({ type: "m03 today", description: `${externalWorkflows(chain, now()).length} workflows` });
   record(info, "m03", `${workflows.length} settled workflows to an outside operator's agent`, "not met");
   expect(workflows).toHaveLength(0);
-  // D-NEW-METRICS-1: the SOW has eleven metrics; the index shows ten and lists this unmet one as removed.
-  expect(index.claims.has("m03"), "D-NEW-METRICS-1").toBe(false);
-  expect(index.removed.get("m03")?.note, "D-NEW-METRICS-1").toMatch(/team lead/);
+  // D-078: the SOW has eleven metrics; the index shows ten and lists this unmet one as removed.
+  expect(index.claims.has("m03"), "D-078").toBe(false);
+  expect(index.removed.get("m03")?.note, "D-078").toMatch(/team lead/);
 });
 
 test("OV-02 m04 USDC settlements: none in USDC; the 3 counted at 10:42 are XLM, team buyer to team agent", async ({}, info) => {
@@ -152,9 +152,9 @@ test("OV-02 m04 USDC settlements: none in USDC; the 3 counted at 10:42 are XLM, 
   // RPC's event window still covers must have its event.
   const inWindow = later.filter((c) => c.settledAt >= chain.window.oldestCloseTime);
   expect(inWindow.every((c) => c.txHash !== null)).toBe(true);
-  // D-NEW-METRICS-2: the index marks the USDC settlement target met on XLM charges between team wallets.
+  // D-079: the index marks the USDC settlement target met on XLM charges between team wallets.
   expect(index.claims.get("m04")?.achieved).toBe(String(counted.length));
-  expect(index.claims.get("m04")?.status, "D-NEW-METRICS-2").toBe("met");
+  expect(index.claims.get("m04")?.status, "D-079").toBe("met");
 });
 
 test("OV-02 m05 dispute to partial-refund settlements: 0 partial; the refund returned the whole workflow", async ({}, info) => {
@@ -175,9 +175,9 @@ test("OV-02 m05 dispute to partial-refund settlements: 0 partial; the refund ret
   expect(partialToday).toHaveLength(0);
   // Every dispute the ledger has ever counted is one the platform keys' histories show.
   expect(chain.lifetimeDisputes).toBe(chain.ratings.filter((r) => r.kind === "dispute").length);
-  // D-NEW-METRICS-3: the index marks it met on a refund of 100% of what the buyer paid.
+  // D-080: the index marks it met on a refund of 100% of what the buyer paid.
   expect(index.claims.get("m05")?.achieved).toBe(String(refunds.length));
-  expect(index.claims.get("m05")?.status, "D-NEW-METRICS-3").toBe("met");
+  expect(index.claims.get("m05")?.status, "D-080").toBe("met");
 });
 
 test("OV-02 m06 permissionless register flow: the page opens with no session and non-admin wallets have registered", async ({}, info) => {
@@ -217,9 +217,9 @@ test("OV-02 m08 dispute window and partial-credit refund: window and refund live
   expect(readiness.escrow?.contract).toBe(live?.contract);
   expect(live?.version, "a dispute window opens only on a v2 settlement").toBe(2);
   expect(refunds.filter((r) => r.transfer !== null)).toHaveLength(1);
-  // D-NEW-METRICS-3: "partial-credit" is not evidenced: the only refund returned the whole workflow.
-  expect(partial, "D-NEW-METRICS-3").toHaveLength(0);
-  expect(index.claims.get("m08")?.status, "D-NEW-METRICS-3").toBe("met");
+  // D-080: "partial-credit" is not evidenced: the only refund returned the whole workflow.
+  expect(partial, "D-080").toHaveLength(0);
+  expect(index.claims.get("m08")?.status, "D-080").toBe("met");
 });
 
 test("OV-02 m09 the integration guide is published with no session", async ({}, info) => {
