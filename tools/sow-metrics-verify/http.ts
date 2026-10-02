@@ -60,3 +60,14 @@ export async function getJsonOrNull(url: string): Promise<unknown> {
   const fetched = await request(url, { headers: { accept: "application/json" } });
   return fetched.status === 404 ? null : parse(url, fetched);
 }
+
+export async function postJson(url: string, body: unknown): Promise<unknown> {
+  return parse(
+    url,
+    await request(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify(body),
+    }),
+  );
+}
