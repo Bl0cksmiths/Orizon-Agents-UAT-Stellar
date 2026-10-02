@@ -1,6 +1,12 @@
 import { test, expect, type TestInfo } from "@playwright/test";
 import { liveStatuses, measuredAt, readIndex, type EvidenceIndex } from "../tools/sow-metrics-verify/claims.ts";
-import { endOfDay, externalAgents, externalOwners, SOW_ROWS } from "../tools/sow-metrics-verify/metrics.ts";
+import {
+  endOfDay,
+  externalAgents,
+  externalOwners,
+  externalWorkflows,
+  SOW_ROWS,
+} from "../tools/sow-metrics-verify/metrics.ts";
 import { traceOperator, type OperatorTrace } from "../tools/sow-metrics-verify/operators.ts";
 import { snapshot, type Snapshot } from "../tools/sow-metrics-verify/snapshot.ts";
 import { isAccountId } from "../tools/sow-metrics-verify/strkey.ts";
@@ -98,4 +104,14 @@ test("OV-02 m02 unique external operator wallets: 7 outside the register at 15:4
   expect(new Set(owners).size).toBe(owners.length);
   expect(evidenced, "D-NEW-METRICS-5").toHaveLength(6);
   expect(evidenced.length).toBeGreaterThanOrEqual(2);
+});
+
+test("OV-02 m03 workflows routed to external agents and settled: 0 of 3, and the index drops the row", async ({}, info) => {
+  const workflows = externalWorkflows(chain, endOfDay(index.asOf));
+  info.annotations.push({ type: "m03 today", description: `${externalWorkflows(chain, now()).length} workflows` });
+  record(info, "m03", `${workflows.length} settled workflows to an outside operator's agent`, "not met");
+  expect(workflows).toHaveLength(0);
+  // D-NEW-METRICS-1: the SOW has eleven metrics; the index shows ten and lists this unmet one as removed.
+  expect(index.claims.has("m03"), "D-NEW-METRICS-1").toBe(false);
+  expect(index.removed.get("m03")?.note, "D-NEW-METRICS-1").toMatch(/team lead/);
 });
