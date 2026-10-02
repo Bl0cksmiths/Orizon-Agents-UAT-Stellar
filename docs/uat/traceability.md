@@ -212,6 +212,13 @@ fixed on one surface and still present on the other, so a row that said only
 | RF-16 | BE `tests/test_floor_boundaries.py` | **Partial** — arithmetic and rating direction pass; end-to-end blocked, see test-plan note |
 | RF-17 | `tests/reputation-floor.spec.ts` | **Pass** (deployed) — `docs/evidence/rf-17-reputation-floor-plan.png`, with a provenance note asserted by test, stating the plan was supplied by the test and why the live target cannot produce one |
 
+**Re-checked 2026-10-02 (story 6.04), against backend `9aa6fca`, frontend
+`0c8a10b7` and the deploy.** See `evidence/6.02-recheck.md`. D-028 and D-031 are
+fixed and hold live: RF-05 now passes on a real sub-floor agent
+(`faulty_test_v2`, 5459 < 5500 bps), and RF-11 and RF-13 pass on the deploy.
+Today: 15 pass, 2 partial (RF-14 on D-034, RF-16), 0 fail. The rows above keep
+their 6.02 wording as the record of that sign-off.
+
 ## EX — external agent execution path (story 6.05)
 
 Recorded run 2026-09-17 on the **deployed** backend, which predates `main`
