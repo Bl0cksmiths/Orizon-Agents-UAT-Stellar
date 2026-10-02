@@ -1,4 +1,4 @@
-import { ACCOUNT_VERSION, CONTRACT_VERSION, MUXED_VERSION, encodeStrkey } from "./strkey.ts";
+import { ACCOUNT_VERSION, CONTRACT_VERSION, MUXED_VERSION, decodeStrkey, encodeStrkey } from "./strkey.ts";
 import { XdrReader, XdrWriter } from "./xdr.ts";
 
 /**
@@ -152,4 +152,8 @@ export function escrowId(n: number): ScArg {
   const bytes = new Uint8Array(16);
   new DataView(bytes.buffer).setBigUint64(8, BigInt(n));
   return scBytes(bytes);
+}
+
+export function writeContractAddress(w: XdrWriter, contractId: string): XdrWriter {
+  return w.u32(1).fixed(decodeStrkey(contractId, CONTRACT_VERSION));
 }
