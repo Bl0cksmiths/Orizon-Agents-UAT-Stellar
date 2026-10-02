@@ -1,11 +1,14 @@
 import { test, expect, type TestInfo } from "@playwright/test";
 import { liveStatuses, measuredAt, readIndex, type EvidenceIndex } from "../tools/sow-metrics-verify/claims.ts";
 import {
+  charges,
+  countedCharges,
   endOfDay,
   externalAgents,
   externalOwners,
   externalWorkflows,
   SOW_ROWS,
+  usdcCharges,
 } from "../tools/sow-metrics-verify/metrics.ts";
 import { traceOperator, type OperatorTrace } from "../tools/sow-metrics-verify/operators.ts";
 import { snapshot, type Snapshot } from "../tools/sow-metrics-verify/snapshot.ts";
@@ -30,6 +33,8 @@ import { isAccountId } from "../tools/sow-metrics-verify/strkey.ts";
  */
 
 test.describe.configure({ mode: "default" });
+
+const ADMIN = "GA7AI5TAJEZA27I666DSJC4MUJYBEWUYNNZWPU7R2ONA7IZQVO6R5OQV";
 
 let chain: Snapshot;
 let index: EvidenceIndex;
@@ -114,4 +119,27 @@ test("OV-02 m03 workflows routed to external agents and settled: 0 of 3, and the
   // D-NEW-METRICS-1: the SOW has eleven metrics; the index shows ten and lists this unmet one as removed.
   expect(index.claims.has("m03"), "D-NEW-METRICS-1").toBe(false);
   expect(index.removed.get("m03")?.note, "D-NEW-METRICS-1").toMatch(/team lead/);
+});
+
+test("OV-02 m04 USDC settlements: none in USDC; the 3 counted at 10:42 are XLM, team buyer to team agent", async ({}, info) => {
+  const cutoff = measuredAt(index, "10:42");
+  const counted = countedCharges(chain, cutoff);
+  const usdc = usdcCharges(chain, cutoff);
+  const later = countedCharges(chain, endOfDay(index.asOf));
+  const usdcToday = usdcCharges(chain, now());
+  info.annotations.push({ type: "m04 later", description: `${later.length} XLM charges by end of day; ${usdcToday.length} in USDC today` });
+  record(info, "m04", `${usdc.length} in USDC; ${counted.length} XLM charges, all team buyer to team-owned agent`, "disputed");
+  expect(chain.team.network.asset, "the escrow settles native XLM, not USDC").toBe("native");
+  expect(usdc).toHaveLength(0);
+  expect(charges(chain, cutoff)).toHaveLength(3);
+  expect(counted).toHaveLength(3);
+  expect(counted.every((c) => c.payerIsTeam && c.ownerIsTeam && c.owner === ADMIN && c.version === 2)).toBe(true);
+  expect(later).toHaveLength(5);
+  // The receipt walk and the escrow's own `charged` events are two independent reads: every charge the
+  // RPC's event window still covers must have its event.
+  const inWindow = later.filter((c) => c.settledAt >= chain.window.oldestCloseTime);
+  expect(inWindow.every((c) => c.txHash !== null)).toBe(true);
+  // D-NEW-METRICS-2: the index marks the USDC settlement target met on XLM charges between team wallets.
+  expect(index.claims.get("m04")?.achieved).toBe(String(counted.length));
+  expect(index.claims.get("m04")?.status, "D-NEW-METRICS-2").toBe("met");
 });
