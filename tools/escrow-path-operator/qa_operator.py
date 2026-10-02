@@ -5,6 +5,8 @@
                                               register ID on the AgentRegistry, owned by the operator;
                                               SKILLS is comma-separated, PRICE is per step in XLM
     python qa_operator.py bind ID URL         bind ID to the HTTPS endpoint URL, signed by the owner (SEP-53)
+    python qa_operator.py check ID URL        owner_of(ID) on-chain is the operator, the binding is URL's host,
+                                              and the backend's readiness probe found the endpoint reachable
 
 The operator's secret lives only in $OPERATOR_STATE/operator.json, which must be
 outside the repository. Everything else this tool writes holds public keys, ids,
@@ -21,13 +23,17 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
-from stellar_sdk import Keypair, TransactionEnvelope
+from stellar_sdk import Account, Keypair, TransactionBuilder, TransactionEnvelope, scval, xdr
 
 REPO = Path(__file__).resolve().parents[2]
 FRIENDBOT = "https://friendbot.stellar.org"
 DEFAULT_API = "https://orizon-agents-be-stellar.onrender.com"
+RPC = "https://soroban-testnet.stellar.org"
+# The AgentRegistry the deployment reads (common.md); owner_of is asked of it directly.
+AGENT_REGISTRY = "CAPHXWU53UZUZJGV7IAE57NNMH3YYB5MTWO6YA53KKMXSFVLOITBJ3GQ"
 TESTNET_PASSPHRASE = "Test SDF Network ; September 2015"
 # A Soroban Symbol, as the backend's AGENT_ID_PATTERN; "-" is not in it.
 SYMBOL = re.compile(r"^[A-Za-z0-9_]{1,32}$")
@@ -189,8 +195,54 @@ def bind(agent_id: str, url: str) -> int:
     return 0
 
 
+def owner_of(client: httpx.Client, agent_id: str, source: str) -> str | None:
+    """AgentRegistry.owner_of(agent_id), run in simulation; None when the registry has no such id."""
+    tx = (
+        TransactionBuilder(Account(source, 0), network_passphrase=TESTNET_PASSPHRASE, base_fee=100)
+        .append_invoke_contract_function_op(AGENT_REGISTRY, "owner_of", [scval.to_symbol(agent_id)])
+        .set_timeout(30)
+        .build()
+    )
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "simulateTransaction", "params": {"transaction": tx.to_xdr()}}
+    response = client.post(RPC, json=payload, timeout=30.0)
+    response.raise_for_status()
+    result = response.json().get("result") or {}
+    if result.get("error") or not result.get("results"):
+        return None
+    return str(scval.from_address(xdr.SCVal.from_xdr(result["results"][0]["xdr"])).address)
+
+
+def check(agent_id: str, url: str) -> int:
+    """The three preconditions EP-02 and EP-03 rest on, each read from its own source."""
+    symbol(agent_id, "agent id")
+    owner = load_operator().public_key
+    client = api()
+    on_chain = owner_of(client.client, agent_id, owner)
+    if on_chain != owner:
+        raise Refused(f"owner_of({agent_id}) on the registry is {on_chain}, not the operator {owner}")
+    binding = client.call("GET", f"/api/agents/{agent_id}/binding")
+    host = f"https://{urlsplit(url).hostname}"
+    if binding.get("endpoint_url") != host or binding.get("owner") != owner:
+        raise Refused(f"the binding reads {binding}, not {host} owned by {owner}")
+    readiness = client.call("GET", f"/api/agents/{agent_id}/readiness")
+    steps = {step["key"]: step for step in readiness["steps"]}
+    reachable = steps["reachable"]
+    record_agent(agent_id, check={"owner_of": on_chain, "binding": binding, "readiness": readiness})
+    if reachable["status"] != "done":
+        raise Refused(f"readiness says {agent_id} is not reachable: {reachable['detail']}")
+    print(f"{agent_id}: owner_of={on_chain}, bound to {host}, reachable, ready={readiness['ready']}")
+    for key, step in steps.items():
+        print(f"  {key}: {step['status']} - {step['detail']}")
+    return 0
+
+
 # name -> (command, how many positional arguments it takes)
-COMMANDS: dict[str, tuple[Callable[..., int], int]] = {"fund": (fund, 0), "register": (register, 4), "bind": (bind, 2)}
+COMMANDS: dict[str, tuple[Callable[..., int], int]] = {
+    "fund": (fund, 0),
+    "register": (register, 4),
+    "bind": (bind, 2),
+    "check": (check, 2),
+}
 
 
 def main(argv: list[str]) -> int:
