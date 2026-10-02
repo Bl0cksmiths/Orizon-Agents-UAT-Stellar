@@ -259,6 +259,21 @@ class Run:
         if result.get("status") != "SUCCESS":
             raise Refused(f"the authorize submit answered {result.get('status')}")
 
+    def execute(self) -> None:
+        """The stored plan, run against the authorization; the task's read token is
+        kept in memory for the polls and never written to the record."""
+        started = self.api.call(
+            "POST",
+            "/api/orchestrator/execute",
+            body={
+                "plan_id": self.record["plan"]["plan_id"],
+                "auth_id_hex": self.artifact("authorize")["auth_id_hex"],
+                "payer": self.buyer.public_key,
+            },
+        )
+        self.token = started.get("read_token")
+        self.capture("task", task_id=started["task_id"])
+
     def reachability(self, agent_id: str) -> dict[str, Any]:
         """The backend's own readiness probe of the agent's bound endpoint: its
         `reachable` step, as `{status, detail}`."""
