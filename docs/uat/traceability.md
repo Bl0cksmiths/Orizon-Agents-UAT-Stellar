@@ -413,3 +413,20 @@ one expected failure). On-chain: four Horizon-checked transactions. Code: the
 | SD-06 | DR-11, IB-05 in code at `6da6da7`; D-054 fixed | **Pass in code**; D-055 open |
 | SD-07 | live: calculatorai `dispute_rate_bps` 3333, `disputed` 2; RC-04 (**pass** live); D-066 fixed in code | **Pass** |
 | SD-08 | `rating-log-drill` 28/28 at `6da6da7`: credit kept, error line carries all four fields | **Pass in code** |
+
+## OV — independent verification of every on-chain claim (story 6.04)
+
+Each OV check runs against an independent source: Horizon testnet, Stellar RPC,
+or a page opened with no session. The application's own rendering is never the
+proof. Status is filled in at sign-off.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| OV-01 | `tests/evidence-index.spec.ts`; `evidence/6.04-evidence-links.md` | in progress |
+| OV-02 | `tests/sow-metrics.spec.ts`; `evidence/6.04-metrics-and-operators.md` | in progress |
+| OV-03 | `tests/attestations.spec.ts`; `evidence/6.04-attestations.md` | in progress |
+| OV-04 | `tests/external-operators.spec.ts`; `evidence/6.04-metrics-and-operators.md` | in progress |
+| OV-05 | `tests/public-artifacts.spec.ts`; `evidence/6.04-public-artifacts.md` | in progress |
+| OV-06 | the shortfall section of `evidence/6.04-onchain-verification.md`, from the OV-02 actuals | in progress |
+| OV-07 | `tests/evidence-web-links.spec.ts`; `evidence/6.04-checklist-links.md`; the §6.2 table in `evidence/6.04-onchain-verification.md` | in progress |
+| OV-08 | `tools/e2e-run`; `tests/e2e-run.spec.ts`; `evidence/6.04-e2e-run.md` | in progress |
