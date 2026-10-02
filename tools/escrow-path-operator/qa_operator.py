@@ -10,6 +10,8 @@
     python qa_operator.py plan KIND INTENT    decompose INTENT (no wallet, nothing authorized) and keep the plan
                                               as KIND if it fits: "single" routes only to $OPERATOR_OK_ID,
                                               "pair" is two steps, one on $OPERATOR_OK_ID, one on $OPERATOR_HANG_ID
+    python qa_operator.py publish             write $OPERATOR_STATE/ops/agents.json for the browser stream:
+                                              checked agents and kept intents, never a secret
 
 The operator's secret lives only in $OPERATOR_STATE/operator.json, which must be
 outside the repository. Everything else this tool writes holds public keys, ids,
@@ -281,6 +283,46 @@ def plan(kind: str, intent: str) -> int:
     return 0
 
 
+def publish() -> int:
+    """The hand-off file: only agents whose last check passed, and the intents kept so far."""
+    run = load_run()
+    agents = []
+    for agent_id, facts in run["agents"].items():
+        readiness = (facts.get("check") or {}).get("readiness") or {}
+        reachable = next((s for s in readiness.get("steps", []) if s["key"] == "reachable"), None)
+        if not (facts.get("register_tx") and facts.get("endpoint") and reachable and reachable["status"] == "done"):
+            raise Refused(f"{agent_id} has not been registered, bound and checked reachable; run `check` first")
+        agents.append(
+            {
+                "id": agent_id,
+                "endpoint": facts["endpoint"],
+                "price_xlm": facts["price_xlm"],
+                "skills": facts["skills"],
+                "register_tx": facts["register_tx"],
+                "bind": facts["bind"],
+                "owner_of": facts["check"]["owner_of"],
+                "readiness": {"checked_at": readiness["checked_at"], "ready": readiness["ready"]},
+            }
+        )
+    intents = run["intents"]
+    missing = [kind for kind in ("single", "pair") if kind not in intents]
+    out: dict[str, Any] = {
+        "operator_public": load_operator().public_key,
+        "agents": agents,
+        "intents": None if missing else {"single": intents["single"], "pair": intents["pair"]},
+    }
+    if missing:
+        out["blocker"] = f"no observed plan fits {', '.join(missing)}; see operator-run.json attempts"
+    text = json.dumps(out, indent=2)
+    if '"secret"' in text or re.search(r"(?<![A-Z2-7])S[A-Z2-7]{55}(?![A-Z2-7])", text):
+        raise Refused("the hand-off would carry a secret key; nothing written")
+    target = state_dir() / "ops" / "agents.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    print(f"wrote {target}: {len(agents)} agent(s), intents {'missing ' + str(missing) if missing else 'single+pair'}")
+    return 0
+
+
 # name -> (command, how many positional arguments it takes)
 COMMANDS: dict[str, tuple[Callable[..., int], int]] = {
     "fund": (fund, 0),
@@ -288,6 +330,7 @@ COMMANDS: dict[str, tuple[Callable[..., int], int]] = {
     "bind": (bind, 2),
     "check": (check, 2),
     "plan": (plan, 2),
+    "publish": (publish, 0),
 }
 
 
