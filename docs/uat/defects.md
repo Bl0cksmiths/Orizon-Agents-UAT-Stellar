@@ -3319,3 +3319,38 @@ manifest, and the `test.fail()` pin turns into an unexpected pass.
 Evidence: `docs/uat/evidence/6.04-public-artifacts.md`.
 
 ---
+## D-083 — The AttestationRegistry never extends a TTL: the seals and the registry archive on 2026-10-07
+
+- **Severity:** Medium (story 6.04 grade)
+- **Status:** Open
+- **Affects:** OV-03 (story 6.04); §6.2 D4-d, RD-f
+
+**Steps to reproduce** — `getLedgerEntries` on Stellar RPC testnet for the
+registry `CBYUZKOE…HEGK` instance, its wasm, and each sprint seal's `Job` entry
+(`node --no-warnings tools/attestation-verify/capture.ts`).
+
+**Expected** — seals cited as evidence stay live: the contract or an operator
+job extends their TTLs.
+
+**Actual** — each job entry lives exactly 120,959 ledgers past its seal ledger,
+the network's minimum persistent TTL. The instance and the wasm live until
+ledger 5068358, about **2026-10-07 09:29Z**; the five sprint seals lapse between
+09:29Z and 17:48Z that day. The registry had already archived once before
+2026-09-30. The contract has no `extend_ttl`, and the backend has no TTL or
+restore handling.
+
+**Impact** — the data is not lost and write-once still holds: an archived seal
+reads back through simulation, and a re-seal still fails `AlreadyExists`. But
+explorers and plain ledger reads show the seals archived, and the next
+transaction that touches them pays a restore. OV-03's live spec turns red from
+09:29Z on 2026-10-07 until the entries are restored.
+
+**Resolution path** — extend the TTLs of the instance, the wasm and every cited
+`Job` entry before 2026-10-07 09:29Z, and add a TTL extension to `seal` or a
+scheduled operator job.
+
+**Verified by** — re-read at ledger 4978550 (2026-10-02 04:45Z): same
+live-until ledgers. `tests/attestations.spec.ts`, 16 of 16 passed on
+chromium-desktop. Evidence: `docs/uat/evidence/6.04-attestations.md` §3.
+
+---
