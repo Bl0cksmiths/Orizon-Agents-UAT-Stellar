@@ -1,9 +1,9 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
-import { ACCOUNT_FACTS, CONTRACT_FACTS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
+import { ACCOUNT_FACTS, CONTRACT_FACTS, REGISTRY, SNAPSHOT, TX_FACTS } from "../tools/onchain-verify/facts.ts";
 import { txDifferences } from "../tools/onchain-verify/compare.ts";
-import { observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
-import { readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
+import { observeAccount, observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
+import { readAgents, readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
 
 /**
  * OV-01 (story 6.04): every explorer link in the public evidence index
@@ -69,6 +69,21 @@ test.describe("OV-01 — the evidence index's explorer links", () => {
       expect(storage, `contract ${contract} on the testnet ledger`).not.toBeNull();
       const held = Object.fromEntries(Object.keys(roles).map((name) => [name, storage?.get(name)]));
       expect(held, `instance storage of ${contract}`).toEqual(roles);
+    });
+  }
+
+  for (const [account, facts] of ACCOUNT_FACTS) {
+    test(`account ${account.slice(0, 6)} exists and owns the agents the index says`, async ({ request }) => {
+      const observed = await observeAccount(horizon(request), account);
+      expect(observed, `account ${account} on Horizon testnet`).not.toBeNull();
+      if (facts.createdOn) {
+        expect(observed?.createdAt?.slice(0, 10), `day ${account} was created`).toBe(facts.createdOn);
+      }
+      const asOf = new Date(SNAPSHOT.registrations.at);
+      const owned = (await readAgents(rpc(request), REGISTRY))
+        .filter((agent) => agent.owner === account && agent.registeredAt <= asOf)
+        .map((agent) => agent.id);
+      expect(sorted(owned), `agents the AgentRegistry lists for ${account}`).toEqual(sorted(facts.owns));
     });
   }
 });
