@@ -3386,3 +3386,37 @@ such a plan signs and pays fees for a run the platform already knows will fail.
 above. Evidence: `docs/uat/evidence/6.04-e2e-run.md` §1, §3.
 
 ---
+## D-085 — m01 and m02 count the Powerbot owner as external, though it is one hop from the team admin on-chain
+
+- **Severity:** Medium (story 6.04 grade)
+- **Status:** Open
+- **Affects:** OV-04, OV-02 (story 6.04); SOW §6.3 m01, m02; §6.2 D1-c, D4-c
+
+**Steps to reproduce** — trace the Powerbot owner
+`GCVOWZY5SII2HZSYL6I5VFOOYPOJXHMATXRJVKBE227GBW45L7UAKQKX` on Horizon: its
+`create_account`, its counterparties, and each counterparty's operations
+(`npx playwright test tests/external-operators.spec.ts --project=chromium-desktop`).
+
+**Expected** — an operator counted as external has no on-chain path to a team
+wallet, or the index says it has one.
+
+**Actual** — friendbot created it on 2026-06-05, and on the same day it paid
+1000 XLM to `GDZQLM…4FHT`, its only counterparty. The team admin GA7AI…5OQV
+paid `GDZQLM…4FHT` three times (1 XLM and 0.5 XLM on 2026-04-29, 500 XLM on
+2026-05-31). `GDZQLM…4FHT` is in neither the team register nor the platform
+keys. The index counts Powerbot among 11 external agents and its owner among 7
+external wallets.
+
+**Impact** — m01 and m02 stay met (10 ≥ 2 and 6 ≥ 2), but the claim of 11 and 7
+overstates by one agent and one wallet. The other six wallets show no on-chain
+team link, which is all the chain can show: it cannot prove who holds the keys.
+
+**Resolution path** — state 10 and 6, or disclose the link and why the wallet
+still counts as outside.
+
+**Verified by** — `tests/external-operators.spec.ts`
+`OV-04 the Powerbot owner is one hop from the team admin`, and
+`tests/sow-metrics.spec.ts` m01/m02, all passing on 2026-10-02. Evidence:
+`docs/uat/evidence/6.04-metrics-and-operators.md` §3.1.
+
+---
