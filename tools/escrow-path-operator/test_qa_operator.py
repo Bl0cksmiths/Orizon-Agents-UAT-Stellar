@@ -115,3 +115,34 @@ def test_bind_signs_the_challenge_per_sep53(operator_state: Keypair, monkeypatch
     operator_state.verify_message(message, base64.b64decode(signed[0]["signature"]))
     recorded = json.loads((Path(os.environ["OPERATOR_STATE"]) / "operator-run.json").read_text())
     assert recorded["agents"]["qa607_ok"]["endpoint"] == url
+
+
+def decomposed(*agent_ids: str) -> dict[str, Any]:
+    steps = [{"agent_id": a, "agent_name": a, "est_price_usdc": 0.01} for a in agent_ids]
+    return {"plan_id": "pln_test", "steps": steps, "total_usdc": 0.01 * len(steps), "notices": []}
+
+
+@pytest.mark.parametrize(
+    ("kind", "agent_ids", "fits"),
+    [
+        ("single", ["qa607_ok"], True),
+        ("single", ["qa607_ok", "agt_05x7"], False),
+        ("single", [], False),
+        ("pair", ["qa607_ok", "qa607_hang"], True),
+        ("pair", ["qa607_hang", "qa607_ok"], True),
+        ("pair", ["qa607_ok", "qa607_ok"], False),
+        ("pair", ["qa607_ok", "qa607_hang", "agt_05x7"], False),
+    ],
+)
+def test_plan_keeps_only_a_fitting_plan(
+    operator_state: Keypair, monkeypatch: pytest.MonkeyPatch, kind: str, agent_ids: list[str], fits: bool
+) -> None:
+    backend(monkeypatch, {"/api/orchestrator/decompose": decomposed(*agent_ids)})
+    if fits:
+        assert qa_operator.plan(kind, "an intent") == 0
+    else:
+        with pytest.raises(qa_operator.Refused, match=f"not a {kind} plan"):
+            qa_operator.plan(kind, "an intent")
+    run = qa_operator.load_run()
+    assert run["attempts"][-1]["fits"] is fits
+    assert (kind in run["intents"]) is fits
