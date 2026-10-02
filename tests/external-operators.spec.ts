@@ -1,4 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { measuredAt, readIndex } from "../tools/sow-metrics-verify/claims.ts";
+import { externalOwners } from "../tools/sow-metrics-verify/metrics.ts";
+import { traceOperator, type OperatorTrace } from "../tools/sow-metrics-verify/operators.ts";
 import { snapshot, type Snapshot } from "../tools/sow-metrics-verify/snapshot.ts";
 import { isTeam } from "../tools/sow-metrics-verify/team.ts";
 
@@ -27,10 +30,19 @@ const SETTLER = "GDB4N25UYM3YNTTAWX7LSGI2P7OR62QZQXRNQWAGF5TFVENDKCTTCDHP";
 const DISPATCH = "GB5MKHDFLJZ6OFPAHM7R4HGBUPFV5PZYL3W27VTIUZZ25JMQSDZBKCMR";
 
 let chain: Snapshot;
+let asOf: OperatorTrace[];
+let today: OperatorTrace[];
 
 test.beforeAll(async () => {
   test.setTimeout(600_000);
   chain = await snapshot();
+  const index = await readIndex();
+  const claimedAsOf = externalOwners(chain, measuredAt(index, "15:48"));
+  const claimedToday = externalOwners(chain, Date.now() / 1000);
+  const claimed = new Set(claimedToday);
+  today = [];
+  for (const owner of claimedToday) today.push(await traceOperator(owner, chain.agents, chain.team, claimed));
+  asOf = today.filter((t) => claimedAsOf.includes(t.address));
 });
 
 test("OV-04 the team wallets compared against are the register and every key the platform runs", async ({}, info) => {
@@ -45,4 +57,14 @@ test("OV-04 the team wallets compared against are the register and every key the
   expect(chain.team.platform.has(SETTLER)).toBe(true);
   expect(chain.team.platform.has(DISPATCH)).toBe(true);
   for (const key of chain.team.platform.keys()) expect(chain.team.register.has(key), `${key} is in the register`).toBe(true);
+});
+
+test("OV-04 every claimed outside wallet is distinct and is neither in the register nor a platform key", async ({}, info) => {
+  info.annotations.push({ type: "claimed today", description: `${today.length} wallets` });
+  expect(asOf).toHaveLength(7);
+  expect(new Set(today.map((t) => t.address)).size).toBe(today.length);
+  for (const t of today) {
+    expect(isTeam(chain.team, t.address), t.address).toBe(false);
+    expect(t.verdict, t.address).not.toBe("team wallet");
+  }
 });
