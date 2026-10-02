@@ -1,6 +1,6 @@
 import { mapLimit } from "./http.ts";
-import { simulate } from "./rpc.ts";
-import { scSymbol, type ScValue } from "./scval.ts";
+import { instanceStorage, simulate, SimulationFailed } from "./rpc.ts";
+import { escrowId, scSymbol, type ScValue } from "./scval.ts";
 import { isAccountId } from "./strkey.ts";
 
 /**
@@ -75,4 +75,91 @@ export interface Authorization {
   agentId: string;
   maxAmount: bigint;
   spent: bigint;
+}
+
+export interface EscrowHistory {
+  contract: string;
+  version: number;
+  settler: string;
+  nonce: number;
+  receipts: Receipt[];
+  authorizations: Map<string, Authorization>;
+  /** Ids the counter issued that read as neither a receipt nor an authorization. */
+  unreadable: string[];
+}
+
+type EscrowRead =
+  | { kind: "receipt"; receipt: Receipt }
+  | { kind: "authorization"; authorization: Authorization }
+  | { kind: "unreadable"; id: string };
+
+/** Escrow id `n`, read as a receipt or else an authorization. */
+async function readEscrowId(contract: string, n: number): Promise<EscrowRead> {
+  const id = n.toString(16).padStart(32, "0");
+  try {
+    const r = obj(await simulate(contract, "receipt", [escrowId(n)]), `receipt ${id}`);
+    return {
+      kind: "receipt",
+      receipt: {
+        escrow: contract,
+        id,
+        authId: str(r.auth_id, "auth_id"),
+        agentId: str(r.agent_id, "agent_id"),
+        amount: int(r.amount, "amount"),
+        jobId: str(r.job_id, "job_id"),
+        settledAt: Number(int(r.settled_at, "settled_at")),
+      },
+    };
+  } catch (error) {
+    if (!(error instanceof SimulationFailed)) throw error;
+  }
+  try {
+    const a = obj(await simulate(contract, "authorization", [escrowId(n)]), `authorization ${id}`);
+    return {
+      kind: "authorization",
+      authorization: {
+        id,
+        payer: str(a.payer, "payer"),
+        agentId: str(a.agent_id, "agent_id"),
+        maxAmount: int(a.max_amount, "max_amount"),
+        spent: int(a.spent, "spent"),
+      },
+    };
+  } catch (error) {
+    if (!(error instanceof SimulationFailed)) throw error;
+    return { kind: "unreadable", id };
+  }
+}
+
+/**
+ * Every id the escrow's instance `Nonce` has issued, each read as a receipt or
+ * else an authorization. One counter numbers both, so ids 0..Nonce-1 are the
+ * escrow's whole history, however long ago it happened.
+ */
+export async function readEscrow(contract: string): Promise<EscrowHistory> {
+  const storage = await instanceStorage(contract);
+  const nonce = Number(int(storage.Nonce, `${contract} Nonce`));
+  let version = 1;
+  try {
+    version = Number(int(await simulate(contract, "version"), "version"));
+  } catch (error) {
+    if (!(error instanceof SimulationFailed)) throw error;
+  }
+  const history: EscrowHistory = {
+    contract,
+    version,
+    settler: str(storage.Settler, `${contract} Settler`),
+    nonce,
+    receipts: [],
+    authorizations: new Map(),
+    unreadable: [],
+  };
+  const ids = Array.from({ length: nonce }, (_, n) => n);
+  const reads = await mapLimit(ids, CONCURRENCY, (n) => readEscrowId(contract, n));
+  for (const read of reads) {
+    if (read.kind === "receipt") history.receipts.push(read.receipt);
+    else if (read.kind === "authorization") history.authorizations.set(read.authorization.id, read.authorization);
+    else history.unreadable.push(read.id);
+  }
+  return history;
 }
