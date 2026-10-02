@@ -86,3 +86,16 @@ test("OV-02 m01 externally-operated agents: 11 outside the register at 15:48, 10
   expect(evidenced.length).toBeGreaterThanOrEqual(2);
   expect(today.length).toBeGreaterThanOrEqual(agents.length);
 });
+
+test("OV-02 m02 unique external operator wallets: 7 outside the register at 15:48, 6 with no on-chain team link", async ({}, info) => {
+  const owners = externalOwners(chain, measuredAt(index, "15:48"));
+  const evidenced = traces.filter((t) => t.verdict === "no on-chain team link");
+  const today = externalOwners(chain, now());
+  info.annotations.push({ type: "m02 today", description: `${today.length} wallets outside the register` });
+  record(info, "m02", `${owners.length} outside the register; ${evidenced.length} with no on-chain team link`, "met");
+  expect(index.claims.get("m02")?.achieved).toBe("7");
+  expect(owners).toHaveLength(7);
+  expect(new Set(owners).size).toBe(owners.length);
+  expect(evidenced, "D-NEW-METRICS-5").toHaveLength(6);
+  expect(evidenced.length).toBeGreaterThanOrEqual(2);
+});
