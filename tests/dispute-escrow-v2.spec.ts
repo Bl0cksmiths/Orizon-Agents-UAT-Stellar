@@ -116,4 +116,26 @@ test.describe("DE — dispute and refund on escrow v2 (story 6.08)", () => {
       expect(symbols.at(-1), "the rating's kind").toBe("dispute");
     });
   }
+
+  test("DE-06 every credited dispute was paid exactly once across the signing key's whole history", async ({ request }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 2);
+    const tagged: string[] = [];
+    let next = `${HORIZON}/accounts/${SIGNING_KEY}/operations?order=asc&limit=200`;
+    for (;;) {
+      const page = await request.get(next, { timeout: COLD_START_TIMEOUT });
+      expect(page.status()).toBe(200);
+      const body = await page.json();
+      const records = body._embedded.records as Operation[];
+      for (const op of records.filter((record) => record.transaction_successful)) {
+        for (const change of op.asset_balance_changes ?? []) {
+          if (change.from === SIGNING_KEY && change.destination_muxed_id) tagged.push(change.destination_muxed_id);
+        }
+      }
+      if (records.length < 200) break;
+      next = body._links.next.href;
+    }
+    for (const id of CREDITED) {
+      expect(tagged.filter((muxed) => muxed === refundMuxedId(id)), `refund transfers tagged ${id}`).toHaveLength(1);
+    }
+  });
 });
