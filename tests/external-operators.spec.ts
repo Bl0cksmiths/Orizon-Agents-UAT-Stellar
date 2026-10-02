@@ -78,3 +78,10 @@ test("OV-04 every claimed wallet's creation is traced, never to a team wallet; t
   }
   for (const t of asOf) expect(t.funder, t.address).toBe(FRIENDBOT);
 });
+
+test("OV-04 no claimed wallet has an extra signer or has transacted with another claimed wallet", async () => {
+  for (const t of today) {
+    expect(t.peers, t.address).toEqual([]);
+    expect(t.extraSigners, t.address).toEqual([]);
+  }
+});
