@@ -45,3 +45,12 @@ export async function request(url: string, init: RequestInit = {}): Promise<Fetc
   }
   throw new Error(`${url} did not answer after ${ATTEMPTS} attempts: ${String(last)}`);
 }
+
+function parse(url: string, fetched: Fetched): unknown {
+  if (fetched.status !== 200) throw new Error(`${url} answered ${fetched.status}`);
+  return JSON.parse(fetched.text) as unknown;
+}
+
+export async function getJson(url: string): Promise<unknown> {
+  return parse(url, await request(url, { headers: { accept: "application/json" } }));
+}
