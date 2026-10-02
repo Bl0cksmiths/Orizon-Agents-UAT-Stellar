@@ -1,9 +1,15 @@
 """OV-08 (story 6.04): one complete validation workflow on the deployed dApp, on testnet.
 
     python run.py fund            a fresh buyer keypair in $E2E_STATE, funded by friendbot
+    python run.py run             decompose, authorize, execute, poll, settle, seal; then verify
+    python run.py verify RECORD   re-read every artifact of a recorded run and check it again
 
-The buyer's secret lives only in $E2E_STATE, which must be outside the
-repository.
+The run spends the buyer's testnet XLM, so it is a tool, not a CI step. Every
+artifact is written to the record the moment it exists, with the time it was
+seen, and is then checked against Horizon (and Soroban RPC for events and
+views). The buyer's secret lives only in $E2E_STATE, which must be outside the
+repository; the record holds public keys, ids and hashes, never a secret or the
+task's read token.
 """
 
 from __future__ import annotations
@@ -20,12 +26,13 @@ from typing import Any
 
 import httpx
 from chain import TESTNET_PASSPHRASE, Chain, ChainError, HorizonCall
-from checks import Check, check_authorize, check_seal, check_settle
+from checks import Check, check_authorize, check_seal, check_settle, passed
 from stellar_sdk import Address, Keypair, TransactionEnvelope, scval
 from stellar_sdk.operation import InvokeHostFunction
 
 REPO = Path(__file__).resolve().parents[2]
 TASK_TOKEN_HEADER = "X-Task-Token"
+DEFAULT_API = "https://orizon-agents-be-stellar.onrender.com"
 EXPLORER = "https://stellar.expert/explorer/testnet/tx/"
 AUTHORIZE_TTL_SECONDS = 1800
 TERMINAL = ("complete", "failed")
@@ -436,11 +443,50 @@ def consistency(
     ]
 
 
+def record_checks(record: dict[str, Any], checks: list[Check]) -> bool:
+    record["verified_at"] = now()
+    record["checks"] = [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in checks]
+    for c in checks:
+        print(f"  [{'PASS' if c.ok else 'FAIL'}] {c.name}: {c.detail}")
+    return passed(checks)
+
+
+def run() -> int:
+    """One run, its record in $E2E_STATE; 0 only when it finished and every check passed."""
+    intent = os.environ.get("E2E_INTENT")
+    if not intent:
+        raise Refused("set E2E_INTENT to what the buyer asks for")
+    client, state = http(), state_dir()
+    api, chain = Api(client, os.environ.get("E2E_API", DEFAULT_API)), Chain(client)
+    probe = Run(api, chain, load_buyer(), intent, Path())
+    probe.out = state / f"record-{probe.record['run_id']}.json"
+    try:
+        for stage in (probe.preflight, probe.decompose, probe.authorize, probe.execute, probe.poll, probe.settlement):
+            stage()
+    except (Refused, ChainError, httpx.HTTPError) as exc:
+        probe.record["stopped"] = str(exc)
+        print(f"STOPPED: {exc}", file=sys.stderr)
+    ok = "plan" in probe.record and record_checks(probe.record, verify(chain, probe.record))
+    probe.save()
+    print(f"record: {probe.out}")
+    return 0 if ok and "stopped" not in probe.record else 1
+
+
+def verify_file(path: Path) -> int:
+    """Re-reads a recorded run from the ledger; the record itself is not rewritten."""
+    record = json.loads(path.read_text(encoding="utf-8"))
+    return 0 if record_checks(record, verify(Chain(http()), record)) else 1
+
+
 def main(argv: list[str]) -> int:
     command = argv[1] if len(argv) > 1 else ""
     try:
         if command == "fund" and len(argv) == 2:
             return fund()
+        if command == "run" and len(argv) == 2:
+            return run()
+        if command == "verify" and len(argv) == 3:
+            return verify_file(Path(argv[2]))
     except Refused as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
