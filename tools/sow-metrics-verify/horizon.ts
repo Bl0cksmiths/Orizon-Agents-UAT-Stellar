@@ -106,3 +106,15 @@ export async function operations(account: string, since?: string): Promise<Opera
   }
   throw new Error(`${account} has more than ${PAGE * MAX_PAGES} operations in range`);
 }
+
+export interface AccountSigners {
+  signers: { key: string; weight: number }[];
+}
+
+/** The account's signers, or null when it does not exist. */
+export async function accountSigners(account: string): Promise<AccountSigners | null> {
+  const body = (await getJsonOrNull(`${TESTNET_HORIZON}/accounts/${account}`)) as Raw | null;
+  if (body === null) return null;
+  const signers = Array.isArray(body.signers) ? (body.signers as Raw[]) : [];
+  return { signers: signers.map((s) => ({ key: String(s.key), weight: Number(s.weight) })) };
+}
