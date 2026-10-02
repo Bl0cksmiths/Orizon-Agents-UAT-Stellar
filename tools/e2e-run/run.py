@@ -24,6 +24,7 @@ from stellar_sdk.operation import InvokeHostFunction
 
 REPO = Path(__file__).resolve().parents[2]
 TASK_TOKEN_HEADER = "X-Task-Token"
+EXPLORER = "https://stellar.expert/explorer/testnet/tx/"
 
 
 class Refused(Exception):
@@ -128,6 +129,60 @@ def auth_id_from(value: Any) -> str:
     if isinstance(value, list) and len(value) == 16:
         return bytes(value).hex()
     raise Refused(f"cannot read an auth id from the submit's return value {value!r}")
+
+
+class Run:
+    """One run, its record written to disk after every artifact."""
+
+    def __init__(self, api: Api, chain: Chain, buyer: Keypair, intent: str, out: Path) -> None:
+        self.api, self.chain, self.buyer = api, chain, buyer
+        self.out = out
+        self.token: str | None = None
+        self.record: dict[str, Any] = {
+            "story": "6.04",
+            "criterion": "OV-08",
+            "run_id": datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
+            "api": api.base,
+            "buyer": buyer.public_key,
+            "intent": intent,
+            "artifacts": [],
+        }
+
+    def save(self) -> None:
+        self.out.write_text(json.dumps(self.record, indent=2) + "\n", encoding="utf-8")
+
+    def capture(self, kind: str, **fields: Any) -> dict[str, Any]:
+        """An artifact, written down the moment it is seen."""
+        item = {"kind": kind, "captured_at": now(), **fields}
+        if fields.get("tx_hash"):
+            item["explorer"] = EXPLORER + str(fields["tx_hash"])
+        self.record["artifacts"].append(item)
+        self.save()
+        print(f"[{item['captured_at']}] {kind}: {fields.get('tx_hash') or fields}")
+        return item
+
+    def artifact(self, kind: str) -> dict[str, Any]:
+        return next(a for a in self.record["artifacts"] if a["kind"] == kind)
+
+    def preflight(self) -> None:
+        """Testnet, escrow v2 by its own `version()` view, and the settler it trusts."""
+        self.api.wake()
+        network = self.api.call("GET", "/api/stellar/network")
+        if network.get("network_passphrase") != TESTNET_PASSPHRASE:
+            raise Refused(f"the API is on {network.get('network')}, not testnet")
+        contracts = network["contracts"]
+        source = self.buyer.public_key
+        version = self.chain.view(contracts["payment_escrow"], "version", [], source)
+        if version != 2:
+            raise Refused(f"escrow {contracts['payment_escrow']} answers version {version}, not 2")
+        self.record.update(
+            network="testnet",
+            asset=network.get("asset"),
+            contracts=contracts,
+            escrow_version=version,
+            settler=self.chain.view(contracts["payment_escrow"], "settler", [], source),
+        )
+        self.save()
 
 
 def main(argv: list[str]) -> int:
