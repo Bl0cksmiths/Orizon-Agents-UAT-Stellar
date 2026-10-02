@@ -1077,11 +1077,10 @@ function buildProvenanceNote(f: ProvenanceFacts): string {
     "in basis points.",
     "",
     "**Does not prove:** that the live backend produced any of it. It did not.",
-    "Nor does it cover the free-form intent path: on that path the floor is",
-    "applied only while building the planner prompt and is never re-checked",
-    "afterwards, and a floor relaxation there emits no notice at all (defects",
-    "D-028, D-029). The notices rendered here are, on this build, only ever",
-    "produced by the demo-kit path.",
+    "Nor does it cover the free-form intent path. That path now holds every",
+    "model step to the shortlist it was offered and discloses a relaxed floor",
+    "(the fixes for defects D-028 and D-029), and the RF-05 live test checks the",
+    "exclusion of a real sub-floor agent there, but no frame of it is filed.",
     "",
   ].join("\n");
 }
