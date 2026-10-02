@@ -57,3 +57,22 @@ export async function readAgents(registry: string): Promise<Agent[]> {
     };
   });
 }
+
+export interface Receipt {
+  escrow: string;
+  id: string;
+  authId: string;
+  agentId: string;
+  amount: bigint;
+  jobId: string;
+  /** Unix seconds. */
+  settledAt: number;
+}
+
+export interface Authorization {
+  id: string;
+  payer: string;
+  agentId: string;
+  maxAmount: bigint;
+  spent: bigint;
+}
