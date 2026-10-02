@@ -3109,3 +3109,44 @@ rating refused at simulation is reported as nothing landed" is XFAIL, pinned
 to D-076. The credit is kept in that mode too.
 
 ---
+## D-077 — No paid workflow can complete on the deploy: every bound agent with an on-chain owner has a dead endpoint
+
+- **Severity:** Critical (story 6.04: Urgent, money path)
+- **Status:** Open
+- **Affects:** OV-08 (story 6.04); SOW §6.3 m03, §6.2 D4 (demo video)
+
+**Steps to reproduce** — `GET /api/agents` on the deployed backend and keep the
+agents with `bound: true`. Probe each with `GET /api/agents/{id}/readiness`.
+Then run `python tools/e2e-run/run.py run` with any intent the planner routes to
+one of them.
+
+**Expected** — at least one routable agent with an on-chain owner answers a
+dispatch, so a buyer's run is delivered, `settle` pays the owner (a `charged`
+event) and the job is sealed.
+
+**Actual** — six agents are bound, all with an owner. The backend's own
+`reachable` step fails for five: `algorex` ("answered 301, a redirect"),
+`3D_Artbot` ("did not answer within 5 s"), and `faulty_test_v2`,
+`uat624_ext_op` and `uat605_ext_op` (Cloudflare quick tunnels whose hostnames
+no longer resolve). The sixth, `Powerbot`, answers 200 from a web page that does
+not speak the dispatch protocol; the 2026-10-01 run routed to it failed and its
+settle `82e79595…780b` returned the whole 0.12 XLM. UAT's run of record on
+2026-10-02 (`tsk_2ffcc633bf3d8f1d`) authorized 0.01 XLM
+(`731ab17a…2025`, ledger 4977473), the step failed, and settle
+`9ee94bd0…fe09` (ledger 4977475) carried `payouts []` and returned the custody
+to the buyer. `AttestationRegistry.get` of its job answers `NotFound`: nothing
+was sealed.
+
+**Impact** — no buyer can complete a paid workflow on the deploy. OV-08 is
+Blocked, m03 cannot move off 0, and the demo video has nothing real to show.
+
+**Resolution path** — bind a live operator endpoint (a named tunnel or a
+hosted agent, not a quick tunnel) to an agent with an owner, then re-run the
+tool. The run is one command once an endpoint answers.
+
+**Verified by** — re-checked live on 2026-10-02 at 04:38Z: the six readiness
+probes give the same verdicts, and Horizon shows both run transactions
+successful with the custody moving buyer → escrow → buyer. Evidence:
+`docs/uat/evidence/6.04-e2e-run.md`.
+
+---
