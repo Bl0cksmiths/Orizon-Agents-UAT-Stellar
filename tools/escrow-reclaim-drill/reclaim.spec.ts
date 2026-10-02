@@ -1,8 +1,10 @@
+import { generateKeyPairSync } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { installFreighterShim } from "../escrow-path-drill/freighter-shim.ts";
+import { encodeStrkey, STRKEY_VERSION } from "../onchain-verify/strkey.ts";
 import { buildReclaim } from "./api.ts";
 import { escrowEventsOf, feeCharged, readAuthorization } from "./chain.ts";
 import { acquireLock, progress, recordFact, releaseLock } from "./state.ts";
@@ -140,5 +142,30 @@ test.describe("EP-04 in the console", () => {
     expect(answer.message).toContain(String(run.expiresAt));
     expect(answer.body).not.toHaveProperty("xdr");
     expect(await readAuthorization(run.authIdHex)).toMatchObject({ settled: false, revoked: false });
+  });
+
+  test("another wallet is refused the reclaim and is offered none", async ({ browser }) => {
+    // A throwaway key, connect-only: its shim holds no secret and signs nothing.
+    const { publicKey } = generateKeyPairSync("ed25519");
+    const stranger = encodeStrkey(STRKEY_VERSION.account, publicKey.export({ format: "der", type: "spki" }).subarray(-32));
+    recordFact("stranger", stranger);
+
+    const answer = await buildReclaim(stranger, run.authIdHex);
+    expect(answer.status).toBe(403);
+    expect(answer.code).toBe("authorization_payer_mismatch");
+    expect(answer.message).toBe("only the wallet that made this authorization can reclaim it");
+    expect(answer.body).not.toHaveProperty("xdr");
+
+    const other = await browser.newContext();
+    try {
+      const strangerPage = await other.newPage();
+      await installFreighterShim(strangerPage, { address: stranger });
+      await strangerPage.goto("/app/orchestrator");
+      await expect(strangerPage.getByRole("textbox", { name: /intent/i })).toBeVisible();
+      await expect(strangerPage.getByRole("region", { name: "Your funds are held in escrow" })).toHaveCount(0);
+      await expect(strangerPage.getByRole("button", { name: /^Reclaim / })).toHaveCount(0);
+    } finally {
+      await other.close();
+    }
   });
 });
