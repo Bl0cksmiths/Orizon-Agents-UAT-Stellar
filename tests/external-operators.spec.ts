@@ -99,10 +99,10 @@ test("OV-04 at least two claimed wallets are distinct and show no on-chain link 
   expect(cleanToday.length).toBeGreaterThanOrEqual(2);
 });
 
-test("OV-04 the Powerbot owner is one hop from the team admin (D-NEW-METRICS-5)", async () => {
+test("OV-04 the Powerbot owner is one hop from the team admin (D-NEW-METRICS-4)", async () => {
   const powerbot = asOf.find((t) => t.address === POWERBOT_OWNER);
   expect(powerbot?.agents).toEqual(["Powerbot"]);
-  expect(powerbot?.verdict, "D-NEW-METRICS-5").toBe("team-linked (one hop)");
+  expect(powerbot?.verdict, "D-NEW-METRICS-4").toBe("team-linked (one hop)");
   expect(powerbot?.counterparties).toEqual([POWERBOT_PAYEE]);
   expect(powerbot?.links).toHaveLength(3);
   expect(powerbot?.links.every((l) => l.via === POWERBOT_PAYEE && l.team === ADMIN && l.type === "payment")).toBe(true);
