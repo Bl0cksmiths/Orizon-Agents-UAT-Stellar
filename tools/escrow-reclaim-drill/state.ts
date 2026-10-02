@@ -5,7 +5,7 @@
  * buyer's key, and nothing in it belongs in git.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 // Playwright loads the drill as CommonJS, as it does the rest of the suite.
@@ -34,4 +34,9 @@ export function readFacts(): Record<string, string> {
 /** Records one fact of the run, keeping every earlier one. */
 export function recordFact(name: string, value: string): void {
   writeFileSync(factsFile(), JSON.stringify({ ...readFacts(), [name]: value }, null, 2));
+}
+
+/** One timestamped line in $RECLAIM_STATE/progress.log, to follow a run in the background. */
+export function progress(line: string): void {
+  appendFileSync(path.join(stateDir(), "progress.log"), `${new Date().toISOString()} ${line}\n`);
 }
