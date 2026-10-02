@@ -417,7 +417,7 @@ Surface in brackets: (`main`) = backend pytest, (dep) = the deployed stack.
 **13 pass, 3 partial, 1 fail** against `main`. On the deployed stack two further
 criteria cannot be met at all until the backend is deployed.
 
-## Recommendation for story 6.02: NO-GO
+## Recommendation for story 6.02: NO-GO (superseded 2026-10-02 by GO; see "Story 6.02 re-checked")
 
 Not because the reputation floor is broken — most of it is right, and the parts
 this story was told to treat as correct are provably correct. The floor's
