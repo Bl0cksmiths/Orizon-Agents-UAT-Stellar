@@ -3150,3 +3150,40 @@ successful with the custody moving buyer → escrow → buyer. Evidence:
 `docs/uat/evidence/6.04-e2e-run.md`.
 
 ---
+## D-078 — The evidence index drops the unmet metric m03 from the SOW's eleven, citing a removal "by the team lead"
+
+- **Severity:** Critical (story 6.04: Urgent, evidence misstatement)
+- **Status:** Open
+- **Affects:** OV-02, OV-06 (story 6.04); SOW §6.3 m03
+
+**Steps to reproduce** — read `metrics` and `removed_metrics` in the frontend's
+`content/evidence/index.json` (`origin/main` `0c8a10b7`, rendered at
+`https://orizons.xyz/evidence`). Count workflows routed to an outside-owned
+agent and settled, from every escrow v1 and v2 receipt
+(`npx playwright test tests/sow-metrics.spec.ts --project=chromium-desktop`).
+
+**Expected** — all eleven SOW §6.3 rows are shown, with m03 "Workflows routed
+to external agents & settled on Testnet" (target ≥ 3) marked not met, unless the
+SOW itself was amended with the client.
+
+**Actual** — the index shows ten metrics. m03 sits in `removed_metrics`,
+"removed from the sprint's requirements by the team lead", on 2026-09-30, the
+day its shortfall would have shown. The chain holds **0** qualifying workflows
+at every cut-off up to 2026-10-02: no receipt on either escrow pays an agent
+owned outside the team. The backend's own live counter agrees:
+`GET /api/ecosystem/adoption` reports `settled_external_workflows: 0`,
+`met: false`.
+
+**Impact** — a reviewer reading the index sees no failed transaction target.
+The one SOW metric that proves outside operators were paid is missing, not
+failed.
+
+**Resolution path** — restore m03 to the index as "0 of 3, not met", with the
+reason (D-077), unless the client has agreed in writing to drop it.
+
+**Verified by** — `tests/sow-metrics.spec.ts` `OV-02 m03 …`, passing on
+2026-10-02 with the row asserted absent and its count at 0; the adoption
+counter read live the same day. Evidence:
+`docs/uat/evidence/6.04-metrics-and-operators.md` §2.
+
+---
