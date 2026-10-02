@@ -47,17 +47,24 @@ function fetchable(url: string): string {
 }
 
 /** GET with no session; a 429 is waited out (Retry-After, else 20 s) up to three times. */
-async function fetchPage(request: APIRequestContext, url: string): Promise<{ status: number; body: string }> {
+async function fetchPage(
+  request: APIRequestContext,
+  url: string,
+  method: "GET" | "HEAD" = "GET",
+): Promise<{ status: number; body: string }> {
   for (let attempt = 0; ; attempt++) {
-    const res = await request.get(url, { timeout: 90_000 });
-    if (res.status() !== 429 || attempt === 3) return { status: res.status(), body: await res.text() };
+    const res = await request.fetch(url, { method, timeout: 90_000 });
+    if (res.status() !== 429 || attempt === 3) return { status: res.status(), body: method === "GET" ? await res.text() : "" };
     const wait = Number(res.headers()["retry-after"] ?? "20");
     await new Promise((r) => setTimeout(r, Math.min(wait, 60) * 1000));
   }
 }
 
+/** Raw files (screenshots, the recording, the PDF) are checked by HEAD, so a slow download cannot time out. */
 async function fetchStatus(request: APIRequestContext, url: string): Promise<number> {
-  return (await fetchPage(request, fetchable(url))).status;
+  const target = fetchable(url);
+  const method = target.startsWith("https://raw.githubusercontent.com/") ? "HEAD" : "GET";
+  return (await fetchPage(request, target, method)).status;
 }
 
 test("OV-07 every link outside Stellar Expert answers with no session", async ({ request }) => {
