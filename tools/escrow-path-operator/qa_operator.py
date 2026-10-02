@@ -4,6 +4,7 @@
     python qa_operator.py register ID NAME SKILLS PRICE
                                               register ID on the AgentRegistry, owned by the operator;
                                               SKILLS is comma-separated, PRICE is per step in XLM
+    python qa_operator.py bind ID URL         bind ID to the HTTPS endpoint URL, signed by the owner (SEP-53)
 
 The operator's secret lives only in $OPERATOR_STATE/operator.json, which must be
 outside the repository. Everything else this tool writes holds public keys, ids,
@@ -12,6 +13,7 @@ hashes and observed answers, never a secret.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
@@ -157,8 +159,38 @@ def register(agent_id: str, name: str, skills: str, price: str) -> int:
     return 0
 
 
+def bind(agent_id: str, url: str) -> int:
+    """Preflight the URL, take a challenge, sign it as the owner, bind, and check what the API stored."""
+    symbol(agent_id, "agent id")
+    if not url.startswith("https://"):
+        raise Refused(f"endpoint {url!r} is not an https URL")
+    owner = load_operator()
+    client = api()
+    preflight = client.call("GET", "/api/agents/bind/endpoint-check", params={"url": url})
+    if not preflight.get("allowed"):
+        raise Refused(f"the backend refuses {url} (rule {preflight.get('rule')}): {preflight.get('message')}")
+    challenge = client.call("POST", f"/api/agents/{agent_id}/bind/challenge", body={"endpoint_url": url})
+    signature = base64.b64encode(owner.sign_message(challenge["message"])).decode("ascii")
+    bound = client.call("POST", f"/api/agents/{agent_id}/bind", body={"endpoint_url": url, "signature": signature})
+    if bound.get("endpoint_url") != url or bound.get("owner") != owner.public_key:
+        raise Refused(f"the bind answered {bound}, not {url} owned by {owner.public_key}")
+    record_agent(
+        agent_id,
+        endpoint=url,
+        bind={
+            "endpoint_check": preflight,
+            "challenge_expires_at": challenge["expires_at"],
+            "bound_at": bound["bound_at"],
+            "replaced": bound["replaced"],
+            "owner": bound["owner"],
+        },
+    )
+    print(f"bound {agent_id} to {url} at {bound['bound_at']} (replaced: {bound['replaced']})")
+    return 0
+
+
 # name -> (command, how many positional arguments it takes)
-COMMANDS: dict[str, tuple[Callable[..., int], int]] = {"fund": (fund, 0), "register": (register, 4)}
+COMMANDS: dict[str, tuple[Callable[..., int], int]] = {"fund": (fund, 0), "register": (register, 4), "bind": (bind, 2)}
 
 
 def main(argv: list[str]) -> int:
