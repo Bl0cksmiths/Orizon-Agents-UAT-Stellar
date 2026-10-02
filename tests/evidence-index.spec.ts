@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
-import { ACCOUNT_FACTS, CONTRACT_FACTS, LEDGER, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
+import { ACCOUNT_FACTS, ATTESTATION, CONTRACT_FACTS, LEDGER, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
 import { txDifferences } from "../tools/onchain-verify/compare.ts";
 import { contractCallsBy, observeAccount, observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
 import { readAgents, readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
@@ -113,5 +113,22 @@ test.describe("OV-01 — the evidence index's explorer links", () => {
       total: ratings.length,
       disputes: ratings.filter((c) => c.args[6] === "dispute").length,
     }, `ReputationLedger submits by ${writers.join(", ")} as of ${at}`).toEqual({ total, disputes });
+  });
+
+  test("the AttestationRegistry link's seal counts hold at the snapshot", async ({ request }) => {
+    test.slow();
+    const { at, sprintStart, preSprint, runDay, runs, sealers } = SNAPSHOT.seals;
+    const seals = [];
+    for (const sealer of sealers) {
+      const calls = await contractCallsBy(horizon(request), sealer);
+      seals.push(...calls.filter((c) => c.contract === ATTESTATION && c.fn === "seal" && c.createdAt <= at));
+    }
+    expect({
+      preSprint: seals.filter((c) => c.createdAt < sprintStart).length,
+      sinceSprint: seals.filter((c) => c.createdAt >= sprintStart).map((c) => c.createdAt.slice(0, 10)),
+    }, `AttestationRegistry seals by ${sealers.join(", ")} as of ${at}`).toEqual({
+      preSprint,
+      sinceSprint: Array.from({ length: runs }, () => runDay),
+    });
   });
 });
