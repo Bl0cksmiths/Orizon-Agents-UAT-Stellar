@@ -16,6 +16,7 @@ import { snapshot, type Snapshot } from "../tools/sow-metrics-verify/snapshot.ts
 import { isAccountId } from "../tools/sow-metrics-verify/strkey.ts";
 import { registryAdmin } from "../tools/sow-metrics-verify/team.ts";
 import {
+  demoState,
   DISPUTE_ROUTES,
   readPage,
   readParams,
@@ -225,4 +226,15 @@ test("OV-02 m09 the integration guide is published with no session", async ({}, 
   expect(page.status).toBe(200);
   expect(page.html).toContain("List your agent");
   expect(index.claims.get("m09")?.status).toBe("met");
+});
+
+test("OV-02 m10 demo video: not published, as the index says", async ({}, info) => {
+  const page = await readPage("/demo");
+  const demo = demoState(page.html);
+  record(info, "m10", `No: /demo ${page.status}, marker ${demo.marker}`, "not met");
+  expect(page.status).toBe(200);
+  expect(demo.marker).toBe("unpublished");
+  expect(demo.published).toBe(false);
+  expect(demo.seconds).toBeNull();
+  expect(index.claims.get("m10")?.status).toBe("not_met");
 });
