@@ -18,7 +18,8 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from chain import TESTNET_PASSPHRASE, Chain, ChainError
+from chain import TESTNET_PASSPHRASE, Chain, ChainError, HorizonCall
+from checks import Check, check_authorize, check_seal, check_settle
 from stellar_sdk import Address, Keypair, TransactionEnvelope, scval
 from stellar_sdk.operation import InvokeHostFunction
 
@@ -337,6 +338,61 @@ class Run:
         if step is None:
             return {"status": "unknown", "detail": "the readiness answer has no `reachable` step"}
         return {"status": step.get("status"), "detail": step.get("detail")}
+
+
+def seconds(stamp: str) -> float:
+    return datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
+
+
+def check_captured(kind: str, artifact: dict[str, Any], call: HorizonCall) -> Check:
+    """The hash was written down while the run was happening: within a minute of
+    its ledger closing, and never before it (5 s allowed for clock skew)."""
+    lag = seconds(artifact["captured_at"]) - seconds(call.created_at)
+    return Check(f"{kind}_captured_at_the_moment", -5 <= lag <= 60, f"captured {lag:.1f}s after its ledger closed")
+
+
+def verify(chain: Chain, record: dict[str, Any]) -> list[Check]:
+    """Every artifact of `record`, read back from Horizon and Soroban RPC and checked.
+
+    A run that stopped part-way is verified as far as it got, and the artifacts
+    it never produced are one failed check.
+    """
+    contracts, buyer, settler = record["contracts"], record["buyer"], record["settler"]
+    escrow, registry = contracts["payment_escrow"], contracts["attestation_registry"]
+    art = {a["kind"]: a for a in record["artifacts"]}
+    missing = [k for k in ("authorize", "task", "settle", "seal", "settlement") if k not in art]
+    checks = [Check("every_artifact_produced", not missing, f"missing {missing}" if missing else "all five")]
+    if "authorize" not in art:
+        return checks
+    plan, auth = record["plan"], art["authorize"]
+    auth_call = chain.horizon_call(auth["tx_hash"])
+    checks += [
+        *check_authorize(auth_call, escrow, buyer, plan["plan_id"], auth["max_stroops"]),
+        check_captured("authorize", auth, auth_call),
+    ]
+    step_sum = sum(to_stroops(s["est_price_usdc"]) for s in plan["steps"])
+    checks.append(Check("plan_total_is_step_sum", step_sum == auth["max_stroops"], f"steps {step_sum}"))
+    if "settle" not in art:
+        return checks
+
+    settle_call = chain.horizon_call(art["settle"]["tx_hash"])
+    job = art["settlement"]["job_id_hex"] if "settlement" in art else str((settle_call.args[2:3] or [""])[0])
+    events = chain.events(escrow, settle_call.ledger, settle_call.tx_hash)
+    agents = sorted({s["agent_id"] for s in plan["steps"]})
+    owners = {a: o for a in agents if (o := owner_of(chain, contracts["agent_registry"], a, buyer))}
+    settle_checks, paid = check_settle(
+        settle_call, events, escrow, settler, auth["auth_id_hex"], job, owners, buyer, auth["max_stroops"]
+    )
+    checks += [*settle_checks, check_captured("settle", art["settle"], settle_call)]
+    if "seal" not in art:
+        return checks
+
+    seal_call = chain.horizon_call(art["seal"]["tx_hash"])
+    return [
+        *checks,
+        *check_seal(seal_call, registry, settler, job, buyer, paid),
+        check_captured("seal", art["seal"], seal_call),
+    ]
 
 
 def main(argv: list[str]) -> int:
