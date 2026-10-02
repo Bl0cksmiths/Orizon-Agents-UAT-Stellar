@@ -15,7 +15,14 @@ import { traceOperator, type OperatorTrace } from "../tools/sow-metrics-verify/o
 import { snapshot, type Snapshot } from "../tools/sow-metrics-verify/snapshot.ts";
 import { isAccountId } from "../tools/sow-metrics-verify/strkey.ts";
 import { registryAdmin } from "../tools/sow-metrics-verify/team.ts";
-import { readPage, readParams, readRoutes, REGISTER_ROUTE } from "../tools/sow-metrics-verify/web.ts";
+import {
+  DISPUTE_ROUTES,
+  readPage,
+  readParams,
+  readReadiness,
+  readRoutes,
+  REGISTER_ROUTE,
+} from "../tools/sow-metrics-verify/web.ts";
 
 /**
  * Story 6.04, OV-02 and the inputs to OV-06: each of the eleven SOW §6.3
@@ -193,4 +200,21 @@ test("OV-02 m07 reputation-gated routing: the live router reads the ledger and a
   expect(params.floor_bps).toBe(5500);
   expect(index.claims.get("m07")?.achieved).toContain("2.75 out of 5");
   expect(index.claims.get("m07")?.status).toBe("met");
+});
+
+test("OV-02 m08 dispute window and partial-credit refund: window and refund live, no partial credit on record", async ({}, info) => {
+  const routes = await readRoutes();
+  const readiness = await readReadiness();
+  const refunds = disputeRefunds(chain, measuredAt(index, "15:30"));
+  const live = chain.escrows.find((e) => e.contract === chain.team.network.contracts.payment_escrow);
+  const partial = refunds.filter((r) => r.partial);
+  record(info, "m08", `Partly: routes, sweep and ${refunds.length} refund live; ${partial.length} partial`, "disputed");
+  for (const route of DISPUTE_ROUTES) expect(routes.has(route), route).toBe(true);
+  expect(readiness.disputes?.reconcile?.enabled).toBe(true);
+  expect(readiness.escrow?.contract).toBe(live?.contract);
+  expect(live?.version, "a dispute window opens only on a v2 settlement").toBe(2);
+  expect(refunds.filter((r) => r.transfer !== null)).toHaveLength(1);
+  // D-NEW-METRICS-3: "partial-credit" is not evidenced: the only refund returned the whole workflow.
+  expect(partial, "D-NEW-METRICS-3").toHaveLength(0);
+  expect(index.claims.get("m08")?.status, "D-NEW-METRICS-3").toBe("met");
 });
