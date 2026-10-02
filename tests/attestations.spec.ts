@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { randomBytes } from "node:crypto";
 import { getAttestation, jobEntry, simulateSeal, SEALER, type Attestation, type EntryLifetime } from "../tools/attestation-verify/registry.ts";
 import { CLAIMED_SEALS, type ClaimedSeal } from "../tools/attestation-verify/seals.ts";
 
@@ -69,5 +70,15 @@ test.describe("OV-03 — claimed workflow attestations (story 6.04)", () => {
     if (!seal) throw new Error("no claimed seals to probe");
     const probe = await simulateSeal(FORMER_SEALER, seal.jobId, claimed(seal));
     expect(probe.error, "the former sealer must no longer be able to seal").toContain("Error(Contract, #1)");
+  });
+
+  test("OV-03 control: the same probe on a never-sealed job succeeds, so AlreadyExists comes from the stored seal", async () => {
+    test.setTimeout(RPC_TIMEOUT);
+    const [seal] = CLAIMED_SEALS;
+    if (!seal) throw new Error("no claimed seals to probe");
+    const fresh = randomBytes(16).toString("hex");
+    const probe = await simulateSeal(SEALER, fresh, claimed(seal));
+    expect(probe.error, `a first seal of job ${fresh} should simulate cleanly`).toBeUndefined();
+    expect(probe.authEntries, "the sealer's signature is the one auth entry a real seal would need").toBe(1);
   });
 });
