@@ -1068,3 +1068,22 @@ Two inputs bound this story:
   and the 2026-09-30 seals expire around 2026-10-07. OV-03 must run before then.
 - **The asset is testnet XLM.** Every escrow amount moves native XLM; "USDC" in
   a metric's wording is checked against what actually moved.
+
+## Acceptance criteria — DE, dispute and refund on escrow v2 (story 6.08, verifies 5.01 AC2 / AC4 and Epic 4)
+
+The first dispute raised by someone other than the developer, from the
+console's Dispute button, on the live deployment. Refunds are on since
+2026-09-30. The credit is a platform credit from the signing key
+`GDB4N25U…CDHP` (also escrow v2's settler), never a clawback, and is refused
+above `MAX_REFUND_USDC` (1.0) rather than reduced. Each refund pays the payer's
+G address muxed with `sha256(dispute_id ‖ "orizon-refund:v1")[:8]`, so a
+transfer names the dispute it pays and "paid once" is counted on-chain.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| DE-01 | a settled step the buyer paid for, inside its window | the buyer opens the Dispute dialog and signs | the dispute is recorded and the receipt shows it under review |
+| DE-02 | a wallet that did not pay for the workflow | it tries to dispute a step | it is refused, with a reason the console shows |
+| DE-03 | an open dispute | it is upheld | a refund from the signing key to the buyer and a `kind=dispute` rating both land, the agent's score falls, and the receipt reads REFUNDED with both links |
+| DE-04 | a settled workflow inside its window | the backend restarts and the buyer then disputes from the console | the dispute is accepted, upheld and credited normally |
+| DE-05 | a step outside its window, and a credit above `MAX_REFUND_USDC` | each is attempted | the first is refused as out of window, the second as above the cap, with nothing paid |
+| DE-06 | a dispute already upheld and credited | it is upheld again | no second credit is sent |
