@@ -3514,3 +3514,39 @@ unfinished.
 Evidence: `docs/uat/evidence/6.04-public-artifacts.md`.
 
 ---
+## D-089 — §6.2 D1-c and D4-c are marked present with no outside registration transaction hash
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** OV-07 (story 6.04); §6.2 D1, D4
+
+**Steps to reproduce** — read items `6.1-D1-c` and `6.1-D4-c` in the frontend's
+`content/evidence/index.json` (`origin/main` `0c8a10b7`) and follow every link.
+
+**Expected** — the SOW's own words: D1 asks for "an externally owned agent's
+registration tx hash on Stellar Expert (testnet)", and D4 for "a list of ≥ 2
+external registration tx hashes".
+
+**Actual** — both items are `status: present`, and neither carries a
+registration transaction. Their links are the AgentRegistry contract page, the
+`/app/ecosystem` page (built in the browser: its served HTML has no explorer
+link), the team register on GitHub, and, for D4-c, the API's adoption counter,
+which lists outside owners with account links only. All 14 registration
+transactions the index links anywhere are by team wallets. The hashes do exist:
+for example `3a74719f22fafa6fcf4a6f2c4d02aebc0eb3b7dbf81fa2f43f87425a3b6b3e32`
+(`register` of `fitness_autobot` by `GDGI37…GUFQ`, 2026-09-29) and
+`3c22546932c1185e1ca1a0d7e1eeed85eaff52157cc411fb0315d54f3c0413bb`
+(`Gamer_Bot` by `GBG2JN…62U5`, 2026-09-30).
+
+**Impact** — two checklist items are marked present without the artifact the
+SOW names. A reviewer has to find the transactions through wallet pages.
+
+**Resolution path** — link at least two outside registration transactions by
+hash in D1-c and D4-c, from wallets other than the Powerbot owner (D-085).
+
+**Verified by** — the index read at `origin/main` on 2026-10-02; both hashes
+decoded from Horizon the same day as `AgentRegistry.register` signed by the
+owner they name. Evidence: `docs/uat/evidence/6.04-onchain-verification.md`
+(OV-07).
+
+---
