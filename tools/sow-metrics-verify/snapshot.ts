@@ -4,10 +4,12 @@ import {
   readChargedEvents,
   readEscrow,
   readRatings,
+  readTransfersFrom,
   type Agent,
   type ChargedEvent,
   type EscrowHistory,
   type Rating,
+  type Transfer,
 } from "./chain.ts";
 import { mapLimit } from "./http.ts";
 import { networkPassphrase, retention, TESTNET_PASSPHRASE, type Retention } from "./rpc.ts";
@@ -26,6 +28,8 @@ export interface Snapshot {
   ratings: Rating[];
   /** Sum over every registered agent of the ledger's lifetime `disputed` count. */
   lifetimeDisputes: number;
+  /** Asset-contract transfers out of every platform key since the sprint began. */
+  transfers: Transfer[];
 }
 
 /**
@@ -53,7 +57,11 @@ async function readSnapshot(): Promise<Snapshot> {
   }
   const perAgent = await mapLimit(agents, 4, (a) => lifetimeDisputes(contracts.reputation_ledger, a.id));
   const disputes = perAgent.reduce((sum, n) => sum + n, 0);
-  return { team, agents, escrows, charged, window, ratings, lifetimeDisputes: disputes };
+  const transfers: Transfer[] = [];
+  for (const key of team.platform.keys()) {
+    transfers.push(...(await readTransfersFrom(key, team.network.asset_sac, SPRINT_START)));
+  }
+  return { team, agents, escrows, charged, window, ratings, lifetimeDisputes: disputes, transfers };
 }
 
 let cached: Promise<Snapshot> | undefined;
