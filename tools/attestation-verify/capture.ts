@@ -8,7 +8,7 @@
  */
 import { isDeepStrictEqual } from "node:util";
 import { ledgerClock } from "./clock.ts";
-import { getAttestation, jobEntry, REGISTRY, SEALER, simulateSeal, type Attestation } from "./registry.ts";
+import { contractLifetime, getAttestation, jobEntry, REGISTRY, sealEvents, SEALER, simulateSeal, type Attestation } from "./registry.ts";
 import { CLAIMED_SEALS } from "./seals.ts";
 
 const short = (hex: string) => `\`${hex.slice(0, 8)}…\``;
@@ -46,4 +46,20 @@ for (const seal of CLAIMED_SEALS) {
     : [`get failed: ${read.error}`, "", "", "", "", ""];
   const lifetime = entry ? `${entry.liveUntil} ≈ ${utc(clock.at(entry.liveUntil))}` : "no entry (archived)";
   console.log(`| ${seal.run} | \`${seal.jobId}\` | ${short(seal.sealTx)} | ${cells.join(" | ")} | ${matches ? "yes" : "NO"} | ${reseal.error ?? "no error"} | ${lifetime} |`);
+}
+
+const registry = await contractLifetime();
+console.log(`\nRegistry instance lives until ledger ${registry.instanceLiveUntil} ≈ ${utc(clock.at(registry.instanceLiveUntil))};`);
+console.log(`wasm \`${registry.wasmHash}\` until ${registry.codeLiveUntil} ≈ ${utc(clock.at(registry.codeLiveUntil))}.\n`);
+
+const claimedJobs = new Map(CLAIMED_SEALS.map((seal) => [seal.jobId, seal]));
+console.log("Every `sealed` event in the RPC's event window:\n");
+console.log("| ledger | closed | tx | job id | orchestrator | total_spent | claimed as |");
+console.log("|---|---|---|---|---|---|---|");
+for (const event of await sealEvents()) {
+  const claim = claimedJobs.get(event.jobId);
+  const claimedAs = !claim ? "NOT CLAIMED" : claim.sealTx === event.txHash ? claim.run : `${claim.run}, but the claim names tx ${short(claim.sealTx)}`;
+  console.log(
+    `| ${event.ledger} | ${event.closedAt} | ${short(event.txHash)} | \`${event.jobId}\` | \`${event.orchestrator.slice(0, 5)}…\` | ${event.totalSpent} | ${claimedAs} |`,
+  );
 }
