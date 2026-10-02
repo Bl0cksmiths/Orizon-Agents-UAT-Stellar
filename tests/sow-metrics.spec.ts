@@ -15,7 +15,7 @@ import { traceOperator, type OperatorTrace } from "../tools/sow-metrics-verify/o
 import { snapshot, type Snapshot } from "../tools/sow-metrics-verify/snapshot.ts";
 import { isAccountId } from "../tools/sow-metrics-verify/strkey.ts";
 import { registryAdmin } from "../tools/sow-metrics-verify/team.ts";
-import { readPage, readRoutes, REGISTER_ROUTE } from "../tools/sow-metrics-verify/web.ts";
+import { readPage, readParams, readRoutes, REGISTER_ROUTE } from "../tools/sow-metrics-verify/web.ts";
 
 /**
  * Story 6.04, OV-02 and the inputs to OV-06: each of the eleven SOW §6.3
@@ -181,4 +181,16 @@ test("OV-02 m06 permissionless register flow: the page opens with no session and
   expect(routes.has(REGISTER_ROUTE)).toBe(true);
   expect(owners.size).toBeGreaterThanOrEqual(2);
   expect(index.claims.get("m06")?.status).toBe("met");
+});
+
+test("OV-02 m07 reputation-gated routing: the live router reads the ledger and applies the claimed floor", async ({}, info) => {
+  const params = await readParams();
+  record(info, "m07", `Yes: enabled ${params.enabled}, floor ${params.floor_bps} bps`, "met");
+  expect(params.network).toBe("testnet");
+  expect(params.enabled).toBe(true);
+  expect(params.contract_id).toBe(chain.team.network.contracts.reputation_ledger);
+  // The index states the floor as "2.75 out of 5": 2.75 / 5 of 10 000 bps.
+  expect(params.floor_bps).toBe(5500);
+  expect(index.claims.get("m07")?.achieved).toContain("2.75 out of 5");
+  expect(index.claims.get("m07")?.status).toBe("met");
 });
