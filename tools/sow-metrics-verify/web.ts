@@ -1,5 +1,5 @@
 import { getJson, request } from "./http.ts";
-import { BACKEND } from "./team.ts";
+import { API, BACKEND } from "./team.ts";
 
 /**
  * The milestone metrics (m06–m11) are facts about the live deployment and
@@ -37,4 +37,16 @@ export async function readRoutes(): Promise<Set<string>> {
     for (const method of Object.keys(methods)) routes.add(`${method.toUpperCase()} ${path}`);
   }
   return routes;
+}
+
+export interface ReputationParams {
+  enabled: boolean;
+  floor_bps: number;
+  network: string;
+  /** The ReputationLedger the router reads. */
+  contract_id: string;
+}
+
+export async function readParams(): Promise<ReputationParams> {
+  return (await getJson(`${API}/stellar/reputation/params`)) as ReputationParams;
 }
