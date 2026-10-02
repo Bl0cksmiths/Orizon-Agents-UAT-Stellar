@@ -575,3 +575,28 @@ Deliverable 3: the refund tx (`cb2c5792…`) and the dispute rating tx
 (`b512135f…`) are on the deploy and resolve on Stellar Expert. **The recording
 of the dispute UI is still missing**, and the story closes when it exists. Both
 disputes are the team's own run, and both refunds paid the whole step.
+
+# Story 6.04 — independent verification of every on-chain claim
+
+## Recommendation for story 6.04: NO-GO
+
+Verified 2026-10-02 on testnet, against `https://orizons.xyz`, the deployed
+backend, Horizon and Stellar RPC, never the app's own rendering. The full
+record is `evidence/6.04-onchain-verification.md`.
+
+| criterion | verdict | caveat |
+| --- | --- | --- |
+| OV-01 explorer links resolve and match | **Pass** | 59 links: 55 match, 4 partial labels (D-081 Urgent, D-087), 0 mismatch, 0 dead |
+| OV-02 eleven metrics counted from chain | **Pass** | the counts are verified; four targets are not met or disputed (D-078, D-079, D-080, all Urgent) |
+| OV-03 attestations exist, re-seal refused | **Pass** | until 2026-10-07 09:29Z, when the seals archive (D-083); D-086 |
+| OV-04 two outside operators, not team | **Pass** | 6 of 7 show no on-chain team link; the Powerbot owner is one hop from the team admin (D-085) |
+| OV-05 public artifacts reachable | **Fail** | no demo video (D-082); the guide is reachable but a draft (D-088) |
+| OV-06 shortfalls stated plainly | **Pass** | m03 0 of 3, m04 0 USDC, m05 0 partial, m08 partly, m10 no; m01 10, m02 6 |
+| OV-07 §6.2 checklist reviewed | **Pass** (review) | 20 items: 14 Present, 3 qualified, 3 not Present (D1-c, D4-a, D4-c: D-089, D-082) |
+| OV-08 a full run captured at the moment | **Blocked** | authorize and settle real and verified; the settle paid nobody and nothing was sealed (D-077 Urgent) |
+
+Six criteria pass, OV-05 fails and OV-08 is blocked. Five Urgent defects are
+open, four of them evidence misstatements in the public index. The sprint's
+on-chain record is real and checkable: every link resolves, and every
+contract, function, address and amount matches. But the index claims more than
+the chain shows, and no outside operator has yet been paid.
