@@ -1,4 +1,5 @@
 import { mapLimit } from "./http.ts";
+import { operations } from "./horizon.ts";
 import { contractEvents, instanceStorage, simulate, SimulationFailed, type Retention } from "./rpc.ts";
 import { escrowId, scSymbol, type ScValue } from "./scval.ts";
 import { isAccountId } from "./strkey.ts";
@@ -194,4 +195,39 @@ export async function readChargedEvents(contract: string, window: Retention): Pr
         closedAt: e.closedAt,
       };
     });
+}
+
+export interface Rating {
+  agentId: string;
+  score: number;
+  weight: bigint;
+  jobId: string;
+  payer: string;
+  kind: string;
+  txHash: string;
+  closedAt: string;
+}
+
+/**
+ * Every `ReputationLedger.submit` that `scorer` signed since `since`, from its
+ * Horizon history (which keeps every operation, unlike the RPC's seven days
+ * of events). Arguments: scorer, agent id, job id, score, weight, payer, kind.
+ */
+export async function readRatings(ledger: string, scorer: string, since: string): Promise<Rating[]> {
+  const out: Rating[] = [];
+  for (const op of await operations(scorer, since)) {
+    if (op.contract !== ledger || op.fn !== "submit" || op.source !== scorer) continue;
+    const [, agentId, jobId, score, weight, payer, kind] = op.args;
+    out.push({
+      agentId: str(agentId, "agent id"),
+      score: Number(int(score, "score")),
+      weight: int(weight, "weight"),
+      jobId: str(jobId, "job id"),
+      payer: str(payer, "payer"),
+      kind: str(kind, "kind"),
+      txHash: op.txHash,
+      closedAt: op.createdAt,
+    });
+  }
+  return out;
 }
