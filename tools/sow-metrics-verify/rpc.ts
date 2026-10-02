@@ -1,3 +1,5 @@
+import { decodeScVal, writeContractAddress, type ScArg, type ScValue } from "./scval.ts";
+import { XdrWriter } from "./xdr.ts";
 import { postJson } from "./http.ts";
 
 export const TESTNET_RPC = "https://soroban-testnet.stellar.org";
@@ -43,4 +45,41 @@ export async function retention(): Promise<Retention> {
     oldestCloseTime: Number(health.oldestLedgerCloseTime) + SLIDE_MARGIN * 5,
     latestLedger: health.latestLedger,
   };
+}
+
+/**
+ * A never-signed transaction envelope invoking `fn` on `contract`, from the
+ * all-zero account at sequence 0. Simulation does not check the source exists.
+ */
+function simulationEnvelope(contract: string, fn: string, args: ScArg[]): string {
+  const w = new XdrWriter()
+    .u32(2) // ENVELOPE_TYPE_TX
+    .u32(0) // source: KEY_TYPE_ED25519
+    .fixed(new Uint8Array(32))
+    .u32(100) // fee
+    .i64(0n) // sequence
+    .u32(0) // PRECOND_NONE
+    .u32(0) // MEMO_NONE
+    .u32(1) // one operation
+    .u32(0) // no operation source
+    .u32(24) // INVOKE_HOST_FUNCTION
+    .u32(0); // HOST_FUNCTION_TYPE_INVOKE_CONTRACT
+  writeContractAddress(w, contract).string(fn).u32(args.length);
+  for (const arg of args) w.fixed(arg);
+  return w
+    .u32(0) // no authorization entries
+    .u32(0) // transaction ext v0
+    .u32(0) // no signatures
+    .base64();
+}
+
+/** A contract view, run in simulation and decoded. Throws `SimulationFailed` when the call itself fails. */
+export async function simulate(contract: string, fn: string, args: ScArg[] = []): Promise<ScValue> {
+  const result = await rpc<{ error?: string; results?: { xdr: string }[] }>("simulateTransaction", {
+    transaction: simulationEnvelope(contract, fn, args),
+  });
+  if (result.error) throw new SimulationFailed(`${fn}: ${result.error.split("\n")[0]}`);
+  const xdr = result.results?.[0]?.xdr;
+  if (!xdr) throw new Error(`${fn}: simulation returned no value`);
+  return decodeScVal(xdr);
 }
