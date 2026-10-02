@@ -111,4 +111,30 @@ test.describe("OV-05 the integration guide, with no wallet and no session", () =
       await expect(entry).toHaveAttribute("href", GUIDE_PATH);
     });
   });
+
+  /**
+   * The guide's nine steps, in order, as the article's own headings. Content
+   * a visitor can read end to end, not a teaser behind a connect prompt.
+   */
+  test("OV-05 the integration guide renders all nine steps, with no wallet wall", async ({
+    browser,
+  }) => {
+    await visitFresh(browser, GUIDE_PATH, async (page) => {
+      await expect(
+        page.getByRole("heading", { level: 1, name: GUIDE_TITLE }),
+      ).toBeVisible();
+      const steps = page.getByRole("heading", { level: 2, name: /^Step \d+:/ });
+      await expect(steps).toHaveCount(9);
+      const titles = await steps.allTextContents();
+      expect(titles.map((t) => Number(/^Step (\d+):/.exec(t)?.[1]))).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9,
+      ]);
+      // The site nav carries a Connect Wallet control on every page; what
+      // must not carry one is the article a reader came for.
+      await expect(
+        page.getByRole("main").getByRole("button", { name: /connect wallet/i }),
+        "the guide puts a wallet prompt in front of someone who only came to read",
+      ).toHaveCount(0);
+    });
+  });
 });
