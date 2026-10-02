@@ -1,5 +1,5 @@
-import type { Agent } from "./chain.ts";
-import type { Snapshot } from "./snapshot.ts";
+import type { Agent, Receipt } from "./chain.ts";
+import { SPRINT_START, type Snapshot } from "./snapshot.ts";
 import { isTeam } from "./team.ts";
 
 /**
@@ -26,6 +26,8 @@ export const SOW_ROWS = [
   { id: "m11", metric: "All source code released under MIT License", target: "Yes" },
 ] as const;
 
+export const SPRINT_START_S = Date.parse(SPRINT_START) / 1000;
+
 /** The last second of a UTC day ("2026-09-30" → 2026-09-30T23:59:59Z). */
 export function endOfDay(day: string): number {
   return Date.parse(`${day}T23:59:59Z`) / 1000;
@@ -39,4 +41,45 @@ export function externalAgents(s: Snapshot, cutoff: number): Agent[] {
 /** m02: the distinct owners of those agents. */
 export function externalOwners(s: Snapshot, cutoff: number): string[] {
   return [...new Set(externalAgents(s, cutoff).map((a) => a.owner))];
+}
+
+export interface Charge extends Receipt {
+  payer: string;
+  /** The agent's registered owner, or null for an agent no longer in the registry. */
+  owner: string | null;
+  settler: string;
+  version: number;
+  /** The transaction that wrote the receipt, from the escrow's `charged` event, when the RPC still holds it. */
+  txHash: string | null;
+  /** Payer is the agent's owner, the escrow's settler or a platform key. */
+  selfPayment: boolean;
+  payerIsTeam: boolean;
+  ownerIsTeam: boolean;
+}
+
+/** Every receipt settled from the sprint's start to the cut-off, with who paid whom. */
+export function charges(s: Snapshot, cutoff: number): Charge[] {
+  const owners = new Map(s.agents.map((a) => [a.id, a.owner]));
+  const out: Charge[] = [];
+  for (const escrow of s.escrows) {
+    for (const r of escrow.receipts) {
+      if (r.settledAt < SPRINT_START_S || r.settledAt > cutoff) continue;
+      const auth = escrow.authorizations.get(r.authId);
+      if (!auth) throw new Error(`receipt ${r.id} on ${escrow.contract} names unknown authorization ${r.authId}`);
+      const owner = owners.get(r.agentId) ?? null;
+      const event = s.charged.find((e) => e.escrow === escrow.contract && e.receiptId === r.id);
+      out.push({
+        ...r,
+        payer: auth.payer,
+        owner,
+        settler: escrow.settler,
+        version: escrow.version,
+        txHash: event?.txHash ?? null,
+        selfPayment: auth.payer === owner || auth.payer === escrow.settler || s.team.platform.has(auth.payer),
+        payerIsTeam: isTeam(s.team, auth.payer),
+        ownerIsTeam: owner === null || isTeam(s.team, owner),
+      });
+    }
+  }
+  return out;
 }
