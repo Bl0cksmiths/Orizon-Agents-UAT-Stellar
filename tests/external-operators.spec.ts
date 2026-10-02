@@ -85,3 +85,13 @@ test("OV-04 no claimed wallet has an extra signer or has transacted with another
     expect(t.extraSigners, t.address).toEqual([]);
   }
 });
+
+test("OV-04 at least two claimed wallets are distinct and show no on-chain link to any team wallet", async ({}, info) => {
+  const clean = asOf.filter((t) => t.verdict === "no on-chain team link");
+  const cleanToday = today.filter((t) => t.verdict === "no on-chain team link");
+  info.annotations.push({ type: "index set", description: `${clean.length} of ${asOf.length} with no on-chain team link` });
+  info.annotations.push({ type: "today", description: `${cleanToday.length} of ${today.length} with no on-chain team link` });
+  expect(clean).toHaveLength(6);
+  expect(new Set(clean.map((t) => t.address)).size).toBe(clean.length);
+  expect(cleanToday.length).toBeGreaterThanOrEqual(2);
+});
