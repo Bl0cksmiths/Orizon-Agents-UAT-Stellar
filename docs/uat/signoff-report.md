@@ -463,6 +463,36 @@ It is NO-GO on four specific things:
 Nothing in this list needs a new test. Every item above is already pinned by one
 that fails today and passes when it is fixed.
 
+## Story 6.02 re-checked 2026-10-02: GO on RF-01..RF-17
+
+Re-checked during story 6.04 against backend `9aa6fca`, frontend `0c8a10b7` and
+the deploy; the full record is `evidence/6.02-recheck.md`. The recommendation
+moves from NO-GO to **GO on RF-01..RF-17**.
+
+| id | 6.02 verdict | today |
+| --- | --- | --- |
+| RF-05 | Fail (D-028) | **Pass** (`main`, dep): `faulty_test_v2`, a real bound agent at 5459 bps, was named in a free-form intent, not hired, and reported `below_floor` with `5459 < 5500 bps` |
+| RF-11 | Pass (`main`) · Fail (dep, D-031) | **Pass** (`main`, dep): the deploy serves `reputation_degraded`, `rep_degraded` and `degraded` |
+| RF-13 | Pass (`main`) · Fail (dep, D-031) | **Pass** (`main`); the deploy serves the notices channel. A relaxation cannot be induced live |
+| RF-14 | Partial (D-034, D-035) | **Partial** (D-034 only): D-035 is fixed and deployed |
+| RF-16 | Partial | **Partial**, now observable live: settled ratings moved reputation both ways |
+| the other twelve | Pass | **Pass** |
+
+**Today: 15 pass, 2 partial, 0 fail.** Two of the four NO-GO reasons are gone:
+D-028 is fixed and holds live (backend `06be686`), and D-031 is resolved: the
+deploy serves every field RF-11 and RF-14 need. What stays open:
+
+- **D-027 and D-025, as open process items.** The backend verification for 6.02
+  is still on three unpublished local branches, and two of its 24 tests now
+  need rewriting for upstream changes; upstream's own floor suites (90 passed)
+  cover the same ground. Browser coverage is still Chromium only, so this is
+  not cross-browser sign-off.
+- **D-026 and D-034, as Minor.** The deploy still names no build, and the floor
+  panel still ships collapsed. Both are pinned by `test.fail()`.
+
+The live spec `tests/reputation-floor.spec.ts`: 13 passed on chromium-desktop,
+two of them the expected failures of the D-034 and D-026 pins.
+
 ## Delivery hygiene, audited
 
 - Every commit message in this programme matches `added|updated|merged <name>
