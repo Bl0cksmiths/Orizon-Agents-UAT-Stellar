@@ -5,7 +5,7 @@
  * buyer's key, and nothing in it belongs in git.
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 // Playwright loads the drill as CommonJS, as it does the rest of the suite.
@@ -39,4 +39,38 @@ export function recordFact(name: string, value: string): void {
 /** One timestamped line in $RECLAIM_STATE/progress.log, to follow a run in the background. */
 export function progress(line: string): void {
   appendFileSync(path.join(stateDir(), "progress.log"), `${new Date().toISOString()} ${line}\n`);
+}
+
+/** $RECLAIM_LOCK: the 6.07 run lock directory, shared by every stream that drives a browser or the chain. */
+function lockDir(): string {
+  const raw = process.env.RECLAIM_LOCK;
+  if (!raw) throw new Error("set RECLAIM_LOCK to the 6.07 run lock directory ($S/run.lock)");
+  return path.resolve(raw);
+}
+
+/** Takes the run lock (an atomic mkdir), retrying every 30 s while another stream holds it. */
+export async function acquireLock(): Promise<void> {
+  const dir = lockDir();
+  for (;;) {
+    try {
+      mkdirSync(dir);
+      writeFileSync(path.join(dir, "owner"), "reclaim\n");
+      progress("run lock taken");
+      return;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+    }
+    progress("run lock held by another stream; retrying in 30 s");
+    await new Promise((resolve) => setTimeout(resolve, 30_000));
+  }
+}
+
+/** Gives the run lock back, only when this stream is the one holding it. */
+export function releaseLock(): void {
+  const dir = lockDir();
+  const owner = path.join(dir, "owner");
+  if (existsSync(owner) && readFileSync(owner, "utf8").trim() === "reclaim") {
+    rmSync(dir, { recursive: true, force: true });
+    progress("run lock released");
+  }
 }
