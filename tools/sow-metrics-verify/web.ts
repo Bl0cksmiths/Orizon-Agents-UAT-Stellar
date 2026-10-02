@@ -73,3 +73,27 @@ export async function detectedLicense(repo: string): Promise<string | null> {
   const body = (await getJson(`${GITHUB_API}/repos/${repo}`)) as { license?: { spdx_id?: string } | null };
   return body.license?.spdx_id ?? null;
 }
+
+export interface DemoState {
+  published: boolean;
+  marker: string | null;
+  /** The video's running time in seconds, from `<time dateTime="PT…">`, or null when none is shown. */
+  seconds: number | null;
+}
+
+function isoDurationSeconds(text: string): number | null {
+  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(text);
+  if (!m || text === "PT") return null;
+  return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
+}
+
+/** What the /demo page says about its video: the published marker and the running time. */
+export function demoState(html: string): DemoState {
+  const marker = /data-demo="([a-z_]+)"/.exec(html)?.[1] ?? null;
+  const duration = /<time[^>]*dateTime="(PT[0-9HMS]+)"/i.exec(html)?.[1];
+  return {
+    published: marker === "published",
+    marker,
+    seconds: duration ? isoDurationSeconds(duration) : null,
+  };
+}
