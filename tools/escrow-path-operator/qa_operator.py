@@ -7,6 +7,9 @@
     python qa_operator.py bind ID URL         bind ID to the HTTPS endpoint URL, signed by the owner (SEP-53)
     python qa_operator.py check ID URL        owner_of(ID) on-chain is the operator, the binding is URL's host,
                                               and the backend's readiness probe found the endpoint reachable
+    python qa_operator.py plan KIND INTENT    decompose INTENT (no wallet, nothing authorized) and keep the plan
+                                              as KIND if it fits: "single" routes only to $OPERATOR_OK_ID,
+                                              "pair" is two steps, one on $OPERATOR_OK_ID, one on $OPERATOR_HANG_ID
 
 The operator's secret lives only in $OPERATOR_STATE/operator.json, which must be
 outside the repository. Everything else this tool writes holds public keys, ids,
@@ -21,6 +24,7 @@ import os
 import re
 import sys
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -236,12 +240,54 @@ def check(agent_id: str, url: str) -> int:
     return 0
 
 
+def plan_fits(kind: str, agent_ids: list[str]) -> bool:
+    """Whether a plan's step agents are what KIND needs."""
+    ok = os.environ.get("OPERATOR_OK_ID", "qa607_ok")
+    hang = os.environ.get("OPERATOR_HANG_ID", "qa607_hang")
+    if kind == "single":
+        return bool(agent_ids) and set(agent_ids) == {ok}
+    return sorted(agent_ids) == sorted([ok, hang])
+
+
+def plan(kind: str, intent: str) -> int:
+    """One decompose, recorded whether or not it fits; kept as the KIND intent only when it does."""
+    if kind not in ("single", "pair"):
+        raise Refused(f"plan kind {kind!r} is neither single nor pair")
+    answer = api().call("POST", "/api/orchestrator/decompose", body={"intent": intent})
+    observed = {
+        "intent": intent,
+        "plan_id": answer["plan_id"],
+        "steps": [
+            {key: step.get(key) for key in ("agent_id", "agent_name", "est_price_usdc", "rep_bps", "degraded")}
+            for step in answer["steps"]
+        ],
+        "total_xlm": answer["total_usdc"],
+        "notices": answer.get("notices") or [],
+        "observed_at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }
+    agent_ids = [step["agent_id"] for step in answer["steps"]]
+    fits = plan_fits(kind, agent_ids)
+    run = load_run()
+    run.setdefault("attempts", []).append({"kind": kind, "fits": fits, **observed})
+    if fits:
+        run["intents"][kind] = observed
+    (state_dir() / "operator-run.json").write_text(json.dumps(run, indent=2), encoding="utf-8")
+    for step in observed["steps"]:
+        print(f"  {step['agent_id']} ({step['agent_name']}) {step['est_price_usdc']} XLM")
+    print(f"  total {observed['total_xlm']} XLM, plan {observed['plan_id']}")
+    if not fits:
+        raise Refused(f"the plan routes to {agent_ids}, which is not a {kind} plan")
+    print(f"kept as the {kind} intent")
+    return 0
+
+
 # name -> (command, how many positional arguments it takes)
 COMMANDS: dict[str, tuple[Callable[..., int], int]] = {
     "fund": (fund, 0),
     "register": (register, 4),
     "bind": (bind, 2),
     "check": (check, 2),
+    "plan": (plan, 2),
 }
 
 
