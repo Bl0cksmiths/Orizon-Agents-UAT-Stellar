@@ -100,3 +100,13 @@ test("OV-07 every pull request the index links is merged", async ({ request }) =
     expect.soft(page.body.includes('"state":"MERGED"'), `${url} merged`).toBe(true);
   }
 });
+
+test("OV-07 RD: the SOW's ALGOREX-PH repository addresses redirect to the public Bl0cksmiths repositories", async ({
+  request,
+}) => {
+  for (const repo of ["Orizon-Agents-FE-Stellar", "Orizon-Agents-BE-Stellar", "Orizon-Agents-Smart-Contract-Stellar"]) {
+    const res = await request.get(`https://github.com/ALGOREX-PH/${repo}`, { maxRedirects: 0 });
+    expect(res.status(), repo).toBe(301);
+    expect(res.headers()["location"], repo).toBe(`https://github.com/Bl0cksmiths/${repo}`);
+  }
+});
