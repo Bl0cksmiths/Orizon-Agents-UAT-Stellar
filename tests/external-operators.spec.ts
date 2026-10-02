@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { measuredAt, readIndex } from "../tools/sow-metrics-verify/claims.ts";
+import { FRIENDBOT } from "../tools/sow-metrics-verify/horizon.ts";
 import { externalOwners } from "../tools/sow-metrics-verify/metrics.ts";
 import { traceOperator, type OperatorTrace } from "../tools/sow-metrics-verify/operators.ts";
 import { snapshot, type Snapshot } from "../tools/sow-metrics-verify/snapshot.ts";
@@ -67,4 +68,13 @@ test("OV-04 every claimed outside wallet is distinct and is neither in the regis
     expect(isTeam(chain.team, t.address), t.address).toBe(false);
     expect(t.verdict, t.address).not.toBe("team wallet");
   }
+});
+
+test("OV-04 every claimed wallet's creation is traced, never to a team wallet; the index's seven to the public faucet", async ({}, info) => {
+  for (const t of today) {
+    info.annotations.push({ type: t.address, description: `created ${t.createdAt} by ${t.funder}; ${t.verdict}` });
+    expect(t.createdAt, `${t.address} has a create_account on-chain`).not.toBeNull();
+    expect(isTeam(chain.team, t.funder!), t.address).toBe(false);
+  }
+  for (const t of asOf) expect(t.funder, t.address).toBe(FRIENDBOT);
 });
