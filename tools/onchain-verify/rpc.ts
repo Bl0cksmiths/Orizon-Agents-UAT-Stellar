@@ -79,3 +79,24 @@ export async function readInstance(
   }
   return storage;
 }
+
+export type RegisteredAgent = { id: string; owner: string; registeredAt: Date };
+
+/**
+ * Every agent an AgentRegistry lists: its `Ids` instance entry, then each
+ * `DataKey::Agent(id)` record for the owner and registration time.
+ */
+export async function readAgents(post: PostJson, registry: string): Promise<RegisteredAgent[]> {
+  const ids = (await readInstance(post, registry))?.get("Ids");
+  if (!Array.isArray(ids)) throw new Error(`registry ${registry} has no Ids list`);
+  const keys = ids.map((id) => [{ sym: "Agent" }, { sym: String(id) }]);
+  const records = await readContractData(post, registry, keys);
+  return records.map((record, i) => {
+    const owner = field(record, "owner");
+    const at = field(record, "registered_at");
+    if (typeof owner !== "string" || typeof at !== "bigint") {
+      throw new Error(`agent ${String(ids[i])} has no owner or registration time`);
+    }
+    return { id: String(ids[i]), owner, registeredAt: new Date(Number(at) * 1000) };
+  });
+}
