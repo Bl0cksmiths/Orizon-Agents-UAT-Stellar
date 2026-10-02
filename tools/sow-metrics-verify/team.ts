@@ -1,5 +1,5 @@
 import { getJson } from "./http.ts";
-import { simulate } from "./rpc.ts";
+import { instanceStorage, simulate } from "./rpc.ts";
 import { isAccountId } from "./strkey.ts";
 
 /**
@@ -60,4 +60,34 @@ export async function registryAdmin(registry: string = CONTRACTS.registry): Prom
   const admin = await simulate(registry, "admin");
   if (!isAccountId(admin)) throw new Error(`registry admin() is not an account: ${String(admin)}`);
   return admin;
+}
+
+export async function readTeam(): Promise<Team> {
+  const network = (await getJson(`${API}/stellar/network`)) as NetworkDoc;
+  const readiness = (await getJson(`${BACKEND}/readiness`)) as { ratings?: { signer?: string; scorer?: string } };
+  const platform = new Map<string, string>();
+  const add = (address: unknown, role: string): void => {
+    if (isAccountId(address) && !platform.has(address)) platform.set(address, role);
+  };
+  add(network.admin, "network admin");
+  add(network.dispatch_signer, "dispatch signer");
+  add(readiness.ratings?.signer, "ratings signer");
+  add(readiness.ratings?.scorer, "ratings scorer");
+  add(await registryAdmin(network.contracts.agent_registry), "registry admin");
+  const roles: [string, string, string][] = [
+    [CONTRACTS.escrowV2, "Admin", "escrow v2 admin"],
+    [CONTRACTS.escrowV2, "Settler", "escrow v2 settler"],
+    [CONTRACTS.escrowV1, "Admin", "escrow v1 admin"],
+    [CONTRACTS.escrowV1, "Settler", "escrow v1 settler"],
+    [network.contracts.reputation_ledger, "Admin", "ledger admin"],
+    [network.contracts.reputation_ledger, "Scorer", "ledger scorer"],
+    [network.contracts.attestation_registry, "Admin", "attestation admin"],
+    [network.contracts.attestation_registry, "Sealer", "attestation sealer"],
+  ];
+  const storage = new Map<string, Awaited<ReturnType<typeof instanceStorage>>>();
+  for (const [contract, key, role] of roles) {
+    if (!storage.has(contract)) storage.set(contract, await instanceStorage(contract));
+    add(storage.get(contract)![key], role);
+  }
+  return { register: await readRegister(), platform, network };
 }
