@@ -8,6 +8,7 @@ repository.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import sys
@@ -17,8 +18,9 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from chain import Chain
-from stellar_sdk import Keypair
+from chain import TESTNET_PASSPHRASE, Chain
+from stellar_sdk import Address, Keypair, TransactionEnvelope, scval
+from stellar_sdk.operation import InvokeHostFunction
 
 REPO = Path(__file__).resolve().parents[2]
 TASK_TOKEN_HEADER = "X-Task-Token"
@@ -93,6 +95,39 @@ class Api:
                 if time.monotonic() > deadline:
                     raise
                 time.sleep(5)
+
+
+def inspect_authorize(xdr: str, payer: str, escrow: str, plan_id: str, max_stroops: int) -> TransactionEnvelope:
+    """The prepared envelope, refused unless it is exactly the authorize that was asked for."""
+    env = TransactionEnvelope.from_xdr(xdr, TESTNET_PASSPHRASE)
+    ops = env.transaction.operations
+    if len(ops) != 1 or not isinstance(ops[0], InvokeHostFunction) or ops[0].host_function.invoke_contract is None:
+        raise Refused("the authorize envelope is not a single contract call")
+    invoke = ops[0].host_function.invoke_contract
+    args = [scval.to_native(a) for a in invoke.args]
+    seen = {
+        "source": env.transaction.source.account_id,
+        "contract": Address.from_xdr_sc_address(invoke.contract_address).address,
+        "function": invoke.function_name.sc_symbol.decode(),
+        "args": [a.address if isinstance(a, Address) else a for a in args[:3]],
+    }
+    wanted = {"source": payer, "contract": escrow, "function": "authorize", "args": [payer, plan_id, max_stroops]}
+    if seen != wanted:
+        raise Refused(f"refusing to sign: envelope {seen} is not {wanted}")
+    return env
+
+
+def auth_id_from(value: Any) -> str:
+    """The 16-byte auth id a submit returns, as hex, from hex, base64 or a byte list."""
+    if isinstance(value, str) and len(value) == 32:
+        return value.lower()
+    if isinstance(value, str):
+        raw = base64.b64decode(value)
+        if len(raw) == 16:
+            return raw.hex()
+    if isinstance(value, list) and len(value) == 16:
+        return bytes(value).hex()
+    raise Refused(f"cannot read an auth id from the submit's return value {value!r}")
 
 
 def main(argv: list[str]) -> int:
