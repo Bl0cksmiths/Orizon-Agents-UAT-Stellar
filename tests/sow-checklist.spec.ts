@@ -37,3 +37,33 @@ test("OV-07 the index lists the SOW's five §6.2 rows and twenty items", async (
     for (const item of row.items) expect(item.id.startsWith(`6.1-${row.id}-`), item.id).toBe(true);
   }
 });
+
+const isExplorer = (url: string): boolean => url.startsWith("https://stellar.expert/");
+
+/** A GitHub file page is checked through its raw file, which GitHub does not rate-limit like its HTML. */
+function fetchable(url: string): string {
+  const blob = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/blob\/([^#]+)/.exec(url);
+  return blob ? `https://raw.githubusercontent.com/${blob[1]}/${blob[2]}` : url;
+}
+
+/** GET with no session; a 429 is waited out (Retry-After, else 20 s) up to three times. */
+async function fetchStatus(request: APIRequestContext, url: string): Promise<number> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await request.get(fetchable(url), { timeout: 90_000 });
+    if (res.status() !== 429 || attempt === 3) return res.status();
+    const wait = Number(res.headers()["retry-after"] ?? "20");
+    await new Promise((r) => setTimeout(r, Math.min(wait, 60) * 1000));
+  }
+}
+
+test("OV-07 every link outside Stellar Expert answers with no session", async ({ request }) => {
+  test.setTimeout(600_000);
+  const rows = await readRows(request);
+  const urls = new Set(
+    rows.flatMap((r) => r.items.flatMap((i) => (i.links ?? []).map((l) => l.url))).filter((u) => !isExplorer(u)),
+  );
+  expect(urls.size, "the index links pages, files, PRs and the API").toBeGreaterThan(0);
+  for (const url of urls) {
+    expect.soft(await fetchStatus(request, url), url).toBe(200);
+  }
+});
