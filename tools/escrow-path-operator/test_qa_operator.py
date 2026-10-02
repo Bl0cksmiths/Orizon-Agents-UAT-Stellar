@@ -153,3 +153,23 @@ def test_publish_refuses_an_unchecked_agent(operator_state: Keypair) -> None:
     with pytest.raises(qa_operator.Refused, match="checked reachable"):
         qa_operator.publish()
     assert not (Path(os.environ["OPERATOR_STATE"]) / "ops" / "agents.json").exists()
+
+
+def test_publish_names_the_blocker_and_carries_no_secret(operator_state: Keypair) -> None:
+    readiness = {"checked_at": 1, "ready": True, "steps": [{"key": "reachable", "status": "done", "detail": "200"}]}
+    qa_operator.record_agent(
+        "qa607_ok",
+        register_tx="ab" * 32,
+        endpoint="https://agent.example.com",
+        price_xlm=0.01,
+        skills=["romannumerals"],
+        bind={"bound_at": 1.0},
+        check={"owner_of": operator_state.public_key, "readiness": readiness},
+    )
+    assert qa_operator.publish() == 0
+    text = (Path(os.environ["OPERATOR_STATE"]) / "ops" / "agents.json").read_text()
+    out = json.loads(text)
+    assert out["operator_public"] == operator_state.public_key
+    assert out["intents"] is None
+    assert "single, pair" in out["blocker"]
+    assert operator_state.secret not in text
