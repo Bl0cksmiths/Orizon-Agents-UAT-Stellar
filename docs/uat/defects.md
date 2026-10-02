@@ -3354,3 +3354,35 @@ live-until ledgers. `tests/attestations.spec.ts`, 16 of 16 passed on
 chromium-desktop. Evidence: `docs/uat/evidence/6.04-attestations.md` §3.
 
 ---
+## D-084 — The planner routes to an agent its own readiness probe reports unreachable, and the buyer pays the fees
+
+- **Severity:** Medium (story 6.04 grade)
+- **Status:** Open
+- **Affects:** OV-08 (story 6.04)
+
+**Steps to reproduce** — `POST /api/orchestrator/decompose` with
+`{"intent":"run an algorithm reasoning task with algorex"}`; then
+`GET /api/agents/algorex/readiness`.
+
+**Expected** — an agent whose `reachable` step is `failed` is passed over, as
+unbound and below-floor agents already are, or the plan warns before the buyer
+signs.
+
+**Actual** — the plan (`pln_e2c71ee8` on the re-check) routes its one step to
+`algorex` with no notice about it, while its notices exclude `faulty_test_v2`
+(`below_floor`) and the unbound agents (`unbound_endpoint`). The readiness
+probe for `algorex` reports `reachable: failed`, "answered 301, a redirect.
+Dispatches never follow redirects." In UAT's run the buyer signed an
+authorize, the step failed in 0.3 s, and the buyer paid two transactions' fees
+for a run that could not be delivered.
+
+**Impact** — the custody comes back, so no principal is lost, but every buyer of
+such a plan signs and pays fees for a run the platform already knows will fail.
+
+**Resolution path** — exclude agents whose last readiness probe failed
+`reachable`, with a notice, or warn on the plan card before signing.
+
+**Verified by** — re-checked live on 2026-10-02 at 04:38Z with the two calls
+above. Evidence: `docs/uat/evidence/6.04-e2e-run.md` §1, §3.
+
+---
