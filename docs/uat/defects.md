@@ -3546,7 +3546,7 @@ hash in D1-c and D4-c, from wallets other than the Powerbot owner (D-085).
 
 **Verified by** — the index read at `origin/main` on 2026-10-02; both hashes
 decoded from Horizon the same day as `AgentRegistry.register` signed by the
-owner they name. Evidence: `docs/uat/evidence/6.04-onchain-verification.md`
+owner they name. Pinned by `tests/sow-checklist.spec.ts` "OV-07 D1-c and D4-c are marked present but link no registration transaction". Evidence: `docs/uat/evidence/6.04-onchain-verification.md`
 (OV-07).
 
 ---
