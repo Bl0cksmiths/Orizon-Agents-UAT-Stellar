@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { getAttestation, jobEntry, type EntryLifetime } from "../tools/attestation-verify/registry.ts";
+import { getAttestation, jobEntry, simulateSeal, SEALER, type EntryLifetime } from "../tools/attestation-verify/registry.ts";
 import { CLAIMED_SEALS } from "../tools/attestation-verify/seals.ts";
 
 /**
@@ -43,6 +43,23 @@ test.describe("OV-03 — claimed workflow attestations (story 6.04)", () => {
         sealed_at: seal.sealedAt,
       });
       expect(entry.stored, "the stored ledger entry and the get result disagree").toEqual(read.attestation);
+    });
+
+    test(`OV-03 ${seal.run}: a re-seal of job ${seal.jobId} by the sealer fails AlreadyExists`, async () => {
+      test.setTimeout(RPC_TIMEOUT);
+      await liveEntry(seal.jobId);
+      const probe = await simulateSeal(SEALER, seal.jobId, {
+        orchestrator: seal.orchestrator,
+        intent_hash: seal.intentHash,
+        agents: seal.agents,
+        receipts: seal.receipts,
+        total_spent: seal.totalSpent,
+        sealed_at: seal.sealedAt,
+      });
+      expect(probe.restoreNeeded, "the re-seal simulation asked for a restore: seal archived, restore needed").toBe(false);
+      expect(probe.error, "a re-seal by the sealer must reach the existence check and fail AlreadyExists (#3)").toContain(
+        "Error(Contract, #3)",
+      );
     });
   }
 });
