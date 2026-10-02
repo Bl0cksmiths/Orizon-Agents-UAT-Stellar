@@ -50,3 +50,12 @@ export interface ReputationParams {
 export async function readParams(): Promise<ReputationParams> {
   return (await getJson(`${API}/stellar/reputation/params`)) as ReputationParams;
 }
+
+export interface Readiness {
+  disputes?: { reconcile?: { enabled?: boolean } };
+  escrow?: { contract?: string; version?: number };
+}
+
+export async function readReadiness(): Promise<Readiness> {
+  return (await getJson(`${BACKEND}/readiness`)) as Readiness;
+}
