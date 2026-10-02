@@ -1,8 +1,8 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
-import { ACCOUNT_FACTS, CONTRACT_FACTS, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
+import { ACCOUNT_FACTS, CONTRACT_FACTS, LEDGER, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
 import { txDifferences } from "../tools/onchain-verify/compare.ts";
-import { observeAccount, observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
+import { contractCallsBy, observeAccount, observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
 import { readAgents, readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
 
 /**
@@ -99,5 +99,19 @@ test.describe("OV-01 — the evidence index's explorer links", () => {
       outside: others.length,
       outsideOwners: new Set(others.map((agent) => agent.owner)).size,
     }, `AgentRegistry registrations as of ${at}`).toEqual({ total, team, outside, outsideOwners });
+  });
+
+  test("the ReputationLedger link's rating counts hold at the snapshot", async ({ request }) => {
+    test.slow();
+    const { at, total, disputes, writers } = SNAPSHOT.ratings;
+    const ratings = [];
+    for (const writer of writers) {
+      const calls = await contractCallsBy(horizon(request), writer);
+      ratings.push(...calls.filter((c) => c.contract === LEDGER && c.fn === "submit" && c.createdAt <= at));
+    }
+    expect({
+      total: ratings.length,
+      disputes: ratings.filter((c) => c.args[6] === "dispute").length,
+    }, `ReputationLedger submits by ${writers.join(", ")} as of ${at}`).toEqual({ total, disputes });
   });
 });
