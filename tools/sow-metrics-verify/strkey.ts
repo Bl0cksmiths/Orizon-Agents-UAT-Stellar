@@ -92,3 +92,11 @@ export function isAccountId(text: unknown): text is string {
     return false;
   }
 }
+
+/** The G… account behind an address: itself for a G…, the base account of a muxed M…. */
+export function baseAccount(address: string): string {
+  if (address.startsWith("M")) {
+    return encodeStrkey(decodeStrkey(address, MUXED_VERSION, 40).slice(0, 32), ACCOUNT_VERSION);
+  }
+  return address;
+}
