@@ -14,6 +14,8 @@ import {
 import { traceOperator, type OperatorTrace } from "../tools/sow-metrics-verify/operators.ts";
 import { snapshot, type Snapshot } from "../tools/sow-metrics-verify/snapshot.ts";
 import { isAccountId } from "../tools/sow-metrics-verify/strkey.ts";
+import { registryAdmin } from "../tools/sow-metrics-verify/team.ts";
+import { readPage, readRoutes, REGISTER_ROUTE } from "../tools/sow-metrics-verify/web.ts";
 
 /**
  * Story 6.04, OV-02 and the inputs to OV-06: each of the eleven SOW §6.3
@@ -166,4 +168,17 @@ test("OV-02 m05 dispute to partial-refund settlements: 0 partial; the refund ret
   // D-NEW-METRICS-3: the index marks it met on a refund of 100% of what the buyer paid.
   expect(index.claims.get("m05")?.achieved).toBe(String(refunds.length));
   expect(index.claims.get("m05")?.status, "D-NEW-METRICS-3").toBe("met");
+});
+
+test("OV-02 m06 permissionless register flow: the page opens with no session and non-admin wallets have registered", async ({}, info) => {
+  const page = await readPage("/app/register");
+  const routes = await readRoutes();
+  const admin = await registryAdmin(chain.team.network.contracts.agent_registry);
+  const byOthers = chain.agents.filter((a) => a.owner !== admin && a.registeredAt <= endOfDay(index.asOf));
+  const owners = new Set(byOthers.map((a) => a.owner));
+  record(info, "m06", `Yes: page ${page.status}, route published, ${owners.size} non-admin wallets registered`, "met");
+  expect(page.status).toBe(200);
+  expect(routes.has(REGISTER_ROUTE)).toBe(true);
+  expect(owners.size).toBeGreaterThanOrEqual(2);
+  expect(index.claims.get("m06")?.status).toBe("met");
 });
