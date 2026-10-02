@@ -41,3 +41,17 @@ python tools/e2e-run/run.py verify RECORD   # re-read a recorded run's artifacts
 
 `fund` refuses to overwrite an existing buyer. `verify` writes nothing; it
 prints each check and exits non-zero on any FAIL.
+
+## What a passing run needs
+
+A charged payout needs an agent the planner routes to that has an on-chain
+owner (read from the AgentRegistry's `owner_of`, not from the API) **and** a
+bound endpoint that answers a dispatch. Before signing, the tool asks the
+backend's own `GET /api/agents/{id}/readiness` probe and refuses an agent whose
+`reachable` step failed, so a run that cannot pay anybody costs nothing.
+
+Exit codes: `0` the run finished settled and sealed and every check passed;
+`1` the run stopped part-way or a check failed (the record says which, under
+`stopped` and `checks`); `2` refused before anything ran; `64` usage.
+
+The latest run and its findings: `docs/uat/evidence/6.04-e2e-run.md`.
