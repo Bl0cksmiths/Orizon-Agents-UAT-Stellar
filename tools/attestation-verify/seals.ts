@@ -68,4 +68,16 @@ export const CLAIMED_SEALS: ClaimedSeal[] = [
     totalSpent: 100_000n,
     sealedAt: 1_790_790_452n,
   },
+  {
+    run: "ac4",
+    jobId: "b263f1ebde6bebbde5f8b99b71e74f7c",
+    sealTx: "77605170243e5e7690a5ece510144363c7a1a57aeb77ebcea2ce0e0473f9503c",
+    claimedIn: "5.01 ac4-ac5 sheet #9; not in the evidence index",
+    orchestrator: "GCNQAJE6K7LORS7CQTI7RVJTB2TZG5QADTNFDKS5H7QQKRFTRFNLA2GP",
+    intentHash: "f08c86a137e983bcbe126706cd24932ddf374616c1acae06de5647f402bd76a6",
+    agents: ["calculatorai"],
+    receipts: ["0000000000000000000000000000000c"],
+    totalSpent: 100_000n,
+    sealedAt: 1_790_790_517n,
+  },
 ];
