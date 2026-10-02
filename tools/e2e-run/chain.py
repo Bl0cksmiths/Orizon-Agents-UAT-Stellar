@@ -86,7 +86,8 @@ class Chain:
         if response.status_code == 404:
             return None
         response.raise_for_status()
-        return response.json()
+        body: dict[str, Any] = response.json()
+        return body
 
     def fund(self, public_key: str) -> str:
         """Friendbot funds a fresh testnet account; returns the funding tx hash."""
