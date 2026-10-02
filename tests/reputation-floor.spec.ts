@@ -837,8 +837,9 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
   /**
    * RF-14 asks for ONE frame that shows, for every floor action, the agent
    * named, the action taken, and the reason including the applied floor in
-   * basis points. The deployed card does not do that: it ships the panel as a
-   * collapsed `<details>`, so the frame a buyer first sees carries only the
+   * basis points. The deployed card does not do that (D-034, still open at
+   * frontend 0c8a10b7: exclusions-panel.tsx:368 renders `<details>` with no
+   * `open`): it ships the panel as a collapsed `<details>`, so the frame a buyer first sees carries only the
    * summary counts ("1 excluded · 1 substituted · 1 kept below the floor")
    * and every detail RF-14 names is one click away. A closed `<details>` does
    * not render its contents, so nothing inside it is in the frame at all.
