@@ -1,5 +1,5 @@
 import { mapLimit } from "./http.ts";
-import { instanceStorage, simulate, SimulationFailed } from "./rpc.ts";
+import { contractEvents, instanceStorage, simulate, SimulationFailed, type Retention } from "./rpc.ts";
 import { escrowId, scSymbol, type ScValue } from "./scval.ts";
 import { isAccountId } from "./strkey.ts";
 
@@ -162,4 +162,36 @@ export async function readEscrow(contract: string): Promise<EscrowHistory> {
     else history.unreadable.push(read.id);
   }
   return history;
+}
+
+export interface ChargedEvent {
+  escrow: string;
+  receiptId: string;
+  authId: string;
+  agentId: string;
+  amount: bigint;
+  jobId: string;
+  txHash: string;
+  closedAt: string;
+}
+
+/** The escrow's `charged` events the RPC still holds: one per receipt, with the transaction that wrote it. */
+export async function readChargedEvents(contract: string, window: Retention): Promise<ChargedEvent[]> {
+  const events = await contractEvents(contract, window.oldestLedger, window.latestLedger);
+  return events
+    .filter((e) => e.topics[0] === "charged")
+    .map((e) => {
+      const v = e.value;
+      if (!Array.isArray(v) || v.length < 4) throw new Error(`charged event in ${e.txHash} has an unexpected shape`);
+      return {
+        escrow: contract,
+        receiptId: str(v[0], "receipt id"),
+        authId: str(v[1], "auth id"),
+        agentId: str(e.topics[1], "agent id"),
+        amount: int(v[2], "amount"),
+        jobId: str(v[3], "job id"),
+        txHash: e.txHash,
+        closedAt: e.closedAt,
+      };
+    });
 }
