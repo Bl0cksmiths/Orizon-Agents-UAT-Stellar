@@ -1,5 +1,13 @@
-import { decodeScVal, writeContractAddress, type ScArg, type ScValue } from "./scval.ts";
-import { XdrWriter } from "./xdr.ts";
+import {
+  decodeScVal,
+  instanceLedgerKey,
+  readAddress,
+  readScVal,
+  writeContractAddress,
+  type ScArg,
+  type ScValue,
+} from "./scval.ts";
+import { XdrReader, XdrWriter } from "./xdr.ts";
 import { postJson } from "./http.ts";
 
 export const TESTNET_RPC = "https://soroban-testnet.stellar.org";
@@ -82,4 +90,29 @@ export async function simulate(contract: string, fn: string, args: ScArg[] = [])
   const xdr = result.results?.[0]?.xdr;
   if (!xdr) throw new Error(`${fn}: simulation returned no value`);
   return decodeScVal(xdr);
+}
+
+/**
+ * A contract instance's storage, keyed by `DataKey` variant name (`Admin`,
+ * `Settler`, `Nonce`, ...), read straight from its ledger entry.
+ */
+export async function instanceStorage(contract: string): Promise<{ [key: string]: ScValue }> {
+  const result = await rpc<{ entries?: { xdr: string }[] }>("getLedgerEntries", {
+    keys: [instanceLedgerKey(contract)],
+  });
+  const entry = result.entries?.[0];
+  if (!entry) throw new Error(`${contract} has no contract instance on this network`);
+  const r = XdrReader.fromBase64(entry.xdr);
+  if (r.u32() !== 6) throw new Error(`${contract}: ledger entry is not contract data`);
+  if (r.u32() !== 0) throw new Error(`${contract}: unsupported contract data extension`);
+  const owner = readAddress(r);
+  if (owner !== contract) throw new Error(`${contract}: ledger answered the entry of ${owner}`);
+  readScVal(r); // the key: the instance marker
+  r.u32(); // durability
+  const storage = readScVal(r);
+  r.end();
+  if (storage === null || typeof storage !== "object" || Array.isArray(storage)) {
+    throw new Error(`${contract}: instance storage is not a map`);
+  }
+  return storage;
 }
