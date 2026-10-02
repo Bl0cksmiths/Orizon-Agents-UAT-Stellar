@@ -1,6 +1,8 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
 import { ACCOUNT_FACTS, CONTRACT_FACTS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
+import { txDifferences } from "../tools/onchain-verify/compare.ts";
+import { observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
 
 /**
  * OV-01 (story 6.04): every explorer link in the public evidence index
@@ -29,6 +31,12 @@ async function liveLinks(request: APIRequestContext): Promise<ExplorerLink[]> {
   return [...seen.values()];
 }
 
+/** Horizon reads through Playwright's request context, body parsed whatever the status. */
+const horizon = (request: APIRequestContext): GetJson => async (url) => {
+  const res = await request.get(url, { timeout: 30_000 });
+  return { status: res.status(), body: await res.json() };
+};
+
 const sorted = (ids: Iterable<string>) => [...ids].sort();
 
 test.describe("OV-01 — the evidence index's explorer links", () => {
@@ -40,4 +48,11 @@ test.describe("OV-01 — the evidence index's explorer links", () => {
     expect(ids("contract")).toEqual(sorted(CONTRACT_FACTS.keys()));
     expect(ids("account")).toEqual(sorted(ACCOUNT_FACTS.keys()));
   });
+
+  for (const claim of TX_FACTS.values()) {
+    test(`tx ${claim.hash.slice(0, 12)} is ${claim.fn} on ${claim.contract.slice(0, 6)} as the index claims`, async ({ request }) => {
+      const observed = await observeTx(horizon(request), claim.hash);
+      expect(txDifferences(observed, claim), `what Horizon testnet shows for ${claim.hash}`).toEqual([]);
+    });
+  }
 });
