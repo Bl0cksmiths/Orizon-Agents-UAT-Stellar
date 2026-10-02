@@ -26,3 +26,15 @@ test("a settled authorization is refused a reclaim before anything is signed", a
   expect(answer.message).toMatch(/already settled/);
   expect(answer.body).not.toHaveProperty("xdr");
 });
+
+// D-NEW-RECLAIM-1: the route's own docstring and the console's reclaim
+// (FE lib/reclaim.ts ROUTE_REFUSALS) both expect `authorization_settled`, which
+// the console says as "Nothing to reclaim: a settlement already took this
+// authorization over". The route answers `authorization_spent`, so the console
+// reports a failed reclaim instead and keeps offering the button.
+test("a settled authorization is refused with the code the console reads", async () => {
+  test.fail(true, "D-NEW-RECLAIM-1: the route answers authorization_spent");
+  const answer = await buildReclaim(SETTLED.payer, SETTLED.authIdHex);
+  expect(answer.status).toBe(409);
+  expect(answer.code).toBe("authorization_settled");
+});
