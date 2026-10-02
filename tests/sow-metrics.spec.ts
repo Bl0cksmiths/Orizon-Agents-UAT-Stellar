@@ -105,8 +105,8 @@ test("OV-02 m01 externally-operated agents: 11 outside the register at 15:48, 10
   expect(index.claims.get("m01")?.achieved).toBe("11");
   expect(agents).toHaveLength(11);
   expect(externalAgents(chain, endOfDay(index.asOf))).toHaveLength(11);
-  // D-NEW-METRICS-5: Powerbot's owner is one hop from the team admin, so it is not demonstrably external.
-  expect(evidenced, "D-NEW-METRICS-5").toHaveLength(10);
+  // D-NEW-METRICS-4: Powerbot's owner is one hop from the team admin, so it is not demonstrably external.
+  expect(evidenced, "D-NEW-METRICS-4").toHaveLength(10);
   expect(evidenced.length).toBeGreaterThanOrEqual(2);
   expect(today.length).toBeGreaterThanOrEqual(agents.length);
 });
@@ -120,7 +120,7 @@ test("OV-02 m02 unique external operator wallets: 7 outside the register at 15:4
   expect(index.claims.get("m02")?.achieved).toBe("7");
   expect(owners).toHaveLength(7);
   expect(new Set(owners).size).toBe(owners.length);
-  expect(evidenced, "D-NEW-METRICS-5").toHaveLength(6);
+  expect(evidenced, "D-NEW-METRICS-4").toHaveLength(6);
   expect(evidenced.length).toBeGreaterThanOrEqual(2);
 });
 
