@@ -81,4 +81,13 @@ test.describe("OV-03 — claimed workflow attestations (story 6.04)", () => {
     expect(probe.error, `a first seal of job ${fresh} should simulate cleanly`).toBeUndefined();
     expect(probe.authEntries, "the sealer's signature is the one auth entry a real seal would need").toBe(1);
   });
+
+  test("OV-03: get on a never-sealed job fails NotFound rather than returning an empty attestation", async () => {
+    test.setTimeout(RPC_TIMEOUT);
+    const fresh = randomBytes(16).toString("hex");
+    const read = await getAttestation(fresh);
+    expect(read.attestation, `job ${fresh} was never sealed`).toBeUndefined();
+    expect(read.error, "an unknown job must fail NotFound (#2)").toContain("Error(Contract, #2)");
+    expect(await jobEntry(fresh), "an unknown job has no ledger entry").toBeUndefined();
+  });
 });
