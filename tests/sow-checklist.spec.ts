@@ -47,13 +47,17 @@ function fetchable(url: string): string {
 }
 
 /** GET with no session; a 429 is waited out (Retry-After, else 20 s) up to three times. */
-async function fetchStatus(request: APIRequestContext, url: string): Promise<number> {
+async function fetchPage(request: APIRequestContext, url: string): Promise<{ status: number; body: string }> {
   for (let attempt = 0; ; attempt++) {
-    const res = await request.get(fetchable(url), { timeout: 90_000 });
-    if (res.status() !== 429 || attempt === 3) return res.status();
+    const res = await request.get(url, { timeout: 90_000 });
+    if (res.status() !== 429 || attempt === 3) return { status: res.status(), body: await res.text() };
     const wait = Number(res.headers()["retry-after"] ?? "20");
     await new Promise((r) => setTimeout(r, Math.min(wait, 60) * 1000));
   }
+}
+
+async function fetchStatus(request: APIRequestContext, url: string): Promise<number> {
+  return (await fetchPage(request, fetchable(url))).status;
 }
 
 test("OV-07 every link outside Stellar Expert answers with no session", async ({ request }) => {
@@ -65,5 +69,27 @@ test("OV-07 every link outside Stellar Expert answers with no session", async ({
   expect(urls.size, "the index links pages, files, PRs and the API").toBeGreaterThan(0);
   for (const url of urls) {
     expect.soft(await fetchStatus(request, url), url).toBe(200);
+  }
+});
+
+/**
+ * Read from the PR page, not GitHub's API: the API allows 60 unauthenticated
+ * calls an hour, fewer than one run of the suite needs. The page embeds the
+ * PR's state as `"state":"MERGED"`; if GitHub changes that payload, this test
+ * fails rather than passing.
+ */
+test("OV-07 every pull request the index links is merged", async ({ request }) => {
+  test.setTimeout(600_000);
+  const rows = await readRows(request);
+  const prs = new Set(
+    rows
+      .flatMap((r) => r.items.flatMap((i) => (i.links ?? []).map((l) => l.url)))
+      .filter((u) => /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/.test(u)),
+  );
+  expect(prs.size, "the index links pull requests").toBeGreaterThan(0);
+  for (const url of prs) {
+    const page = await fetchPage(request, url);
+    expect.soft(page.status, url).toBe(200);
+    expect.soft(page.body.includes('"state":"MERGED"'), `${url} merged`).toBe(true);
   }
 });
