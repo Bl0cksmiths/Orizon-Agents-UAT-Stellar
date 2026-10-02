@@ -1,5 +1,5 @@
 import { ACCOUNT_VERSION, CONTRACT_VERSION, MUXED_VERSION, encodeStrkey } from "./strkey.ts";
-import { XdrReader } from "./xdr.ts";
+import { XdrReader, XdrWriter } from "./xdr.ts";
 
 /**
  * Soroban `SCVal` decoding to plain values, and the few encodings a
@@ -134,4 +134,15 @@ export function decodeScVal(base64: string): ScValue {
   const value = readScVal(r);
   r.end();
   return value;
+}
+
+/** An argument to send: already-encoded `SCVal` bytes. */
+export type ScArg = Uint8Array;
+
+export function scSymbol(text: string): ScArg {
+  return new XdrWriter().u32(T.Symbol).string(text).bytes();
+}
+
+export function scBytes(bytes: Uint8Array): ScArg {
+  return new XdrWriter().u32(T.Bytes).varOpaque(bytes).bytes();
 }
