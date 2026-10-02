@@ -54,3 +54,9 @@ function parse(url: string, fetched: Fetched): unknown {
 export async function getJson(url: string): Promise<unknown> {
   return parse(url, await request(url, { headers: { accept: "application/json" } }));
 }
+
+/** GET that treats 404 as "nothing here" (null) rather than an error. */
+export async function getJsonOrNull(url: string): Promise<unknown> {
+  const fetched = await request(url, { headers: { accept: "application/json" } });
+  return fetched.status === 404 ? null : parse(url, fetched);
+}
