@@ -134,11 +134,14 @@ const V1_CANNOT_SETTLE =
  * answer is fetched and only `contracts.payment_escrow` is replaced; every other request
  * (decompose included) goes to the live API untouched.
  */
-async function reportEscrow(page: Page, escrow: string): Promise<void> {
+async function reportEscrow(page: Page, escrow: string | null): Promise<void> {
   await page.route("**/api/stellar/network", async (route) => {
     const live = await route.fetch();
     const body = (await live.json()) as { contracts: Record<string, string> };
-    await route.fulfill({ response: live, json: { ...body, contracts: { ...body.contracts, payment_escrow: escrow } } });
+    const { payment_escrow: _, ...others } = body.contracts;
+    // null drops the key, as a backend with no escrow configured reports it.
+    const contracts = escrow === null ? others : { ...others, payment_escrow: escrow };
+    await route.fulfill({ response: live, json: { ...body, contracts } });
   });
 }
 
@@ -217,5 +220,21 @@ test("EP-05 neutral @local: with no network read the card claims neither custody
   await expect(authorize(page)).toBeEnabled();
   await signSentence(page).scrollIntoViewIfNeeded();
   await page.screenshot({ path: evidence("neutral") });
+  expect(asked).not.toContain("SUBMIT_TRANSACTION");
+});
+
+test("EP-05 none reported @local: a backend naming no escrow pauses Authorize and says so", async ({ page }) => {
+  const asked = await freighterShim(page);
+  await reportEscrow(page, null);
+  await page.goto(`${LOCAL}/app/orchestrator`);
+  await connectOnReload(page);
+  await decompose(page);
+  await expect(paused(page)).toHaveText(
+    `On-chain payment is paused: the platform is settling through escrow (none reported), but this console is written for escrow ${ESCROW_V2}. Nothing is asked of your wallet until they agree. A simulated pass is unaffected.`,
+  );
+  await expect(signSentence(page)).not.toContainText("escrow");
+  await expect(authorize(page)).toBeDisabled();
+  await paused(page).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: evidence("none-reported") });
   expect(asked).not.toContain("SUBMIT_TRANSACTION");
 });
