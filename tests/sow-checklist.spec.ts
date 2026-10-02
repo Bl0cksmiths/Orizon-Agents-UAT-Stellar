@@ -110,3 +110,19 @@ test("OV-07 RD: the SOW's ALGOREX-PH repository addresses redirect to the public
     expect(res.headers()["location"], repo).toBe(`https://github.com/Bl0cksmiths/${repo}`);
   }
 });
+
+const itemById = (rows: Row[], id: string): Item => {
+  const item = rows.flatMap((r) => r.items).find((i) => i.id === id);
+  if (!item) throw new Error(`the index has no item ${id}`);
+  return item;
+};
+
+test("OV-07 D1-c and D4-c are marked present but link no registration transaction (D-089)", async ({ request }) => {
+  const rows = await readRows(request);
+  for (const id of ["6.1-D1-c", "6.1-D4-c"]) {
+    const item = itemById(rows, id);
+    expect(item.status, `${id} D-089`).toBe("present");
+    const txLinks = (item.links ?? []).filter((l) => l.url.startsWith("https://stellar.expert/explorer/testnet/tx/"));
+    expect(txLinks, `${id} D-089: the SOW asks for outside registration tx hashes`).toHaveLength(0);
+  }
+});
