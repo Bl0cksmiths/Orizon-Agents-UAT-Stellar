@@ -122,3 +122,29 @@ export async function observeAccount(get: GetJson, account: string): Promise<Obs
   const created = first?.type === "create_account" && first.account === account;
   return { id: (res.body as { id: string }).id, createdAt: created ? first.created_at : null };
 }
+
+export type DatedCall = ObservedCall & { createdAt: string };
+
+/**
+ * Every successful contract call `account` was the source of, oldest first,
+ * walked page by page through its full Horizon operation history.
+ */
+export async function contractCallsBy(get: GetJson, account: string): Promise<DatedCall[]> {
+  const calls: DatedCall[] = [];
+  let url = `${HORIZON_TESTNET}/accounts/${account}/operations?order=asc&limit=200`;
+  for (;;) {
+    const res = await get(url);
+    if (res.status !== 200) throw new Error(`Horizon operations of ${account} answered ${res.status}`);
+    const page = res.body as {
+      _embedded: { records: (HorizonOp & { created_at: string })[] };
+      _links: { next: { href: string } };
+    };
+    const records = page._embedded.records;
+    if (records.length === 0) return calls;
+    for (const op of records) {
+      const call = toCall(op);
+      if (call) calls.push({ ...call, createdAt: op.created_at });
+    }
+    url = page._links.next.href;
+  }
+}
