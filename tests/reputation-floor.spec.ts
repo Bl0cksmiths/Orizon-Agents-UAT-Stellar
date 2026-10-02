@@ -392,6 +392,30 @@ test.describe("RF-05 live — a real sub-floor agent named in a free-form intent
   });
 });
 
+/**
+ * D-026: every RF verdict on the deployed surface names a date, not a build,
+ * because nothing served identifies one. That is how the split deploy of
+ * D-031 went unseen. `SERVICE_VERSION` is still the literal "0.1.0"
+ * (app/config.py:38 at backend 9aa6fca) and `/api/health` serves it as is.
+ *
+ * Marked `test.fail()`: the gap is open. When the health body carries a
+ * commit sha this passes unexpectedly, which is the signal to drop the marker.
+ */
+test.describe("D-026 live — the deployed backend names its build", () => {
+  test("RF entry: /api/health identifies the deployed build by commit", async ({
+    request,
+  }) => {
+    test.fail();
+    const res = await request.get("/api/health", { timeout: COLD_START_TIMEOUT });
+    expect(res.ok()).toBe(true);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(
+      JSON.stringify(body),
+      "the health body carries no commit sha, so the build under test cannot be named",
+    ).toMatch(/\b[0-9a-f]{7,40}\b/);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Part 2 — a decompose response supplied by the test
 // ---------------------------------------------------------------------------
