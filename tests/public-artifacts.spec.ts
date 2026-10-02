@@ -177,3 +177,36 @@ test.describe("OV-05 the integration guide, with no wallet and no session", () =
     });
   }
 });
+
+/**
+ * SOW milestone m10 wants a "3–5 min demo video published". The page that
+ * would carry it is /demo, built from content/demo/demo.json at frontend
+ * 0c8a10b7, whose manifest reads `"status": "unpublished"`, `"video": null`.
+ */
+const DEMO_PATH = "/demo";
+const UNPUBLISHED_NOTICE =
+  "The demo video has not been recorded yet. It will show only real testnet transactions. Until then, here is how to verify each deliverable yourself.";
+
+test.describe("OV-05 the demo video, with no wallet and no session", () => {
+  /**
+   * What is there today: the page is public and says plainly that there is
+   * no video yet, and offers the deliverables to verify instead. It does not
+   * stage one. If a video is published this test fails on the notice, and
+   * the pinned test below starts passing.
+   */
+  test("OV-05 /demo is public and says honestly that no video is recorded yet", async ({
+    browser,
+  }) => {
+    await visitFresh(browser, DEMO_PATH, async (page) => {
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Orizon Agents, end to end" }),
+      ).toBeVisible();
+      await expect(page.locator('[data-demo="unpublished"]')).toHaveCount(1);
+      await expect(page.getByRole("note").filter({ hasText: UNPUBLISHED_NOTICE })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { level: 2, name: "Verify each deliverable yourself" }),
+      ).toBeVisible();
+      await expect(page.locator("main video, main iframe")).toHaveCount(0);
+    });
+  });
+});
