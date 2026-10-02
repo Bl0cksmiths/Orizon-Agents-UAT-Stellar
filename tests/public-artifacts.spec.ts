@@ -176,6 +176,27 @@ test.describe("OV-05 the integration guide, with no wallet and no session", () =
       });
     });
   }
+
+  /**
+   * The guide's frontmatter reads `status: draft` (content/guides/
+   * list-your-agent.md at frontend 0c8a10b7), and the page says so above
+   * everything else, in words, as a note. A draft that hid its status would
+   * be worse than a draft.
+   */
+  test("OV-05 the integration guide states its draft status in words, on the index and on the article", async ({
+    browser,
+  }) => {
+    await visitFresh(browser, GUIDE_PATH, async (page) => {
+      await expect(
+        page.getByRole("note").filter({ hasText: "Draft — not yet validated by a newcomer." }),
+      ).toBeVisible();
+    });
+    await visitFresh(browser, "/guide", async (page) => {
+      await expect(
+        page.getByRole("link", { name: new RegExp(GUIDE_TITLE) }),
+      ).toContainText("· draft");
+    });
+  });
 });
 
 /**
