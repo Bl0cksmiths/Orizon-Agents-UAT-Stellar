@@ -607,7 +607,7 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       agent_name: "deploy.v0",
       replacement_id: null,
       replacement_name: null,
-      reason: `kept by starvation backstop, below routing floor (5210 < ${FLOOR_BPS} bps)`,
+      reason: "re-admitted below the floor to keep the plan workable (fewer than 3 agents cleared it)",
       reason_code: "floor_relaxed",
       lower_bound_bps: 5210,
       floor_bps: FLOOR_BPS,
@@ -701,7 +701,7 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
     ).toBe(FLOOR_BPS);
   });
 
-  test("RF-14 the opened floor panel names every floor action — its kind, the agent, the replacement, and the reason carrying the applied floor in bps", async ({
+  test("RF-14 the opened floor panel names every floor action — its kind, the agent, the replacement, the reason, and the deciding lower bound and floor", async ({
     page,
   }) => {
     const errors = collectConsoleErrors(page);
@@ -735,11 +735,27 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
       await expect(row, `${where} does not give the reason`).toContainText(
         notice.reason,
       );
-      // ...and that reason carries the floor that was applied, in bps.
+      // ...and the two numbers that decided it: the agent's lower bound and
+      // the floor it was judged against, printed on the 0–5 scale the badges
+      // use (`scoreOutOfFive` in lib/reputation-math.ts).
       await expect(
         row,
-        `${where} does not state the applied floor in basis points`,
-      ).toContainText(`${FLOOR_BPS} bps`);
+        `${where} does not state the agent's lower bound`,
+      ).toContainText(`lower bound ${(notice.lower_bound_bps / 2000).toFixed(2)}`);
+      await expect(
+        row,
+        `${where} does not state the applied floor`,
+      ).toContainText(`floor ${(notice.floor_bps / 2000).toFixed(2)}`);
+      // A below-floor reason is the backend's own sentence and carries both
+      // numbers in bps. The relaxation sentence (plan_notices.relaxation at
+      // backend 6da6da7) carries none, so for that kind the bps exist only
+      // as the 0–5 figures above.
+      if (notice.reason_code === "below_floor") {
+        await expect(
+          row,
+          `${where} does not state the applied floor in basis points`,
+        ).toContainText(`< ${FLOOR_BPS} bps`);
+      }
 
       if (notice.replacement_name) {
         await expect(
