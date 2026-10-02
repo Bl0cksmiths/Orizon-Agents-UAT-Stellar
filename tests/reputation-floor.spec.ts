@@ -442,9 +442,15 @@ type SuppliedNotice = {
   kind: "excluded" | "substituted" | "degraded";
   agent_id: string;
   agent_name: string;
-  replacement_id?: string;
-  replacement_name?: string;
+  replacement_id: string | null;
+  replacement_name: string | null;
   reason: string;
+  reason_code: "below_floor" | "floor_relaxed";
+  lower_bound_bps: number;
+  floor_bps: number;
+  count: number;
+  dispute_rate_bps: number;
+  awaiting_fresh_read: boolean;
 };
 
 type SuppliedPlan = {
@@ -455,6 +461,8 @@ type SuppliedPlan = {
   total_eta: number;
   notices: SuppliedNotice[];
   floor_bps: number;
+  reputation_degraded: boolean;
+  planner_fallback: boolean;
 };
 
 /**
@@ -569,7 +577,15 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       kind: "excluded",
       agent_id: "agt_05x7",
       agent_name: "seo.brief",
+      replacement_id: null,
+      replacement_name: null,
       reason: `below routing floor (4200 < ${FLOOR_BPS} bps)`,
+      reason_code: "below_floor",
+      lower_bound_bps: 4200,
+      floor_bps: FLOOR_BPS,
+      count: 7,
+      dispute_rate_bps: 0,
+      awaiting_fresh_read: false,
     },
     {
       kind: "substituted",
@@ -578,15 +594,31 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       replacement_id: "agt_14q8",
       replacement_name: "code.review.pro",
       reason: `below routing floor (5090 < ${FLOOR_BPS} bps)`,
+      reason_code: "below_floor",
+      lower_bound_bps: 5090,
+      floor_bps: FLOOR_BPS,
+      count: 5,
+      dispute_rate_bps: 0,
+      awaiting_fresh_read: false,
     },
     {
       kind: "degraded",
       agent_id: "agt_08j2",
       agent_name: "deploy.v0",
+      replacement_id: null,
+      replacement_name: null,
       reason: `kept by starvation backstop, below routing floor (5210 < ${FLOOR_BPS} bps)`,
+      reason_code: "floor_relaxed",
+      lower_bound_bps: 5210,
+      floor_bps: FLOOR_BPS,
+      count: 3,
+      dispute_rate_bps: 0,
+      awaiting_fresh_read: false,
     },
   ],
   floor_bps: FLOOR_BPS,
+  reputation_degraded: false,
+  planner_fallback: false,
 };
 
 /**
