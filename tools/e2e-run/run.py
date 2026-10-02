@@ -26,6 +26,7 @@ REPO = Path(__file__).resolve().parents[2]
 TASK_TOKEN_HEADER = "X-Task-Token"
 EXPLORER = "https://stellar.expert/explorer/testnet/tx/"
 AUTHORIZE_TTL_SECONDS = 1800
+TERMINAL = ("complete", "failed")
 
 
 class Refused(Exception):
@@ -273,6 +274,41 @@ class Run:
         )
         self.token = started.get("read_token")
         self.capture("task", task_id=started["task_id"])
+
+    def poll(self) -> None:
+        """Polls the task until it is terminal and both its transactions are out,
+        capturing each transaction hash the moment the task first shows it. A
+        terminal task gets a minute's grace for a transaction still on its way."""
+        task_id = self.artifact("task")["task_id"]
+        deadline = time.monotonic() + float(os.environ.get("E2E_TASK_BUDGET_S", "600"))
+        seen: set[str] = set()
+        grace: float | None = None
+        while True:
+            task = self.api.call("GET", f"/api/tasks/{task_id}", token=self.token)
+            for field, kind in (("charge_tx", "settle"), ("proof_tx", "seal")):
+                if task.get(field) and kind not in seen:
+                    seen.add(kind)
+                    self.capture(kind, tx_hash=task[field], task_status=task.get("status"))
+            if task.get("status") in TERMINAL:
+                grace = grace or time.monotonic() + 60
+                if len(seen) == 2 or time.monotonic() > grace:
+                    break
+            if time.monotonic() > deadline:
+                raise Refused(f"task {task_id} is {task.get('status')} with {sorted(seen)} after the budget")
+            time.sleep(1.5)
+        self.capture(
+            "task_terminal",
+            task_id=task_id,
+            status=task["status"],
+            spent=task.get("spent"),
+            settlement_state=task.get("settlement"),
+            trace=[
+                f"{line['t']} {line['level']} {line['msg']}"
+                for line in self.api.call("GET", f"/api/trace/{task_id}", token=self.token)
+            ],
+        )
+        if (task["status"], task.get("settlement"), len(seen)) != ("complete", "settled", 2):
+            raise Refused(f"task {task_id} ended {task['status']}, settlement {task.get('settlement')}, not settled")
 
     def reachability(self, agent_id: str) -> dict[str, Any]:
         """The backend's own readiness probe of the agent's bound endpoint: its
