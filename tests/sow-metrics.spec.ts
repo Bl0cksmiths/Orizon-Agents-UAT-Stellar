@@ -17,12 +17,14 @@ import { isAccountId } from "../tools/sow-metrics-verify/strkey.ts";
 import { registryAdmin } from "../tools/sow-metrics-verify/team.ts";
 import {
   demoState,
+  detectedLicense,
   DISPUTE_ROUTES,
   readPage,
   readParams,
   readReadiness,
   readRoutes,
   REGISTER_ROUTE,
+  REPOSITORIES,
 } from "../tools/sow-metrics-verify/web.ts";
 
 /**
@@ -237,4 +239,13 @@ test("OV-02 m10 demo video: not published, as the index says", async ({}, info) 
   expect(demo.published).toBe(false);
   expect(demo.seconds).toBeNull();
   expect(index.claims.get("m10")?.status).toBe("not_met");
+});
+
+test("OV-02 m11 every repository is detected by GitHub as MIT", async ({}, info) => {
+  const licenses: string[] = [];
+  for (const repo of REPOSITORIES) licenses.push(`${repo}: ${await detectedLicense(repo)}`);
+  record(info, "m11", `Yes: ${licenses.join(", ")}`, "met");
+  expect(licenses).toHaveLength(4);
+  for (const line of licenses) expect(line).toMatch(/: MIT$/);
+  expect(index.claims.get("m11")?.status).toBe("met");
 });
