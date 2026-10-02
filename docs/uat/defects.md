@@ -3420,3 +3420,36 @@ still counts as outside.
 `docs/uat/evidence/6.04-metrics-and-operators.md` §3.1.
 
 ---
+## D-086 — An attestation's `agents` lists the planned agents, including one that was never paid
+
+- **Severity:** Minor (story 6.04: Low)
+- **Status:** Open
+- **Affects:** OV-03 (story 6.04)
+
+**Steps to reproduce** — simulate
+`AttestationRegistry.get(fbc9b0e78d609571b2587a3c39c2de9c)` (run ac5, seal
+`41a159ff…fd64`); read the ac5 lifecycle in the backend's
+`docs/evidence/5.01/ac4-ac5/`.
+
+**Expected** — the attested agents match the paid receipts, or the attestation
+tells delivered agents from failed ones.
+
+**Actual** — `agents: [calculatorai, keyboardai]`, with one receipt (`…0a`,
+the calculatorai charge) and `total_spent` 100000, calculatorai's price alone.
+`keyboardai` failed, was rated 20/100, was never charged, and its 0.2 XLM came
+back to the buyer at settle. The 5.01 sheet labels the seal "Attestation seal —
+calculatorai". The bytes match the backend's claim; what `agents` means does
+not match the label.
+
+**Impact** — a reader of the seal alone would take `keyboardai` as a paid,
+delivering agent of that workflow. The three seals in the evidence index are
+single-agent runs and are not affected.
+
+**Resolution path** — seal only the agents with a receipt, or add the
+delivered/failed split to the attestation.
+
+**Verified by** — re-read by `tools/attestation-verify/capture.ts` on
+2026-10-02 at ledger 4978550; `tests/attestations.spec.ts` passing. Evidence:
+`docs/uat/evidence/6.04-attestations.md` §4.
+
+---
