@@ -10,6 +10,14 @@ import { API, BACKEND } from "./team.ts";
 export const FRONTEND = "https://orizons.xyz";
 export const GITHUB_API = "https://api.github.com";
 
+/** SOW §6.1's repositories, plus the copyable example agent the guide points operators to. */
+export const REPOSITORIES = [
+  "Bl0cksmiths/Orizon-Agents-FE-Stellar",
+  "Bl0cksmiths/Orizon-Agents-BE-Stellar",
+  "Bl0cksmiths/Orizon-Agents-Smart-Contract-Stellar",
+  "Bl0cksmiths/Orizon-Agents-Example-Agent-Stellar",
+] as const;
+
 export const REGISTER_ROUTE = "POST /api/stellar/build/register-agent";
 export const DISPUTE_ROUTES = [
   "POST /api/disputes",
@@ -58,4 +66,10 @@ export interface Readiness {
 
 export async function readReadiness(): Promise<Readiness> {
   return (await getJson(`${BACKEND}/readiness`)) as Readiness;
+}
+
+/** The SPDX id GitHub detects on a repository, or null when it detects none. */
+export async function detectedLicense(repo: string): Promise<string | null> {
+  const body = (await getJson(`${GITHUB_API}/repos/${repo}`)) as { license?: { spdx_id?: string } | null };
+  return body.license?.spdx_id ?? null;
 }
