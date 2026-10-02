@@ -23,7 +23,7 @@ from stellar_sdk import scval
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "e2e-run"))
 
-from chain import Chain  # noqa: E402
+from chain import Chain, to_stroops  # noqa: E402
 from checks import Check, check_authorize  # noqa: E402
 
 ESCROW = "CCNO5TENCK3EK532I3OZLZ63323FEEULPAKJ74CUP3JZK3XQINRQ5VC4"
@@ -64,8 +64,18 @@ def authorize(facts: dict[str, Any]) -> dict[str, Any]:
     return {"checks": [asdict(k) for k in checks], "facts": {"ledger": call.ledger, "fee_charged": call.fee_charged, "view": view}}
 
 
+def balance(facts: dict[str, Any]) -> dict[str, Any]:
+    """An account's native balance in stroops, and the ledger Horizon read it at."""
+    c = chain()
+    account = c.horizon_json(f"/accounts/{facts['account']}")
+    if account is None:
+        return {"checks": [asdict(Check("account_exists", False, f"Horizon has no account {facts['account']}"))], "facts": {}}
+    native = next(b["balance"] for b in account["balances"] if b["asset_type"] == "native")
+    return {"checks": [], "facts": {"stroops": to_stroops(native), "ledger": account.get("last_modified_ledger")}}
+
+
 def main(argv: list[str]) -> int:
-    commands = {"authorize": authorize}
+    commands = {"authorize": authorize, "balance": balance}
     if len(argv) != 1 or argv[0] not in commands:
         print(__doc__, file=sys.stderr)
         return 2
