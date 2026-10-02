@@ -1,5 +1,5 @@
 import { ACCOUNT_VERSION, CONTRACT_VERSION, MUXED_VERSION, encodeStrkey } from "./strkey.ts";
-import type { XdrReader } from "./xdr.ts";
+import { XdrReader } from "./xdr.ts";
 
 /**
  * Soroban `SCVal` decoding to plain values, and the few encodings a
@@ -126,4 +126,12 @@ export function readScVal(r: XdrReader): ScValue {
     default:
       throw new Error(`unsupported SCVal type ${type}`);
   }
+}
+
+/** One base64 `SCVal`, fully consumed. */
+export function decodeScVal(base64: string): ScValue {
+  const r = XdrReader.fromBase64(base64);
+  const value = readScVal(r);
+  r.end();
+  return value;
 }
