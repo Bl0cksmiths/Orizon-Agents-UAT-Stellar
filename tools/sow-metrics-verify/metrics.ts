@@ -88,3 +88,8 @@ export function charges(s: Snapshot, cutoff: number): Charge[] {
 export function countedCharges(s: Snapshot, cutoff: number): Charge[] {
   return charges(s, cutoff).filter((c) => !c.selfPayment);
 }
+
+/** m04 as the SOW words it: counted charges settled in USDC. The escrow's asset is read from the live API. */
+export function usdcCharges(s: Snapshot, cutoff: number): Charge[] {
+  return s.team.network.asset === "native" ? [] : countedCharges(s, cutoff);
+}
