@@ -100,3 +100,14 @@ export function baseAccount(address: string): string {
   }
   return address;
 }
+
+/** True for a well-formed muxed account (M…), checksum included. */
+export function isMuxedId(text: unknown): text is string {
+  if (typeof text !== "string") return false;
+  try {
+    decodeStrkey(text, MUXED_VERSION, 40);
+    return true;
+  } catch {
+    return false;
+  }
+}
