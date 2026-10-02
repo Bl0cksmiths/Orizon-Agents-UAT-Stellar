@@ -19,3 +19,25 @@ E2E_STATE=/path/outside/the/repo E2E_INTENT="<what the buyer asks for>" \
 `$BACKEND` is a checkout of Orizon-Agents-BE-Stellar; its virtualenv has the
 two libraries this needs (`httpx`, `stellar_sdk`). On a POSIX machine the
 interpreter is `$BACKEND/.venv/bin/python`.
+
+## Settings
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `E2E_STATE` | (required) | Directory **outside the repository** for the buyer key and the run records. The tool refuses a path inside the repo. |
+| `E2E_INTENT` | (required for `run`) | What the buyer asks for. Word it toward an agent that has an on-chain owner and a working endpoint. |
+| `E2E_API` | `https://orizon-agents-be-stellar.onrender.com` | The deployed backend (the frontend's `/api` proxies to it). |
+| `E2E_MAX_TOTAL_XLM` | `0.05` | The most the plan may cost. A dearer plan is refused before anything is signed. |
+| `E2E_TASK_BUDGET_S` | `600` | How long to poll the task before giving up. |
+| `E2E_ALLOW_UNREACHABLE` | unset | `1` runs a plan whose agent fails the backend's own endpoint probe, to watch the failure path. |
+| `SSL_CERT_FILE` | unset | A CA bundle, when TLS is intercepted on the way out. |
+
+## Other commands
+
+```sh
+python tools/e2e-run/run.py fund            # a fresh buyer in $E2E_STATE/buyer.json, funded by friendbot
+python tools/e2e-run/run.py verify RECORD   # re-read a recorded run's artifacts from the ledger and check them again
+```
+
+`fund` refuses to overwrite an existing buyer. `verify` writes nothing; it
+prints each check and exits non-zero on any FAIL.
