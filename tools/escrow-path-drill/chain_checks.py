@@ -24,9 +24,12 @@ from stellar_sdk import scval
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "e2e-run"))
 
 from chain import Chain, to_stroops  # noqa: E402
-from checks import Check, check_authorize  # noqa: E402
+from checks import Check, check_authorize, check_settle  # noqa: E402
 
 ESCROW = "CCNO5TENCK3EK532I3OZLZ63323FEEULPAKJ74CUP3JZK3XQINRQ5VC4"
+REGISTRY = "CAPHXWU53UZUZJGV7IAE57NNMH3YYB5MTWO6YA53KKMXSFVLOITBJ3GQ"
+# Settler, sealer and scorer: the backend's one server key.
+SETTLER = "GDB4N25UYM3YNTTAWX7LSGI2P7OR62QZQXRNQWAGF5TFVENDKCTTCDHP"
 
 
 def chain() -> Chain:
@@ -74,8 +77,34 @@ def balance(facts: dict[str, Any]) -> dict[str, Any]:
     return {"checks": [], "facts": {"stroops": to_stroops(native), "ledger": account.get("last_modified_ledger")}}
 
 
+def settle(facts: dict[str, Any]) -> dict[str, Any]:
+    """EP-02/03: the settle paid each delivered step its price, to its owner, and returned the rest."""
+    c = chain()
+    payer, max_stroops, auth_id = facts["payer"], int(facts["max_stroops"]), facts["auth_id"]
+    prices: dict[str, int] = {a: int(p) for a, p in facts["prices"].items()}
+    call = c.horizon_call(facts["tx"])
+    events = c.events(ESCROW, call.ledger, call.tx_hash)
+    job_id = str(call.args[2]) if len(call.args) > 2 else ""
+    owners = {a: str(c.view(REGISTRY, "owner_of", [scval.to_symbol(a)], payer)) for a in prices}
+    checks, paid = check_settle(call, events, ESCROW, SETTLER, auth_id, job_id, owners, payer, max_stroops)
+    expected = {a: prices[a] for a in facts["delivered"]}
+    charged = [e for e in events if e["topics"][:1] == ["charged"]]
+    receipts = [str(e["value"][0]) for e in charged]
+    spent = sum(paid.values())
+    view = authorization(c, auth_id, payer)
+    checks += [
+        Check("paid_only_delivered_at_price", dict(paid) == expected, f"paid {dict(paid)}, delivered at price {expected}"),
+        Check("charged_names_auth_and_job", all(e["value"][1:4:2] == [auth_id, job_id] for e in charged), f"charged {charged}"),
+        Check("view_settled", view.get("settled") is True and int(view.get("spent", -1)) == spent, f"authorization {view}"),
+    ]
+    return {
+        "checks": [asdict(k) for k in checks],
+        "facts": {"ledger": call.ledger, "job_id": job_id, "owners": owners, "paid": dict(paid), "receipts": receipts, "returned": max_stroops - spent},
+    }
+
+
 def main(argv: list[str]) -> int:
-    commands = {"authorize": authorize, "balance": balance}
+    commands = {"authorize": authorize, "balance": balance, "settle": settle}
     if len(argv) != 1 or argv[0] not in commands:
         print(__doc__, file=sys.stderr)
         return 2
