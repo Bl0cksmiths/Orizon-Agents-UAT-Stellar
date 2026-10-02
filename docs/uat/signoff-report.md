@@ -600,3 +600,22 @@ open, four of them evidence misstatements in the public index. The sprint's
 on-chain record is real and checkable: every link resolves, and every
 contract, function, address and amount matches. But the index claims more than
 the chain shows, and no outside operator has yet been paid.
+
+## To reach GO on 6.04
+
+1. **Bind a live outside operator** (D-077) and run one workflow end to end with
+   UAT's own buyer: authorize, a settle that pays the owner, and a seal, each
+   captured at the moment. OV-08 then passes, and m03 can move off 0. Fix D-084
+   with it.
+2. **Record and publish the demo video** on `/demo` (D-082). OV-05 then passes.
+   It needs item 1 first, to show a real paid run.
+3. **Correct the evidence index** so that it claims only what the chain shows:
+   restore m03 as 0 of 3 (D-078); mark m04 not met in USDC (D-079); mark m05 and
+   m08 as not partial (D-080); drop the off-chain lower bounds from the link
+   labels (D-081); link outside registration tx hashes in D1-c and D4-c (D-089).
+4. **Extend the AttestationRegistry TTLs before 2026-10-07 09:29Z** (D-083), or
+   the OV-03 spec turns red and the seals read as archived.
+
+D-085, D-086, D-087, D-088 and D-090 do not block GO, but each should be fixed
+or disclosed in the index before submission. Every item above is pinned by a
+spec or the run tool, so each fix shows up as a test to revisit.
