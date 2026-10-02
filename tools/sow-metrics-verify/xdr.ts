@@ -54,3 +54,79 @@ export class XdrWriter {
     return Buffer.from(this.bytes()).toString("base64");
   }
 }
+
+export class XdrReader {
+  private offset = 0;
+  private readonly buf: Uint8Array;
+  private readonly view: DataView;
+
+  constructor(buf: Uint8Array) {
+    this.buf = buf;
+    this.view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  }
+
+  static fromBase64(text: string): XdrReader {
+    return new XdrReader(Uint8Array.from(Buffer.from(text, "base64")));
+  }
+
+  private need(length: number): void {
+    if (this.offset + length > this.buf.length) throw new Error("XDR read past the end of the buffer");
+  }
+
+  u32(): number {
+    this.need(4);
+    const value = this.view.getUint32(this.offset);
+    this.offset += 4;
+    return value;
+  }
+
+  i32(): number {
+    this.need(4);
+    const value = this.view.getInt32(this.offset);
+    this.offset += 4;
+    return value;
+  }
+
+  u64(): bigint {
+    this.need(8);
+    const value = this.view.getBigUint64(this.offset);
+    this.offset += 8;
+    return value;
+  }
+
+  i64(): bigint {
+    this.need(8);
+    const value = this.view.getBigInt64(this.offset);
+    this.offset += 8;
+    return value;
+  }
+
+  bool(): boolean {
+    const value = this.u32();
+    if (value > 1) throw new Error(`XDR bool out of range: ${value}`);
+    return value === 1;
+  }
+
+  fixed(length: number): Uint8Array {
+    this.need(length + pad(length));
+    const out = this.buf.slice(this.offset, this.offset + length);
+    this.offset += length + pad(length);
+    return out;
+  }
+
+  varOpaque(): Uint8Array {
+    return this.fixed(this.u32());
+  }
+
+  string(): string {
+    return new TextDecoder().decode(this.varOpaque());
+  }
+
+  /** Throws unless every byte was consumed: a short decode is a wrong decode. */
+  end(): void {
+    if (this.offset !== this.buf.length) {
+      throw new Error(`XDR has ${this.buf.length - this.offset} unread trailing bytes`);
+    }
+  }
+}
+
