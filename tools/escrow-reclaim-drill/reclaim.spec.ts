@@ -127,4 +127,18 @@ test.describe("EP-04 in the console", () => {
       releaseLock();
     }
   });
+
+  test("before expiry the console says when reclaim opens and the route refuses it", async () => {
+    const notice = page.getByRole("region", { name: "Your funds are held in escrow" });
+    await expect(notice).toContainText(/Reclaim opens at .+ \(in about \d+ minutes?\), when the authorization expires\./);
+    await expect(notice.getByRole("button", { name: /^Reclaim / })).toHaveCount(0);
+
+    // Read-only: the route simulates, refuses, and builds nothing to sign.
+    const answer = await buildReclaim(BUYER, run.authIdHex);
+    expect(answer.status).toBe(409);
+    expect(answer.code).toBe("authorization_locked");
+    expect(answer.message).toContain(String(run.expiresAt));
+    expect(answer.body).not.toHaveProperty("xdr");
+    expect(await readAuthorization(run.authIdHex)).toMatchObject({ settled: false, revoked: false });
+  });
 });
