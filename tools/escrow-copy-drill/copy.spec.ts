@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { ESCROW_V2, QA_BUYER } from "../onchain-verify/facts.ts";
+import { ESCROW_V1, ESCROW_V2, QA_BUYER } from "../onchain-verify/facts.ts";
 
 /**
  * EP-05 — story 6.07: what the plan card says a signature does, for the escrow the
@@ -11,6 +11,7 @@ import { ESCROW_V2, QA_BUYER } from "../onchain-verify/facts.ts";
 
 const PROD = "https://orizons.xyz";
 const API = "https://orizon-agents-be-stellar.onrender.com";
+const LOCAL = "http://127.0.0.1:3100";
 const PASSPHRASE = "Test SDF Network ; September 2015";
 
 /** The evidence PNG for a case, under docs/uat/evidence/6.07/. */
@@ -120,5 +121,48 @@ test("EP-05 v2 @prod: production's matching pin tells the custody story and asks
   await expect(authorize(page)).toBeEnabled();
   await signSentence(page).scrollIntoViewIfNeeded();
   await page.screenshot({ path: evidence("v2") });
+  expect(asked).not.toContain("SUBMIT_TRANSACTION");
+});
+
+/** The v1 consequence, in the frontend's own words (lib/escrow-generation.ts V1_CANNOT_SETTLE). */
+const V1_CANNOT_SETTLE =
+  "On this deployment the escrow cannot yet complete a payment (a known defect; the fix is deployed separately), so a paid run reports its settlement as failed and nothing is charged.";
+
+/**
+ * Makes GET /api/stellar/network report `escrow` as the live payment escrow. The live
+ * answer is fetched and only `contracts.payment_escrow` is replaced; every other request
+ * (decompose included) goes to the live API untouched.
+ */
+async function reportEscrow(page: Page, escrow: string): Promise<void> {
+  await page.route("**/api/stellar/network", async (route) => {
+    const live = await route.fetch();
+    const body = (await live.json()) as { contracts: Record<string, string> };
+    await route.fulfill({ response: live, json: { ...body, contracts: { ...body.contracts, payment_escrow: escrow } } });
+  });
+}
+
+const paused = (page: Page) => page.getByText(/^On-chain payment is paused/);
+
+test("EP-05 v1 @local: the v1 escrow is told as an allowance that moves nothing", async ({ page }) => {
+  const asked = await freighterShim(page);
+  await reportEscrow(page, ESCROW_V1);
+  await page.goto(`${LOCAL}/app/orchestrator`);
+  await decompose(page);
+  await expect(connectSentence(page)).toHaveText(
+    `Connect Freighter (testnet) to pay on-chain: authorizing records a spending allowance on the escrow contract, and no funds move when you sign. ${V1_CANNOT_SETTLE} Or run a simulated pass, which moves no funds.`,
+  );
+
+  await connectOnReload(page);
+  const total = await decompose(page);
+  await expect(signSentence(page)).toHaveText(
+    `Freighter will prompt for one signature authorizing up to ${capText(total)}. It records a spending allowance on the escrow contract; no funds move when you sign. ${V1_CANNOT_SETTLE}`,
+  );
+  await expect(signSentence(page)).not.toContainText("into escrow now");
+  // This build pins v2, so v1 is also a mismatch: the card pauses Authorize and names both.
+  await expect(paused(page)).toContainText(ESCROW_V1);
+  await expect(paused(page)).toContainText(ESCROW_V2);
+  await expect(authorize(page)).toBeDisabled();
+  await signSentence(page).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: evidence("v1") });
   expect(asked).not.toContain("SUBMIT_TRANSACTION");
 });
