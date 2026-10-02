@@ -116,3 +116,50 @@ export async function instanceStorage(contract: string): Promise<{ [key: string]
   }
   return storage;
 }
+
+export interface ContractEvent {
+  ledger: number;
+  closedAt: string;
+  txHash: string;
+  topics: ScValue[];
+  value: ScValue;
+}
+
+const EVENT_PAGE = 200;
+const EVENT_WINDOW = 10_000;
+
+/**
+ * Every event `contract` emitted from `startLedger` to the latest ledger,
+ * oldest first, scanned in fixed ledger windows so the RPC's per-request scan
+ * limit can never truncate the result silently.
+ */
+export async function contractEvents(contract: string, startLedger: number, latest: number): Promise<ContractEvent[]> {
+  const out: ContractEvent[] = [];
+  for (let low = startLedger; low <= latest; low += EVENT_WINDOW) {
+    const high = Math.min(low + EVENT_WINDOW, latest + 1);
+    let cursor: string | undefined;
+    for (;;) {
+      const page = await rpc<{
+        events: { ledger: number; ledgerClosedAt: string; txHash: string; topic: string[]; value: string }[];
+        cursor?: string;
+      }>("getEvents", {
+        ...(cursor ? {} : { startLedger: low }),
+        endLedger: high,
+        filters: [{ type: "contract", contractIds: [contract] }],
+        pagination: cursor ? { cursor, limit: EVENT_PAGE } : { limit: EVENT_PAGE },
+      });
+      for (const e of page.events) {
+        out.push({
+          ledger: e.ledger,
+          closedAt: e.ledgerClosedAt,
+          txHash: e.txHash,
+          topics: e.topic.map(decodeScVal),
+          value: decodeScVal(e.value),
+        });
+      }
+      if (page.events.length < EVENT_PAGE || !page.cursor) break;
+      cursor = page.cursor;
+    }
+  }
+  return out;
+}
