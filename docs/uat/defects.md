@@ -3483,3 +3483,34 @@ and the seeded record. Evidence: `docs/uat/evidence/6.04-evidence-links.md` §4,
 §8.
 
 ---
+## D-088 — The integration guide is public but declares itself a draft
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** OV-05 (story 6.04, not its verdict); SOW §6.3 m09, §6.2 D4-b
+
+**Steps to reproduce** — open `https://orizons.xyz/guide/list-your-agent` with
+no wallet and no session; read `content/guides/list-your-agent.md` on the
+frontend's `origin/main`.
+
+**Expected** — for "published": a guide that a newcomer has followed end to
+end.
+
+**Actual** — the page answers 200, all nine steps render, and every internal
+link resolves. Its frontmatter reads `status: draft`, and a note above the
+steps says "Draft — not yet validated by a newcomer". The index entry ends
+"· draft", so the index does not hide it.
+
+**Impact** — OV-05 asks only for reachability, which holds. But m09 and §6.2
+D4-b are judged by a reviewer, who can decline a guide that calls itself
+unfinished.
+
+**Resolution path** — have someone new to Orizon follow the guide, then set
+`status: validated`.
+
+**Verified by** — re-checked over HTTP on 2026-10-02; pinned by
+`tests/public-artifacts.spec.ts`
+`OV-05 the integration guide is published as validated, not as a draft`.
+Evidence: `docs/uat/evidence/6.04-public-artifacts.md`.
+
+---
