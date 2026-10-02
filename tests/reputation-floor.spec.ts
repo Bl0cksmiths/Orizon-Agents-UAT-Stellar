@@ -1266,12 +1266,12 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
       EVIDENCE_INTENT,
     );
 
-    // The reputation state behind it: cold start, and the floor it was
-    // measured against.
+    // The reputation state behind it: that the kit plan carried no floor
+    // action, and the floor it was measured against.
     expect(
       index,
-      "the index does not record that every agent was on the prior",
-    ).toContain('source: "prior"');
+      "the index does not record that the live kit plan carried no floor action",
+    ).toContain("no floor action");
     expect(
       index,
       "the index does not record the routing floor that was applied",
