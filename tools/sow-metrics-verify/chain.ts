@@ -2,7 +2,7 @@ import { mapLimit } from "./http.ts";
 import { operations } from "./horizon.ts";
 import { contractEvents, instanceStorage, simulate, SimulationFailed, type Retention } from "./rpc.ts";
 import { escrowId, scSymbol, type ScValue } from "./scval.ts";
-import { isAccountId } from "./strkey.ts";
+import { baseAccount, isAccountId } from "./strkey.ts";
 
 /**
  * The chain facts the eleven metrics are counted from, read without the
@@ -241,4 +241,35 @@ export async function lifetimeDisputes(ledger: string, agentId: string): Promise
     if (error instanceof SimulationFailed) return 0;
     throw error;
   }
+}
+
+export interface Transfer {
+  from: string;
+  to: string;
+  amount: bigint;
+  txHash: string;
+  createdAt: string;
+}
+
+/**
+ * Every asset-contract `transfer` signed by `account` since `since`, from its
+ * Horizon history, which keeps every operation (unlike RPC events). The
+ * amount is read from the call's own arguments and must agree with the
+ * balance change Horizon recorded for it.
+ */
+export async function readTransfersFrom(account: string, sac: string, since: string): Promise<Transfer[]> {
+  const out: Transfer[] = [];
+  for (const op of await operations(account, since)) {
+    if (op.contract !== sac || op.fn !== "transfer" || op.source !== account) continue;
+    const [from, to, amount] = op.args;
+    if (from !== account) continue;
+    const value = int(amount, "transfer amount");
+    const destination = baseAccount(str(to, "transfer destination"));
+    const change = op.balanceChanges.find((c) => c.from === account && c.to === destination);
+    if (!change || change.amount !== value) {
+      throw new Error(`transfer in ${op.txHash} disagrees with Horizon's balance change`);
+    }
+    out.push({ from: account, to: destination, amount: value, txHash: op.txHash, createdAt: op.createdAt });
+  }
+  return out;
 }
