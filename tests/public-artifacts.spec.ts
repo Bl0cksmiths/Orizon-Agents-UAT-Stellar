@@ -46,6 +46,10 @@ async function visitFresh(
   path: string,
   body: (page: Page) => Promise<void>,
 ): Promise<void> {
+  // A cold backend and a console page that polls it can hold off network
+  // idle well past the default test budget, so each visit gets room for one
+  // cold start on the navigation and one on the settle.
+  test.setTimeout(Math.max(test.info().timeout, COLD_START_TIMEOUT * 2));
   const context = await openFreshContext(browser);
   try {
     const page = await context.newPage();
