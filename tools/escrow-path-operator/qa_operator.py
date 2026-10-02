@@ -14,12 +14,14 @@ import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import httpx
 from stellar_sdk import Keypair
 
 REPO = Path(__file__).resolve().parents[2]
 FRIENDBOT = "https://friendbot.stellar.org"
+DEFAULT_API = "https://orizon-agents-be-stellar.onrender.com"
 
 
 class Refused(Exception):
@@ -55,6 +57,32 @@ def fund() -> int:
         raise Refused(f"friendbot answered {response.status_code} for {kp.public_key}: {response.text[:300]}")
     print(f"operator {kp.public_key} funded by friendbot in {response.json()['hash']}")
     return 0
+
+
+def load_operator() -> Keypair:
+    source = state_dir() / "operator.json"
+    if not source.exists():
+        raise Refused(f"no operator in {source}; run `qa_operator.py fund` first")
+    return Keypair.from_secret(json.loads(source.read_text(encoding="utf-8"))["secret"])
+
+
+class Api:
+    """The deployed API, called the way the dApp's operator console calls it."""
+
+    def __init__(self, client: httpx.Client, base: str) -> None:
+        self.client = client
+        self.base = base.rstrip("/")
+
+    def call(self, method: str, path: str, *, body: Any = None, params: dict[str, str] | None = None) -> Any:
+        """The JSON answer; any non-2xx is a refusal that quotes the API's own error code."""
+        response = self.client.request(method, f"{self.base}{path}", json=body, params=params, timeout=105.0)
+        if not response.is_success:
+            raise Refused(f"{method} {path} answered {response.status_code}: {response.text[:300]}")
+        return response.json()
+
+
+def api() -> Api:
+    return Api(http(), os.environ.get("OPERATOR_API", DEFAULT_API))
 
 
 # name -> (command, how many positional arguments it takes)
