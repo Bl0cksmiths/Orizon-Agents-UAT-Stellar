@@ -190,3 +190,41 @@ export async function contractLifetime(): Promise<ContractLifetime> {
     codeLiveUntil: code.entries?.[0]?.liveUntilLedgerSeq ?? 0,
   };
 }
+
+export type SealEvent = { ledger: number; closedAt: string; txHash: string; jobId: string; orchestrator: string; totalSpent: bigint };
+
+type EventPage = {
+  cursor: string;
+  latestLedger: number;
+  events: { ledger: number; ledgerClosedAt: string; txHash: string; topic: string[]; value: string }[];
+};
+
+/**
+ * Every `sealed` event the registry emitted inside the RPC's retention window
+ * (about a week), oldest first: topics (sealed, job_id), value (orchestrator,
+ * total_spent). Seals older than the window are not visible here. The RPC
+ * scans a bounded range of ledgers per call, so a page can be empty long
+ * before the end: paging stops only once the cursor reaches the latest ledger
+ * (a cursor is a TOID, whose high 32 bits are the ledger).
+ */
+export async function sealEvents(): Promise<SealEvent[]> {
+  const { oldestLedger } = await rpc<{ oldestLedger: number }>("getHealth", {});
+  const filters = [{ type: "contract", contractIds: [REGISTRY], topics: [[scvSymbol("sealed").toString("base64"), "*"]] }];
+  const limit = 100;
+  const found: SealEvent[] = [];
+  let page = await rpc<EventPage>("getEvents", { startLedger: oldestLedger + 1, filters, pagination: { limit } });
+  for (;;) {
+    for (const event of page.events) {
+      const jobId = readScVal(new XdrReader(event.topic[1] ?? ""));
+      const value = readScVal(new XdrReader(event.value));
+      const [orchestrator, totalSpent] = Array.isArray(value) ? value : [];
+      if (typeof jobId !== "string" || typeof orchestrator !== "string" || typeof totalSpent !== "bigint") {
+        throw new Error(`unexpected sealed event in tx ${event.txHash}`);
+      }
+      found.push({ ledger: event.ledger, closedAt: event.ledgerClosedAt, txHash: event.txHash, jobId, orchestrator, totalSpent });
+    }
+    const cursorLedger = Number(BigInt(page.cursor.split("-")[0] ?? "0") >> 32n);
+    if (page.events.length < limit && cursorLedger >= page.latestLedger) return found;
+    page = await rpc<EventPage>("getEvents", { filters, pagination: { cursor: page.cursor, limit } });
+  }
+}
