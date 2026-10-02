@@ -218,3 +218,11 @@ test("OV-02 m08 dispute window and partial-credit refund: window and refund live
   expect(partial, "D-NEW-METRICS-3").toHaveLength(0);
   expect(index.claims.get("m08")?.status, "D-NEW-METRICS-3").toBe("met");
 });
+
+test("OV-02 m09 the integration guide is published with no session", async ({}, info) => {
+  const page = await readPage("/guide/list-your-agent");
+  record(info, "m09", `Yes: page ${page.status}`, "met");
+  expect(page.status).toBe(200);
+  expect(page.html).toContain("List your agent");
+  expect(index.claims.get("m09")?.status).toBe("met");
+});
