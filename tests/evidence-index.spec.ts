@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
-import { ACCOUNT_FACTS, CONTRACT_FACTS, REGISTRY, SNAPSHOT, TX_FACTS } from "../tools/onchain-verify/facts.ts";
+import { ACCOUNT_FACTS, CONTRACT_FACTS, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
 import { txDifferences } from "../tools/onchain-verify/compare.ts";
 import { observeAccount, observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
 import { readAgents, readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
@@ -86,4 +86,18 @@ test.describe("OV-01 — the evidence index's explorer links", () => {
       expect(sorted(owned), `agents the AgentRegistry lists for ${account}`).toEqual(sorted(facts.owns));
     });
   }
+
+  test("the AgentRegistry link's registration counts hold at the snapshot", async ({ request }) => {
+    const { at, total, team, outside, outsideOwners } = SNAPSHOT.registrations;
+    const asOf = new Date(at);
+    const agents = (await readAgents(rpc(request), REGISTRY)).filter((agent) => agent.registeredAt <= asOf);
+    const isTeam = (owner: string) => TEAM_OWNERS.includes(owner);
+    const others = agents.filter((agent) => !isTeam(agent.owner));
+    expect({
+      total: agents.length,
+      team: agents.length - others.length,
+      outside: others.length,
+      outsideOwners: new Set(others.map((agent) => agent.owner)).size,
+    }, `AgentRegistry registrations as of ${at}`).toEqual({ total, team, outside, outsideOwners });
+  });
 });
