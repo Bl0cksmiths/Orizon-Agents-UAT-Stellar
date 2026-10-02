@@ -19,3 +19,28 @@ async function rpc<R>(method: string, params?: unknown): Promise<R> {
 export async function networkPassphrase(): Promise<string> {
   return (await rpc<{ passphrase: string }>("getNetwork")).passphrase;
 }
+
+export interface Retention {
+  oldestLedger: number;
+  oldestCloseTime: number;
+  latestLedger: number;
+}
+
+/**
+ * The window slides forward one ledger every few seconds, so a scan that
+ * started exactly at the oldest ledger would be refused partway through
+ * reading. Scans start this many ledgers (about one hour) inside it.
+ */
+const SLIDE_MARGIN = 720;
+
+/** The ledger range this RPC still holds events for (about seven days on testnet), less the slide margin. */
+export async function retention(): Promise<Retention> {
+  const health = await rpc<{ oldestLedger: number; oldestLedgerCloseTime: string; latestLedger: number }>(
+    "getHealth",
+  );
+  return {
+    oldestLedger: health.oldestLedger + SLIDE_MARGIN,
+    oldestCloseTime: Number(health.oldestLedgerCloseTime) + SLIDE_MARGIN * 5,
+    latestLedger: health.latestLedger,
+  };
+}
