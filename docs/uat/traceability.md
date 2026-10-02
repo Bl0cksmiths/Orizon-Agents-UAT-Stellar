@@ -418,7 +418,8 @@ one expected failure). On-chain: four Horizon-checked transactions. Code: the
 
 Each OV check runs against an independent source: Horizon testnet, Stellar RPC,
 or a page opened with no session. The application's own rendering is never the
-proof. Status is filled in at sign-off.
+proof. Signed off 2026-10-02 against testnet, orizons.xyz and the deployed backend;
+see `evidence/6.04-onchain-verification.md` for the verdicts and the defects.
 
 | criterion | verification | status |
 | --- | --- | --- |
