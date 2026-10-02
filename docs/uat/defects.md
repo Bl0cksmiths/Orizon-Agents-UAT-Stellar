@@ -3220,3 +3220,37 @@ charges between team wallets" in the status itself.
 `docs/uat/evidence/6.04-metrics-and-operators.md` §2.
 
 ---
+## D-080 — m05 "partial-refund" and m08 "partial-credit refund" are marked met on refunds of 100%
+
+- **Severity:** Critical (story 6.04: Urgent, evidence misstatement)
+- **Status:** Open
+- **Affects:** OV-02, OV-06 (story 6.04); SOW §6.3 m05, m08; §6.2 D3-b
+
+**Steps to reproduce** — trace the dispute rating `b512135f…3a49` to the
+disputed charge `785428bf…554b` and the refund `cb2c5792…1e25f`; read the live
+dispute record `GET /api/disputes/dsp_15acee279ac02852a5877ac1696ec4b5`.
+
+**Expected** — m05 counts a refund smaller than what the buyer paid, and m08's
+"partial credit" is shown working at least once.
+
+**Actual** — the dispute record reads `charged_usdc: 0.01`,
+`creditable_usdc: 0.01`, `credited_usdc: 0.01`: the refund returned the whole
+0.01 XLM step, which was the whole of what the buyer paid on that job. The only
+other refund (`01c3175a…5efa5be`, after the 15:30 count) is also 0.01 of 0.01.
+The live credit policy `dispute_credited_fraction` is 1.0, and the backend
+counts any refund no larger than the charge, so a full refund passes as
+partial. **0 partial refunds exist.** The index marks m05 "1, met" and m08
+"Yes, met", and §6.2 D3-b calls the refund "the matching partial-refund
+transaction".
+
+**Impact** — two SOW rows and one checklist item read as met on a mechanism
+that has never paid a partial credit.
+
+**Resolution path** — mark m05 not met and m08 partly met, or settle one real
+dispute with a credit below the charge and cite that transaction.
+
+**Verified by** — `tests/sow-metrics.spec.ts` `OV-02 m05 …` and `OV-02 m08 …`,
+passing on 2026-10-02; the dispute record read live the same day. Evidence:
+`docs/uat/evidence/6.04-metrics-and-operators.md` §2.
+
+---
