@@ -1068,3 +1068,22 @@ Two inputs bound this story:
   and the 2026-09-30 seals expire around 2026-10-07. OV-03 must run before then.
 - **The asset is testnet XLM.** Every escrow amount moves native XLM; "USDC" in
   a metric's wording is checked against what actually moved.
+
+## Acceptance criteria — EP, the escrow v2 payment path on the live dApp (story 6.07, verifies 5.01)
+
+Every Deliverable 4 claim rests on escrow v2
+(`CCNO5TENCK3EK532I3OZLZ63323FEEULPAKJ74CUP3JZK3XQINRQ5VC4`, live since
+2026-09-30). The developer's disclosed runs (backend `docs/evidence/5.01/`)
+are evidence, not this test. UAT repeats the path from the deployed dApp
+(`https://orizons.xyz`) with its own buyer wallet and its own bound agents.
+Every amount is checked on Horizon testnet and Stellar RPC, never from the
+application's own rendering. Only the v1 and mismatch cases of EP-05 run off
+production, because production cannot show them.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| EP-01 | a funded QA wallet and a plan | the buyer authorizes from the plan card | the plan's maximum moves into escrow custody, the buyer's balance falls by that amount plus the fee, and the plan card said so before signing |
+| EP-02 | a workflow where every step delivers | it settles | each agent's owner receives its step price, the remainder returns to the buyer, the seal's receipts match the charges, and each step is rated |
+| EP-03 | a two-agent plan where one endpoint never answers | the workflow completes | only the delivered step is paid, the rest returns to the buyer, the workflow still seals, and the hung agent is rated 20 |
+| EP-04 | an authorization that was never executed | it expires and the payer reclaims from the console | the full held amount returns to the payer, and the console offered the reclaim |
+| EP-05 | a pin that matches the backend, the v1 id, and a mismatched pin | the plan card renders each case | it shows v2 custody wording, v1 allowance wording, and the paused Authorize with both ids, in that order |
