@@ -92,3 +92,23 @@ test.describe("OV-05 the registration page, with no wallet and no session", () =
     });
   });
 });
+
+/** Where the integration guide SOW milestone m09 names is served. */
+const GUIDE_PATH = "/guide/list-your-agent";
+const GUIDE_TITLE = "List your agent on Orizon";
+
+test.describe("OV-05 the integration guide, with no wallet and no session", () => {
+  test("OV-05 /guide lists the integration guide and links to it", async ({
+    browser,
+  }) => {
+    await visitFresh(browser, "/guide", async (page) => {
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Operator guides" }),
+      ).toBeVisible();
+      await expect(page.getByText("No guides are published yet.")).toHaveCount(0);
+      const entry = page.getByRole("link", { name: new RegExp(GUIDE_TITLE) });
+      await expect(entry, "the guide index does not list the integration guide").toBeVisible();
+      await expect(entry).toHaveAttribute("href", GUIDE_PATH);
+    });
+  });
+});
