@@ -142,7 +142,7 @@ export async function contractCallsBy(get: GetJson, account: string): Promise<Da
     const records = page._embedded.records;
     if (records.length === 0) return calls;
     for (const op of records) {
-      const call = toCall(op);
+      const call = op.source_account === account ? toCall(op) : undefined;
       if (call) calls.push({ ...call, createdAt: op.created_at });
     }
     url = page._links.next.href;
