@@ -213,6 +213,8 @@ test("EP-05 neutral @local: with no network read the card claims neither custody
   // No asset is known either, so the cap prints bare rather than as a guessed currency.
   await expect(signSentence(page)).toHaveText(`Freighter will prompt for one signature authorizing up to ${capText(total).replace(" XLM", "")}.`);
   await expect(paused(page)).toHaveCount(0);
+  // escrowAgreement decides nothing on a failed read, so the mismatch guard does not pause Authorize.
+  await expect(authorize(page)).toBeEnabled();
   await signSentence(page).scrollIntoViewIfNeeded();
   await page.screenshot({ path: evidence("neutral") });
   expect(asked).not.toContain("SUBMIT_TRANSACTION");
