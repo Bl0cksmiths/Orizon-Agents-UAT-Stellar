@@ -438,3 +438,19 @@ see `evidence/6.04-onchain-verification.md` for the verdicts and the defects.
 | OV-06 | the shortfall section of `evidence/6.04-onchain-verification.md`, from the OV-02 actuals | in progress |
 | OV-07 | `tests/evidence-web-links.spec.ts`; `evidence/6.04-checklist-links.md`; the §6.2 table in `evidence/6.04-onchain-verification.md` | in progress |
 | OV-08 | `tools/e2e-run`; `tests/e2e-run.spec.ts`; `evidence/6.04-e2e-run.md` | in progress |
+
+## DE — dispute and refund on escrow v2 (story 6.08)
+
+Verified against the deployed service and Horizon testnet. The spec
+(`tests/dispute-escrow-v2.spec.ts`) passes 44/44 on the developer harness's two
+credited disputes. Those are the baseline only: no criterion passes until QA's
+own console dispute has run. See `evidence/6.08-dispute-escrow-v2.md`.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| DE-01 | console run step 1; screenshots and dispute id in evidence §4 | open, waiting on QA's 6.07 workflow |
+| DE-02 | console run step 2 | open, waiting on an in-window workflow |
+| DE-03 | spec: DE-03 refund, rating and receipt tests; console run step 3 for the score falling | spec passes on the baseline; QA's dispute not yet upheld |
+| DE-04 | console run step 5, then the DE-03 tests on that dispute | open, waiting on Dan's restart |
+| DE-05 | spec: DE-05 API and console window tests (pass); console run step 6 for the cap | window **pass**; cap open, waiting on Dan |
+| DE-06 | spec: DE-06 counts tagged transfers on-chain (passes on the baseline); console run step 4 | open, waiting on Dan's second uphold |
