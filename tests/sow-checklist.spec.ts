@@ -126,3 +126,13 @@ test("OV-07 D1-c and D4-c are marked present but link no registration transactio
     expect(txLinks, `${id} D-089: the SOW asks for outside registration tx hashes`).toHaveLength(0);
   }
 });
+
+test("OV-07 D4-a: the demo video is marked missing, and /demo has no player", async ({ request }) => {
+  const rows = await readRows(request);
+  expect(itemById(rows, "6.1-D4-a").status, "D-082").toBe("missing");
+  const demo = await request.get("/demo");
+  expect(demo.status()).toBe(200);
+  const html = await demo.text();
+  expect(html, "D-082").toContain('data-demo="unpublished"');
+  expect(html, "D-082").not.toMatch(/<video|<iframe/);
+});
