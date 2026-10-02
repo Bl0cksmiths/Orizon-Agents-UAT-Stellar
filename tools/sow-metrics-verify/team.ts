@@ -91,3 +91,8 @@ export async function readTeam(): Promise<Team> {
   }
   return { register: await readRegister(), platform, network };
 }
+
+/** True when the address is in the register or is a platform key. */
+export function isTeam(team: Team, address: string): boolean {
+  return team.register.has(address) || team.platform.has(address);
+}
