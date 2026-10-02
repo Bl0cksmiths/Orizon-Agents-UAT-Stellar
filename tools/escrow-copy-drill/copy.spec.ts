@@ -1,6 +1,7 @@
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { QA_BUYER } from "../onchain-verify/facts.ts";
+import { ESCROW_V2, QA_BUYER } from "../onchain-verify/facts.ts";
 
 /**
  * EP-05 — story 6.07: what the plan card says a signature does, for the escrow the
@@ -9,6 +10,7 @@ import { QA_BUYER } from "../onchain-verify/facts.ts";
  */
 
 const PROD = "https://orizons.xyz";
+const API = "https://orizon-agents-be-stellar.onrender.com";
 const PASSPHRASE = "Test SDF Network ; September 2015";
 
 /** The evidence PNG for a case, under docs/uat/evidence/6.07/. */
@@ -85,6 +87,21 @@ const signSentence = (page: Page) => page.getByText(/^Freighter will prompt for 
 const authorize = (page: Page) => page.getByRole("button", { name: /Authorize & Execute/ });
 
 test.describe.configure({ mode: "serial" });
+
+test("EP-05 precondition @prod: the live backend settles through the escrow the frontend's main pins", async ({ request }) => {
+  const frontend = process.env.DRILL_FRONTEND;
+  expect(frontend, "DRILL_FRONTEND names a frontend checkout whose origin/main pin is read").toBeTruthy();
+  const pins = JSON.parse(execFileSync("git", ["-C", frontend ?? "", "show", "origin/main:lib/escrow-address.json"], { encoding: "utf8" })) as {
+    testnet: string | null;
+  };
+  const main = execFileSync("git", ["-C", frontend ?? "", "rev-parse", "--short=8", "origin/main"], { encoding: "utf8" }).trim();
+  test.info().annotations.push({ type: "pin", description: `${pins.testnet} at FE origin/main ${main}` });
+  const network = await request.get(`${API}/api/stellar/network`, { timeout: 120_000 });
+  expect(network.ok()).toBe(true);
+  const live = ((await network.json()) as { contracts: { payment_escrow?: string } }).contracts.payment_escrow;
+  expect(pins.testnet).toBe(ESCROW_V2);
+  expect(live).toBe(pins.testnet);
+});
 
 test("EP-05 v2 @prod: production's matching pin tells the custody story and asks for the signature", async ({ page }) => {
   const asked = await freighterShim(page);
