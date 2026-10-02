@@ -15,6 +15,7 @@ task's read token.
 from __future__ import annotations
 
 import base64
+import io
 import json
 import os
 import sys
@@ -495,4 +496,9 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    # The backend's trace lines carry non-ASCII arrows; a Windows console's
+    # default code page cannot print them.
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     sys.exit(main(sys.argv))
