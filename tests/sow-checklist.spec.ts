@@ -160,3 +160,20 @@ test("OV-07 D3-a/D3-b: the dispute is credited with a confirmed rating, and its 
   expect(d.refund_tx).toBe("cb2c57929006470f9f554989dd8071e8539d245df529df956693944a78e1e25f");
   expect(d.credited_usdc, "D-080: the 'partial' refund returns the whole charge").toBe(d.charged_usdc);
 });
+
+test("OV-07 D3-c: the live receipt's task is unknown to the API; only its settlement survives (D-090)", async ({
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const task = "tsk_7e1c369cebaf41b3";
+  for (const path of [`/api/tasks/${task}`, `/api/trace/${task}`, `/api/tasks/${task}/artifact`]) {
+    const res = await request.get(`${BACKEND}${path}`, { timeout: 120_000 });
+    expect(res.status(), `${path} D-090`).toBe(404);
+    expect(((await res.json()) as { detail: string }).detail, `${path} D-090`).toBe("unknown_task");
+  }
+  const disputes = await request.get(`${BACKEND}/api/tasks/${task}/disputes`, { timeout: 120_000 });
+  expect(disputes.status()).toBe(200);
+  const body = (await disputes.json()) as { settlement: { charge_tx: string; proof_tx: string } | null };
+  expect(body.settlement?.charge_tx).toBe("785428bf6552208750b375703556c534da557dccd64df8d1db7f954a04ca554b");
+  expect(body.settlement?.proof_tx).toBe("efca274fb83b50865cfc20dc40b6949e5abd1ae23ed3e7a7622e6c9eda37c0a8");
+});
