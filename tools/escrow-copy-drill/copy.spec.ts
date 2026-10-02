@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { ESCROW_V1, ESCROW_V2, QA_BUYER } from "../onchain-verify/facts.ts";
+import { STRKEY_VERSION, encodeStrkey } from "../onchain-verify/strkey.ts";
 
 /**
  * EP-05 — story 6.07: what the plan card says a signature does, for the escrow the
@@ -165,4 +166,37 @@ test("EP-05 v1 @local: the v1 escrow is told as an allowance that moves nothing"
   await signSentence(page).scrollIntoViewIfNeeded();
   await page.screenshot({ path: evidence("v1") });
   expect(asked).not.toContain("SUBMIT_TRANSACTION");
+});
+
+/** A well-formed contract id that is neither escrow: 32 bytes of 0x07, with a real checksum. */
+const FOREIGN = encodeStrkey(STRKEY_VERSION.contract, new Uint8Array(32).fill(7));
+
+test("EP-05 mismatch @local: a foreign escrow pauses Authorize, names both ids and asks nothing of the wallet", async ({ page }) => {
+  const asked = await freighterShim(page);
+  const builds: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/api/stellar/build/authorize")) builds.push(r.url());
+  });
+  await reportEscrow(page, FOREIGN);
+  await page.goto(`${LOCAL}/app/orchestrator`);
+  await decompose(page);
+  await expect(connectSentence(page)).toHaveText("Connect Freighter (testnet) to pay on-chain. Or run a simulated pass, which moves no funds.");
+
+  await connectOnReload(page);
+  const total = await decompose(page);
+  await expect(paused(page)).toHaveText(
+    `On-chain payment is paused: the platform is settling through escrow ${FOREIGN}, but this console is written for escrow ${ESCROW_V2}. Nothing is asked of your wallet until they agree. A simulated pass is unaffected.`,
+  );
+  // The escrow is neither v1 nor the pinned v2, so the sentence claims neither story.
+  await expect(signSentence(page)).toHaveText(`Freighter will prompt for one signature authorizing up to ${capText(total)}.`);
+  await expect(authorize(page)).toBeDisabled();
+  await expect(authorize(page)).toHaveAttribute("aria-describedby", /escrow-mismatch-notice/);
+  await expect(page.getByRole("button", { name: /^simulate/ })).toBeEnabled();
+  await paused(page).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: evidence("mismatch") });
+
+  await authorize(page).click({ force: true });
+  await expect(authorize(page)).toHaveText("Authorize & Execute ▸");
+  expect(asked.filter((t) => t === "SUBMIT_TRANSACTION")).toHaveLength(0);
+  expect(builds).toHaveLength(0);
 });
