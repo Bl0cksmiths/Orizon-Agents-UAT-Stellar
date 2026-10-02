@@ -1,4 +1,4 @@
-# Traceability matrix
+| OV-01 | `tests/evidence-index.spec.ts` (64 of 64, 2026-10-02); `evidence/6.04-evidence-links.md`: 59 links, 55 match, 4 partial, 0 mismatch, 0 dead | **Pass**; partial labels D-081 (Urgent), D-087 |# Traceability matrix
 
 Every acceptance criterion in `test-plan.md` maps to the test that verifies it.
 No cell is empty: a criterion is Covered, Added (written during this
