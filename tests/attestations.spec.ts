@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { randomBytes } from "node:crypto";
 import { contractLifetime, getAttestation, jobEntry, sealEvents, simulateSeal, SEALER, type Attestation, type EntryLifetime } from "../tools/attestation-verify/registry.ts";
-import { CLAIMED_SEALS, type ClaimedSeal } from "../tools/attestation-verify/seals.ts";
+import { CLAIMED_SEALS, PRE_SPRINT_SEALS, type ClaimedSeal } from "../tools/attestation-verify/seals.ts";
 
 /**
  * OV-03 — story 6.04: every workflow attestation the sprint claims is on the
@@ -75,6 +75,18 @@ test.describe("OV-03 — claimed workflow attestations (story 6.04)", () => {
         forJob.map(({ txHash, orchestrator, totalSpent }) => ({ txHash, orchestrator, totalSpent })),
         `job ${seal.jobId}: sealed once, by the claimed tx`,
       ).toEqual([{ txHash: seal.sealTx, orchestrator: seal.orchestrator, totalSpent: seal.totalSpent }]);
+    }
+  });
+
+  test("OV-03: the pre-sprint seals, long archived, are still readable and still refuse a re-seal", async () => {
+    test.setTimeout(RPC_TIMEOUT * 2);
+    for (const { jobId, sealedOn } of PRE_SPRINT_SEALS) {
+      const read = await getAttestation(jobId);
+      expect(read.error, `get(${jobId}) of ${sealedOn} failed`).toBeUndefined();
+      const sealed = read.attestation;
+      if (!sealed) throw new Error(`get(${jobId}) returned nothing`);
+      const probe = await simulateSeal(SEALER, jobId, sealed);
+      expect(probe.error, `job ${jobId} of ${sealedOn}: write-once must outlive archival`).toContain("Error(Contract, #3)");
     }
   });
 
