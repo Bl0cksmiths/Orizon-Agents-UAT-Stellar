@@ -146,3 +146,10 @@ export function scSymbol(text: string): ScArg {
 export function scBytes(bytes: Uint8Array): ScArg {
   return new XdrWriter().u32(T.Bytes).varOpaque(bytes).bytes();
 }
+
+/** The escrow's n-th id: `BytesN<16>`, the counter big-endian in the low bytes. */
+export function escrowId(n: number): ScArg {
+  const bytes = new Uint8Array(16);
+  new DataView(bytes.buffer).setBigUint64(8, BigInt(n));
+  return scBytes(bytes);
+}
