@@ -81,3 +81,14 @@ export function encodeStrkey(payload: Uint8Array, version: number): string {
   full[body.length + 1] = crc >> 8;
   return base32Encode(full);
 }
+
+/** True for a well-formed account id (G…), checksum included. Anything else, a display name included, is false. */
+export function isAccountId(text: unknown): text is string {
+  if (typeof text !== "string") return false;
+  try {
+    decodeStrkey(text, ACCOUNT_VERSION);
+    return true;
+  } catch {
+    return false;
+  }
+}
