@@ -29,7 +29,9 @@ export function txDifferences(observed: ObservedTx | null, claim: TxFacts): stri
   check("contract", call?.contract, claim.contract);
   check("function", call?.fn, claim.fn);
   check("arguments", call?.args, claim.args);
-  const transfers = observed.ops.flatMap((op) => op.transfers.filter((t) => t.asset === "native"));
+  const moved = observed.ops.flatMap((op) => op.transfers);
+  check("non-native assets moved", moved.filter((t) => t.asset !== "native").map((t) => t.asset), []);
+  const transfers = moved.filter((t) => t.asset === "native");
   check("native transfers", transfers.map((t) => [t.from, t.to, t.amount]), claim.transfers);
   return out;
 }
