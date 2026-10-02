@@ -95,3 +95,19 @@ export async function escrowEventsOf(hash: string): Promise<EscrowEvent[]> {
     .filter((e) => e.txHash === hash)
     .map((e) => ({ topic: e.topic.map(decodeScVal), value: decodeScVal(e.value), ledger: e.ledger, closedAt: e.ledgerClosedAt }));
 }
+
+/** "12.3456789" → 123456789n: Horizon's seven-place XLM amount in stroops. */
+function toStroops(amount: string): bigint {
+  const [whole = "0", frac = ""] = amount.split(".");
+  return BigInt(whole) * 10_000_000n + BigInt(frac.padEnd(7, "0").slice(0, 7));
+}
+
+/** The account's native XLM balance on Horizon testnet, in stroops. */
+export async function nativeBalance(account: string): Promise<bigint> {
+  const body = (await getJson(`${HORIZON_TESTNET}/accounts/${account}`)) as {
+    balances: { asset_type: string; balance: string }[];
+  };
+  const native = body.balances.find((b) => b.asset_type === "native");
+  if (!native) throw new Error(`account ${account} lists no native balance`);
+  return toStroops(native.balance);
+}
