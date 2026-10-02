@@ -238,3 +238,16 @@ test("EP-05 none reported @local: a backend naming no escrow pauses Authorize an
   await page.screenshot({ path: evidence("none-reported") });
   expect(asked).not.toContain("SUBMIT_TRANSACTION");
 });
+
+// D-NEW-COPY-1: with the network read failed, production's real escrow v2 would take the cap
+// into custody at signing, yet the card asks for the signature without saying funds move.
+test.fail("EP-05 D-NEW-COPY-1 @prod: an unknown escrow does not get a signature that moves funds unannounced", async ({ page }) => {
+  await freighterShim(page);
+  await page.route("**/api/stellar/network", (route) => route.fulfill({ status: 503, json: { detail: "drill: network read refused" } }));
+  await page.goto(`${PROD}/app/orchestrator`);
+  await connectOnReload(page);
+  await decompose(page);
+  await expect(signSentence(page)).toBeVisible();
+  const told = await signSentence(page).textContent();
+  if (!told?.includes("into escrow now")) await expect(authorize(page)).toBeDisabled({ timeout: 10_000 });
+});
