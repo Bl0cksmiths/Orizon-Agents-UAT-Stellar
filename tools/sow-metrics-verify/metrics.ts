@@ -93,3 +93,8 @@ export function countedCharges(s: Snapshot, cutoff: number): Charge[] {
 export function usdcCharges(s: Snapshot, cutoff: number): Charge[] {
   return s.team.network.asset === "native" ? [] : countedCharges(s, cutoff);
 }
+
+/** m03: distinct settled jobs with a counted charge to an agent whose owner is outside the team. */
+export function externalWorkflows(s: Snapshot, cutoff: number): string[] {
+  return [...new Set(countedCharges(s, cutoff).filter((c) => !c.ownerIsTeam).map((c) => c.jobId))];
+}
