@@ -111,3 +111,13 @@ export async function nativeBalance(account: string): Promise<bigint> {
   if (!native) throw new Error(`account ${account} lists no native balance`);
   return toStroops(native.balance);
 }
+
+/** What transaction `hash` cost its source: Horizon's `fee_charged`, in stroops, and its ledger close time. */
+export async function feeCharged(hash: string): Promise<{ fee: bigint; closedAt: string; successful: boolean }> {
+  const tx = (await getJson(`${HORIZON_TESTNET}/transactions/${hash}`)) as {
+    fee_charged: string;
+    created_at: string;
+    successful: boolean;
+  };
+  return { fee: BigInt(tx.fee_charged), closedAt: tx.created_at, successful: tx.successful };
+}
