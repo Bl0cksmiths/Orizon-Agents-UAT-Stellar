@@ -28,12 +28,23 @@ const SIGNING_KEY = "GDB4N25UYM3YNTTAWX7LSGI2P7OR62QZQXRNQWAGF5TFVENDKCTTCDHP";
 
 type Dispute = { status: string; payer: string; credited_usdc: number; refund_tx: string; rating_tx: string; agent_id: string };
 type BalanceChange = { asset_type: string; from: string; to: string; amount: string; destination_muxed_id?: string };
-type Operation = { source_account: string; transaction_successful: boolean; asset_balance_changes?: BalanceChange[] };
+type Operation = {
+  source_account: string;
+  transaction_successful: boolean;
+  asset_balance_changes?: BalanceChange[];
+  parameters?: { value: string }[];
+};
 
 /** The muxed id a dispute's refund is paid under: refund_svc.refund_muxed_id. */
 function refundMuxedId(disputeId: string): string {
   const digest = createHash("sha256").update(`${disputeId}orizon-refund:v1`, "utf8").digest();
   return digest.readBigUInt64BE(0).toString();
+}
+
+/** An XDR ScVal symbol (tag 15) as Horizon gives it, or "" for anything else. */
+function scSymbol(b64: string): string {
+  const xdr = Buffer.from(b64, "base64");
+  return xdr.readUInt32BE(0) === 15 ? xdr.subarray(8, 8 + xdr.readUInt32BE(4)).toString("utf8") : "";
 }
 
 test.describe("DE — dispute and refund on escrow v2 (story 6.08)", () => {
@@ -84,6 +95,25 @@ test.describe("DE — dispute and refund on escrow v2 (story 6.08)", () => {
           destination_muxed_id: refundMuxedId(id),
         }),
       ]);
+    });
+  }
+
+  for (const id of CREDITED) {
+    test(`DE-03 ${id.slice(0, 12)}…'s rating is a kind=dispute submit against its agent, from the signing key`, async ({ request }) => {
+      const dispute = (await (await request.get(`/api/disputes/${id}`, { timeout: COLD_START_TIMEOUT })).json()) as Dispute & {
+        rating_confirmed: boolean;
+      };
+      expect(dispute.rating_confirmed).toBe(true);
+      const ops = await request.get(`${HORIZON}/transactions/${dispute.rating_tx}/operations`, { timeout: COLD_START_TIMEOUT });
+      expect(ops.status(), `Horizon has ${dispute.rating_tx}`).toBe(200);
+      const records = (await ops.json())._embedded.records as Operation[];
+      expect(records).toHaveLength(1);
+      expect(records[0]?.transaction_successful).toBe(true);
+      expect(records[0]?.source_account).toBe(SIGNING_KEY);
+      const symbols = (records[0]?.parameters ?? []).map((parameter) => scSymbol(parameter.value));
+      expect(symbols[1]).toBe("submit");
+      expect(symbols).toContain(dispute.agent_id);
+      expect(symbols.at(-1), "the rating's kind").toBe("dispute");
     });
   }
 });
