@@ -209,4 +209,24 @@ test.describe("OV-05 the demo video, with no wallet and no session", () => {
       await expect(page.locator("main video, main iframe")).toHaveCount(0);
     });
   });
+
+  /**
+   * OV-05 asks for the demo video to be reachable, and there is no video to
+   * reach (D-NEW-PUB-1). The published player (components/demo/demo-player.tsx)
+   * embeds the video in an iframe, so that is what a reachable video looks
+   * like on this page.
+   *
+   * Marked `test.fail()`: the gap is real and is not this suite's to close.
+   * When the video is published this passes unexpectedly, which is the signal
+   * to drop the marker.
+   */
+  test("OV-05 the demo video is published on /demo and its player is on the page", async ({
+    browser,
+  }) => {
+    test.fail();
+    await visitFresh(browser, DEMO_PATH, async (page) => {
+      await expect(page.locator('[data-demo="published"]')).toHaveCount(1);
+      await expect(page.locator("main iframe, main video").first()).toBeVisible();
+    });
+  });
 });
