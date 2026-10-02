@@ -6,7 +6,8 @@
 
 import { ESCROW_V2 } from "../onchain-verify/facts.ts";
 import { HORIZON_TESTNET } from "../onchain-verify/horizon.ts";
-import { field, readContractData, type PostJson } from "../onchain-verify/rpc.ts";
+import { field, readContractData, RPC_TESTNET, type PostJson } from "../onchain-verify/rpc.ts";
+import { decodeScVal, type ScValue } from "../onchain-verify/scval.ts";
 
 async function getJson(url: string): Promise<unknown> {
   const res = await fetch(url);
@@ -63,4 +64,34 @@ export async function readAuthorization(authIdHex: string): Promise<Authorizatio
     throw new Error(`authorization ${authIdHex} is not the escrow v2 shape`);
   }
   return { payer, agentId, maxAmount, spent, expiresAt: Number(expiresAt), revoked, settled };
+}
+
+/** One escrow event: its decoded topics and value, and the ledger it closed in. */
+export type EscrowEvent = { topic: ScValue[]; value: ScValue; ledger: number; closedAt: string };
+
+/**
+ * Every event escrow v2 emitted in transaction `hash`, from Stellar RPC
+ * `getEvents` over the transaction's own ledger.
+ */
+export async function escrowEventsOf(hash: string): Promise<EscrowEvent[]> {
+  const tx = (await getJson(`${HORIZON_TESTNET}/transactions/${hash}`)) as { ledger: number };
+  const res = await postJson(RPC_TESTNET, {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getEvents",
+    params: {
+      startLedger: tx.ledger,
+      endLedger: tx.ledger + 1,
+      filters: [{ type: "contract", contractIds: [ESCROW_V2] }],
+      pagination: { limit: 200 },
+    },
+  });
+  const body = res.body as {
+    result?: { events: { txHash: string; ledger: number; ledgerClosedAt: string; topic: string[]; value: string }[] };
+    error?: unknown;
+  };
+  if (res.status !== 200 || !body.result) throw new Error(`getEvents answered ${res.status}: ${JSON.stringify(body.error)}`);
+  return body.result.events
+    .filter((e) => e.txHash === hash)
+    .map((e) => ({ topic: e.topic.map(decodeScVal), value: decodeScVal(e.value), ledger: e.ledger, closedAt: e.ledgerClosedAt }));
 }
