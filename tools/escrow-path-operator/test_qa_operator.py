@@ -173,3 +173,25 @@ def test_publish_names_the_blocker_and_carries_no_secret(operator_state: Keypair
     assert out["intents"] is None
     assert "single, pair" in out["blocker"]
     assert operator_state.secret not in text
+
+
+def test_check_refuses_a_foreign_owner_and_an_unreachable_endpoint(
+    operator_state: Keypair, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    url = "https://agent.example.com"
+    unreachable = {"key": "reachable", "status": "failed", "detail": "Your endpoint did not answer within 5 s."}
+    backend(
+        monkeypatch,
+        {
+            "/api/agents/qa607_ok/binding": {"endpoint_url": url, "owner": operator_state.public_key},
+            "/api/agents/qa607_ok/readiness": {"checked_at": 1, "ready": False, "steps": [unreachable]},
+        },
+    )
+    stranger = Keypair.random().public_key
+    monkeypatch.setattr(qa_operator, "owner_of", lambda *_: stranger)
+    with pytest.raises(qa_operator.Refused, match=f"is {stranger}, not the operator"):
+        qa_operator.check("qa607_ok", url)
+    monkeypatch.setattr(qa_operator, "owner_of", lambda *_: operator_state.public_key)
+    with pytest.raises(qa_operator.Refused, match="not reachable: Your endpoint did not answer"):
+        qa_operator.check("qa607_ok", url)
+    assert qa_operator.load_run()["agents"]["qa607_ok"]["check"]["readiness"]["ready"] is False
