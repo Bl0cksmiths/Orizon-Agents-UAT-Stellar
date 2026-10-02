@@ -200,3 +200,20 @@ test("EP-05 mismatch @local: a foreign escrow pauses Authorize, names both ids a
   expect(asked.filter((t) => t === "SUBMIT_TRANSACTION")).toHaveLength(0);
   expect(builds).toHaveLength(0);
 });
+
+test("EP-05 neutral @local: with no network read the card claims neither custody story", async ({ page }) => {
+  const asked = await freighterShim(page);
+  await page.route("**/api/stellar/network", (route) => route.fulfill({ status: 503, json: { detail: "drill: network read refused" } }));
+  await page.goto(`${LOCAL}/app/orchestrator`);
+  await decompose(page);
+  await expect(connectSentence(page)).toHaveText("Connect Freighter (testnet) to pay on-chain. Or run a simulated pass, which moves no funds.");
+
+  await connectOnReload(page);
+  const total = await decompose(page);
+  // No asset is known either, so the cap prints bare rather than as a guessed currency.
+  await expect(signSentence(page)).toHaveText(`Freighter will prompt for one signature authorizing up to ${capText(total).replace(" XLM", "")}.`);
+  await expect(paused(page)).toHaveCount(0);
+  await signSentence(page).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: evidence("neutral") });
+  expect(asked).not.toContain("SUBMIT_TRANSACTION");
+});
