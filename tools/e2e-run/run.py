@@ -310,6 +310,25 @@ class Run:
         if (task["status"], task.get("settlement"), len(seen)) != ("complete", "settled", 2):
             raise Refused(f"task {task_id} ended {task['status']}, settlement {task.get('settlement')}, not settled")
 
+    def settlement(self) -> None:
+        """The settlement record the dispute routes start from, and its window."""
+        task_id = self.artifact("task")["task_id"]
+        listing = self.api.call("GET", f"/api/tasks/{task_id}/disputes", token=self.token)
+        s = listing.get("settlement")
+        if not s:
+            raise Refused(f"task {task_id} has no settlement record")
+        fields = ("step_index", "agent_id", "price_usdc", "delivered", "paid_usdc", "receipt_id_hex", "unpaid_reason")
+        self.capture(
+            "settlement",
+            job_id_hex=s["job_id_hex"],
+            payer=s["payer"],
+            settled_usdc=s["settled_usdc"],
+            charge_tx=s["charge_tx"],
+            proof_tx=s["proof_tx"],
+            window_closes_at=listing.get("window_closes_at"),
+            steps=[{k: step.get(k) for k in fields} for step in s["steps"]],
+        )
+
     def reachability(self, agent_id: str) -> dict[str, Any]:
         """The backend's own readiness probe of the agent's bound endpoint: its
         `reachable` step, as `{status, detail}`."""
