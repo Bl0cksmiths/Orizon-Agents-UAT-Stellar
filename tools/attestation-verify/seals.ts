@@ -81,3 +81,21 @@ export const CLAIMED_SEALS: ClaimedSeal[] = [
     sealedAt: 1_790_790_517n,
   },
 ];
+
+/**
+ * The 8 seals of 2026-05-13 to 2026-06-09 the evidence index cites as
+ * pre-sprint history ("8 pre-sprint seals"), sealed by the former sealer
+ * GA7AI…5OQV. Found through Horizon (the RPC keeps a week of events); their
+ * ledger entries are long archived, which makes them the live check that
+ * write-once survives archival.
+ */
+export const PRE_SPRINT_SEALS: { jobId: string; sealTx: string; sealedOn: string }[] = [
+  { jobId: "1f895f9c76231a814e4df85a5b06b177", sealTx: "64f4395dbd1c6505f386a037184dd5b2aa1c7b6f72ff56075172f59e8d9618a1", sealedOn: "2026-05-13" },
+  { jobId: "ab06861259027b7c15d91106302df246", sealTx: "41277b734af9bc3048326a8f425f9bdedbe29d22294fb35f7ca0ce7a127ec56e", sealedOn: "2026-05-13" },
+  { jobId: "b44ea40cfba1494656f8ed6de74dfb52", sealTx: "82b5df590cff79c5a2d2ec01b27e3c34990e2cf4c6b7f203c2e97e6427d22354", sealedOn: "2026-05-14" },
+  { jobId: "964245449012b8abf71123f891a45257", sealTx: "480241be88d2c6a5842bca26a7eb8290cefe4a7087c17f5d7f5ebbb12522fa7f", sealedOn: "2026-05-14" },
+  { jobId: "a5bee30a100cc1ab47c761d1b4ca911e", sealTx: "f0ae4a6fc928875289f9faf1630dd4fc8e8606beb20702be3355ea3989d0c0fd", sealedOn: "2026-05-18" },
+  { jobId: "e8245440f53695f45932666a528ff8a6", sealTx: "9061a314b74c73165e3bed414fcca749d380f28dc0e727422156f1639afa6ecf", sealedOn: "2026-06-09" },
+  { jobId: "052d4289271335eb899abdef76f7a48a", sealTx: "41614124a7fb5cdbfa7306e64eb02feda6032eebba45fbd42dff7141702d9154", sealedOn: "2026-06-09" },
+  { jobId: "558ba50de6bc09cb3014ed288f33a2cc", sealTx: "03c3f815eb9a87c705b1ee14a3ed75ba49f24c653c164c26def138dea36367b7", sealedOn: "2026-06-09" },
+];
