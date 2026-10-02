@@ -1087,3 +1087,26 @@ production, because production cannot show them.
 | EP-03 | a two-agent plan where one endpoint never answers | the workflow completes | only the delivered step is paid, the rest returns to the buyer, the workflow still seals, and the hung agent is rated 20 |
 | EP-04 | an authorization that was never executed | it expires and the payer reclaims from the console | the full held amount returns to the payer, and the console offered the reclaim |
 | EP-05 | a pin that matches the backend, the v1 id, and a mismatched pin | the plan card renders each case | it shows v2 custody wording, v1 allowance wording, and the paused Authorize with both ids, in that order |
+
+Five inputs bound this story:
+- **Expiry is wall-clock.** `authorize` takes `expires_at` in Unix seconds, and
+  the dApp asks for 1800 s. Reclaim opens 30 minutes after authorize, needs a
+  ledger timestamp strictly past `expires_at`, and loses to a settle that lands
+  first.
+- **Reclaim is offered in two places only.** The plan card's held-funds notice,
+  and the trace receipt when settlement failed in the same browser session that
+  holds the authorization id. Reclaim has never been exercised live before this
+  story.
+- **The hang is UAT's own.** The reference agent's `FAULT_MODE=hang_after:0` is
+  not available here. EP-03 uses UAT's operator endpoint
+  (`tools/operator-endpoint/server.ts`) in `timeout` mode, which holds every
+  dispatch past the backend's 100 s dispatch deadline. To the backend the two
+  are the same failure, `response_timeout`.
+- **The wallet is signed by a shim.** Playwright answers Freighter's message
+  protocol and signs with a real QA testnet key, so every transaction is real
+  and the dApp's own code builds and submits it. One manual pass with the real
+  Freighter extension is recorded alongside it.
+- **Seeded `agt_*` steps are never paid.** They have no on-chain owner, so a
+  plan that includes one shows the step in "spent" while settle pays nothing for
+  it. This is known and is not re-diagnosed; EP-02 and EP-03 use agents UAT
+  owns.
