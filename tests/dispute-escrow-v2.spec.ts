@@ -26,7 +26,7 @@ const CREDITED = ["dsp_15acee279ac02852a5877ac1696ec4b5", "dsp_d87167ccf384e41c7
 const HORIZON = "https://horizon-testnet.stellar.org";
 const SIGNING_KEY = "GDB4N25UYM3YNTTAWX7LSGI2P7OR62QZQXRNQWAGF5TFVENDKCTTCDHP";
 
-type Dispute = { status: string; payer: string; credited_usdc: number; refund_tx: string; rating_tx: string; agent_id: string };
+type Dispute = { task_id: string; status: string; payer: string; credited_usdc: number; refund_tx: string; rating_tx: string; agent_id: string };
 type BalanceChange = { asset_type: string; from: string; to: string; amount: string; destination_muxed_id?: string };
 type Operation = {
   source_account: string;
@@ -138,4 +138,18 @@ test.describe("DE — dispute and refund on escrow v2 (story 6.08)", () => {
       expect(tagged.filter((muxed) => muxed === refundMuxedId(id)), `refund transfers tagged ${id}`).toHaveLength(1);
     }
   });
+
+  for (const id of CREDITED) {
+    test(`DE-03 ${id.slice(0, 12)}…'s receipt reads Refunded and links both transactions`, async ({ page, request }) => {
+      test.setTimeout(COLD_START_TIMEOUT * 2);
+      const dispute = (await (await request.get(`/api/disputes/${id}`, { timeout: COLD_START_TIMEOUT })).json()) as Dispute;
+      await page.goto(`/app/trace?task=${dispute.task_id}`, { waitUntil: "domcontentloaded" });
+      await expect(page.getByText("Refunded", { exact: true })).toBeVisible({ timeout: COLD_START_TIMEOUT });
+      const explorer = "https://stellar.expert/explorer/testnet/tx/";
+      await expect(page.getByRole("link", { name: /view refund on stellar\.expert/i })).toHaveAttribute("href", explorer + dispute.refund_tx);
+      await expect(page.getByRole("link", { name: /view rating on stellar\.expert/i })).toHaveAttribute("href", explorer + dispute.rating_tx);
+      // Leaving the page closes the finished task's reconnecting trace stream.
+      await page.goto("about:blank");
+    });
+  }
 });
