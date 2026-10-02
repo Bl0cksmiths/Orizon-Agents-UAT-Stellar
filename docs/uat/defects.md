@@ -3579,7 +3579,7 @@ screenshots are real and on GitHub. The live link no longer backs them.
 **Resolution path** — relabel the link as historical, or point it at a
 receipt the API can still serve.
 
-**Verified by** — the four routes read over HTTP on 2026-10-02. Evidence:
+**Verified by** — the four routes read over HTTP on 2026-10-02, and pinned by `tests/sow-checklist.spec.ts` "OV-07 D3-c: …". Evidence:
 `docs/uat/evidence/6.04-onchain-verification.md` (OV-07).
 
 ---
