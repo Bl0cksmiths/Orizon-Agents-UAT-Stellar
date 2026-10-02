@@ -205,7 +205,7 @@ test.describe("OV-05 the integration guide, with no wallet and no session", () =
   /**
    * SOW m09 wants the guide "published". It is public, but by its own words
    * it is not finished: no newcomer has followed it end to end
-   * (D-NEW-PUB-2). The page drops the draft note once the frontmatter reads
+   * (D-088). The page drops the draft note once the frontmatter reads
    * `status: validated`, so that is what a published guide looks like here.
    *
    * Marked `test.fail()`: when the guide is validated this passes
@@ -258,7 +258,7 @@ test.describe("OV-05 the demo video, with no wallet and no session", () => {
 
   /**
    * OV-05 asks for the demo video to be reachable, and there is no video to
-   * reach (D-NEW-PUB-1). The published player (components/demo/demo-player.tsx)
+   * reach (D-082). The published player (components/demo/demo-player.tsx)
    * embeds the video in an iframe, so that is what a reachable video looks
    * like on this page.
    *
