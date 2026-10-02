@@ -168,4 +168,29 @@ test.describe("EP-04 in the console", () => {
       await other.close();
     }
   });
+
+  // D-NEW-RECLAIM-2: the console holds a never-executed authorization only in
+  // the plan card's state, so the paying wallet in a fresh session (a reload,
+  // a closed tab) is offered no reclaim anywhere while its funds sit in escrow.
+  test("the paying wallet in a fresh session is offered the reclaim", async ({ browser }) => {
+    test.fail(true, "D-NEW-RECLAIM-2: the offer lives only in the tab that authorized");
+    const fresh = await browser.newContext();
+    try {
+      const freshPage = await fresh.newPage();
+      await installFreighterShim(freshPage, { address: BUYER });
+      const offers = freshPage.getByText(/Reclaim opens at|Your funds are held in escrow|Reclaim your funds/);
+      let offered = 0;
+      for (const where of ["/app/orchestrator", "/app/trace"]) {
+        await freshPage.goto(where);
+        await freshPage.waitForLoadState("networkidle");
+        offered += await offers.count();
+        if (where === "/app/orchestrator") {
+          await freshPage.screenshot({ path: path.join(EVIDENCE, "ep04-fresh-session.png"), fullPage: true });
+        }
+      }
+      expect(offered, "a console page offering the held authorization's reclaim").toBeGreaterThan(0);
+    } finally {
+      await fresh.close();
+    }
+  });
 });
