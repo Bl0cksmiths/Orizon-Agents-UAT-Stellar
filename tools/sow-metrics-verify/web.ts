@@ -10,6 +10,14 @@ import { BACKEND } from "./team.ts";
 export const FRONTEND = "https://orizons.xyz";
 export const GITHUB_API = "https://api.github.com";
 
+export const REGISTER_ROUTE = "POST /api/stellar/build/register-agent";
+export const DISPUTE_ROUTES = [
+  "POST /api/disputes",
+  "GET /api/disputes/{dispute_id}",
+  "POST /api/disputes/{dispute_id}/uphold",
+  "POST /api/disputes/{dispute_id}/reject",
+] as const;
+
 export interface Page {
   path: string;
   status: number;
