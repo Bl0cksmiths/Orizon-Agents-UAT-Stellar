@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
-import { liveStatuses, readIndex, type EvidenceIndex } from "../tools/sow-metrics-verify/claims.ts";
+import { liveStatuses, measuredAt, readIndex, type EvidenceIndex } from "../tools/sow-metrics-verify/claims.ts";
 import { SOW_ROWS } from "../tools/sow-metrics-verify/metrics.ts";
 import { snapshot, type Snapshot } from "../tools/sow-metrics-verify/snapshot.ts";
+import { isAccountId } from "../tools/sow-metrics-verify/strkey.ts";
 
 /**
  * Story 6.04, OV-02 and the inputs to OV-06: each of the eleven SOW §6.3
@@ -39,4 +40,13 @@ test("OV-02 the claims under test are the ones the live /evidence page shows", a
   const claimed = SOW_ROWS.filter((r) => index.claims.has(r.id)).map((r) => index.claims.get(r.id)!.status);
   expect(claimed).toHaveLength(10);
   expect(statuses).toEqual(claimed);
+});
+
+test("OV-02 the verifier refuses a corrupted address and a measurement time the index does not name", () => {
+  const admin = chain.team.network.admin;
+  expect(isAccountId(admin)).toBe(true);
+  const corrupted = admin.slice(0, -1) + (admin.endsWith("A") ? "B" : "A");
+  expect(isAccountId(corrupted)).toBe(false);
+  expect(isAccountId("calculatorai")).toBe(false);
+  expect(() => measuredAt(index, "00:01")).toThrow(/names no measurement/);
 });
