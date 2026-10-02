@@ -3428,8 +3428,8 @@ still counts as outside.
 
 **Steps to reproduce** — simulate
 `AttestationRegistry.get(fbc9b0e78d609571b2587a3c39c2de9c)` (run ac5, seal
-`41a159ff…fd64`); read the ac5 lifecycle in the backend's
-`docs/evidence/5.01/ac4-ac5/`.
+`41a159ff…fd64`); read the backend's
+`docs/evidence/5.01/ac5/lifecycle.jsonl` and the sheet in `docs/evidence/5.01/ac4-ac5/`.
 
 **Expected** — the attested agents match the paid receipts, or the attestation
 tells delivered agents from failed ones.
