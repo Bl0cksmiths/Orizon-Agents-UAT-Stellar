@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { randomBytes } from "node:crypto";
-import { getAttestation, jobEntry, simulateSeal, SEALER, type Attestation, type EntryLifetime } from "../tools/attestation-verify/registry.ts";
+import { contractLifetime, getAttestation, jobEntry, simulateSeal, SEALER, type Attestation, type EntryLifetime } from "../tools/attestation-verify/registry.ts";
 import { CLAIMED_SEALS, type ClaimedSeal } from "../tools/attestation-verify/seals.ts";
 
 /**
@@ -89,5 +89,18 @@ test.describe("OV-03 — claimed workflow attestations (story 6.04)", () => {
     expect(read.attestation, `job ${fresh} was never sealed`).toBeUndefined();
     expect(read.error, "an unknown job must fail NotFound (#2)").toContain("Error(Contract, #2)");
     expect(await jobEntry(fresh), "an unknown job has no ledger entry").toBeUndefined();
+  });
+
+  test("OV-03: the registry's instance and wasm code are live, so every get and seal can load them", async () => {
+    test.setTimeout(RPC_TIMEOUT);
+    const registry = await contractLifetime();
+    const lapsed = (what: string, liveUntil: number) =>
+      `${what} lived until ledger ${liveUntil}, latest is ${registry.latestLedger}: registry archived, restore needed`;
+    expect(registry.instanceLiveUntil, lapsed("the registry instance", registry.instanceLiveUntil)).toBeGreaterThanOrEqual(
+      registry.latestLedger,
+    );
+    expect(registry.codeLiveUntil, lapsed(`wasm ${registry.wasmHash}`, registry.codeLiveUntil)).toBeGreaterThanOrEqual(
+      registry.latestLedger,
+    );
   });
 });
