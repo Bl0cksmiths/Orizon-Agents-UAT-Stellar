@@ -423,6 +423,28 @@ test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10
     expect(wrong, "pinned transaction links whose label states a score the rating did not write").toEqual([]);
   });
 
+  test("RV-01 every pinned account's label names its wallet, its role and the agents it owned at the snapshot", async ({ request }) => {
+    const register = await teamRegister(request);
+    const accounts = labelledLinks(await evidenceHtml(request)).filter((l) => l.kind === "account" && ACCOUNT_FACTS.has(l.id));
+    expect(accounts.length, "the page links pinned accounts").toBeGreaterThan(0);
+    const wrong = accounts.flatMap(({ position, label, id }) => {
+      const out: string[] = [];
+      const [, prefix, suffix] = /\b(G[A-Z2-7]{3,})…([A-Z2-7]{3,})\b/.exec(label) ?? [];
+      if (prefix && suffix && !(id.startsWith(prefix) && id.endsWith(suffix))) out.push(`#${position} abbreviates another wallet than ${id}`);
+      const named = namesSigner(label, id, register);
+      if (named === false) out.push(`#${position} says "${label}"; ${id} has role "${register.find((w) => w.address === id)?.role}"`);
+      const owns = /— owns (.+?)(?: \(|$)/.exec(label)?.[1];
+      const facts = sorted(ACCOUNT_FACTS.get(id)?.owns ?? []);
+      if (owns !== undefined) {
+        const claim = ownsClaim(owns);
+        const holds = "count" in claim ? facts.length === claim.count : show(facts) === show(claim.names);
+        if (!holds) out.push(`#${position} says it owns ${owns}; at the snapshot it owned ${facts.join(", ")}`);
+      }
+      return out;
+    });
+    expect(wrong, "pinned account links whose label misnames the wallet, its role or its agents").toEqual([]);
+  });
+
   test("RV-04 no outside operator's agent id, wallet or hash appears on the page", async ({ request }) => {
     // D-092 (Critical): the index links outside operators' registrations and
     // wallets. Expected to fail until the page drops them; it then passes
