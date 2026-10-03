@@ -134,6 +134,14 @@ function namesSigner(clause: string, signer: string, register: TeamWallet[]): bo
   return word ? word.key === signer : undefined;
 }
 
+/** Every string inside a decoded contract value, however deeply nested. */
+function stringsIn(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(stringsIn);
+  if (value && typeof value === "object") return Object.values(value).flatMap(stringsIn);
+  return [];
+}
+
 /** Horizon reads through Playwright's request context, body parsed whatever the status. */
 const horizon = (request: APIRequestContext): GetJson => async (url) => {
   const res = await request.get(url, { timeout: 30_000 });
@@ -391,6 +399,18 @@ test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10
       return out;
     });
     expect(wrong, "pinned transaction links whose label names another signer or none it can be checked against").toEqual([]);
+  });
+
+  test("RV-01 every pinned transaction's label names only the agent its call names", async ({ request }) => {
+    const agents = (await readAgents(rpc(request), REGISTRY)).map((agent) => agent.id);
+    const wrong = (await pinnedTxLinks(request)).flatMap(({ position, label, facts }) => {
+      const called = agents.filter((id) => stringsIn(facts.args).includes(id));
+      const named = agents.filter((id) => showsAgent(label, id));
+      const others = called.length > 0 ? named.filter((id) => !called.includes(id)) : [];
+      // The stray names stay out of the message: they may be outside operators' agents (D-092).
+      return others.length > 0 ? [`#${position} names ${others.length} agent(s) besides ${called.join(", ")}, the call's`] : [];
+    });
+    expect(wrong, "pinned transaction links whose label names an agent other than the one its call names").toEqual([]);
   });
 
   test("RV-04 no outside operator's agent id, wallet or hash appears on the page", async ({ request }) => {
