@@ -310,4 +310,43 @@ test.describe("PP-05 /demo states its state honestly, and plays with no account"
       }
     });
   });
+
+  /**
+   * With no script there is no player, so the page must still hand over
+   * everything: a named link to each part on YouTube, and, for each
+   * deliverable the evidence table names, its transaction to open on the
+   * testnet explorer, with the words that say that is how to check it.
+   */
+  test("PP-05 /demo with JavaScript off links each part's video and says how to verify each deliverable", async ({
+    browser,
+  }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 2);
+    await visit(
+      browser,
+      "/demo",
+      async (page) => {
+        await expect(page.locator('[data-demo="published"]')).toHaveCount(1);
+        const parts = await page.getByRole("heading", { level: 2, name: /^Part \d+:/ }).count();
+        expect(parts, "/demo shows no part").toBeGreaterThan(0);
+        for (let n = 1; n <= parts; n++) {
+          await expect(page.getByRole("link", { name: `Watch part ${n} on YouTube`, exact: true })).toHaveAttribute(
+            "href",
+            /^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/,
+          );
+        }
+        const evidence = page.locator("section", { has: page.getByRole("heading", { level: 2, name: "On-chain evidence" }) });
+        await expect(evidence).toContainText(/open one to check it yourself/i);
+        const rows = evidence.locator("tbody tr");
+        expect(await rows.count(), "the evidence table is empty").toBeGreaterThan(0);
+        for (const row of await rows.all()) {
+          await expect(row.getByRole("cell", { name: /^D\d+$/ })).toHaveCount(1);
+          await expect(row.getByRole("link", { name: /on Stellar Expert/ })).toHaveAttribute(
+            "href",
+            /^https:\/\/stellar\.expert\/explorer\/testnet\/tx\/[0-9a-f]{64}$/,
+          );
+        }
+      },
+      { javaScriptEnabled: false },
+    );
+  });
 });
