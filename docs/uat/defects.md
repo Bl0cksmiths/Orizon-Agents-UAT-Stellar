@@ -3870,3 +3870,32 @@ drill key to the team register.
 the register on 2026-10-03.
 
 ---
+## D-099 — New-tab links on the public pages do not say they open a new tab
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** PP-01 (story 6.11); 5.03, 5.04, 5.06 — `/guide/list-your-agent`, `/demo`, `/litepaper`, `/evidence`
+
+**Steps to reproduce** — on any of the four pages, list the accessible names
+of the `target="_blank"` links (or tab to them with a screen reader).
+
+**Expected** — every link that opens a new tab says so in its accessible
+name, as `/demo`'s Stellar Expert links already do ("… (opens in a new tab)").
+
+**Actual** — on 2026-10-03, in Chromium, WebKit and Firefox at desktop and
+phone widths: the shared site footer's new-tab links (ERC-8004, x402,
+Contracts, Docs, API, Status, Changelog, GitHub, LinkedIn and the three repo
+links) say nothing about the new tab. On `/evidence` and `/litepaper` the
+links say "(opens GitHub)" or "(opens Stellar Expert)", which names the
+destination but not the new tab; that wording is deliberate in the frontend
+(`lib/evidence/display.ts`), so whether it is enough is a product call.
+
+**Resolution path** — add "(opens in a new tab)" to the footer's links, and
+decide on the evidence and litepaper wording.
+
+**Verified by** — `tests/public-pages.spec.ts` "PP-01 every new-tab link on
+{page} says it opens a new tab" (expected failure, four pages). Playwright
+keeps no screenshot for an expected failure; the failure context is in the
+test-results folder of the 2026-10-03 run.
+
+---
