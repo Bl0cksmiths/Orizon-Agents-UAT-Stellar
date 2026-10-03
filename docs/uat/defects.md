@@ -3731,30 +3731,36 @@ status judgements for `m01`, `m02`, finding P1). Not testable without
 identifiers this suite may not hold; manual.
 
 ---
-## D-094 — The demo video is marked present and met, but there is no single 3–5 minute video
+## D-094 — The demo video is marked present, but no one video shows both an operator and a buyer
 
 - **Severity:** Major
 - **Status:** Open
-- **Affects:** RV-02 (story 6.10); 5.05 item `6.1-D4-a`, metric `m10`; supersedes D-082's "not recorded"
+- **Affects:** RV-02 (story 6.10); 5.05 item `6.1-D4-a`; supersedes D-082's "not recorded"
 
 **Steps to reproduce** — open `https://orizons.xyz/demo` and the two YouTube
-links under `6.1-D4-a` and `m10`; read each video's length and publish date
-from YouTube.
+links under `6.1-D4-a`; read each video's length, date and content.
 
-**Expected** — the SOW's "3–5 min demo video" (m10), showing the deliverables
-of this sprint, before `6.1-D4-a` reads present and m10 met.
+**Expected** — the SOW's D4 evidence, "a 3–5 minute demo video (operator +
+buyer perspectives)", before `6.1-D4-a` reads present.
 
-**Actual** — `/demo` plays two unlisted clips one after the other: 189 s,
-published 2026-10-02, and 71 s, published 2026-07-24 ("Orizons Demo APAC
-Finalists (Buyers/Users)"), recorded on the July console before SOW v4. Neither
-is 3–5 minutes on its own; together they are 4 min 20 s. Of the four
-deliverables, only D1 (registration) is shown.
+**Actual** — `/demo` plays two unlisted clips one after the other. Part 1,
+189 s (3 min 9 s), published 2026-10-02, shows the operator side: registering
+an agent. Part 2, 71 s, published 2026-07-24 ("Orizons Demo APAC Finalists
+(Buyers/Users)"), shows the buyer side on the July console, before SOW v4, so
+it shows none of the sprint's buyer features (escrow v2, on-chain reputation
+on the plan, disputes). Part 1 alone is inside 3–5 minutes, so m10's own
+wording ("3–5 min demo video published") is met; what is missing is one video
+of the current build showing both perspectives.
 
-**Resolution path** — publish one 3–5 minute video of the current build, or
-mark `6.1-D4-a` partial and m10 not met, saying why.
+**Correction** — the first version of this entry (2026-10-03) said neither
+part is 3–5 minutes on its own. That was wrong: part 1 is 189 s.
 
-**Verified by** — `docs/uat/evidence/6.10-link-review.md` (`6.1-D4-a`, `m10`,
-finding P2); `tests/sow-checklist.spec.ts` D4-a test.
+**Resolution path** — publish one 3–5 minute video of the current build with
+both perspectives, or mark `6.1-D4-a` partial and say why.
+
+**Verified by** — `docs/uat/evidence/6.10-link-review.md` (`6.1-D4-a`, finding
+P2); running times read from YouTube by `tests/sow-checklist.spec.ts` "OV-07
+D4-a: …".
 
 ---
 ## D-095 — Counts on the index are undated, and wrong today
