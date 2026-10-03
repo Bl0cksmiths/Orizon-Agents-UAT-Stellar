@@ -176,4 +176,14 @@ test.describe("RV-03 the Disclosures section states each limit in plain words", 
     await expect(metrics.locator("[data-metric-status]")).toHaveCount(10);
     await expect(metrics).not.toContainText("Workflows routed to external agents");
   });
+
+  test("RV-03 the m03 removal line says who removed the metric", async ({ page }) => {
+    // D-09x (pending id): the index records that m03, the one metric at 0,
+    // was removed "by the team lead", but the page renders only the date, in
+    // the passive voice, so a reader cannot tell the team dropped its own
+    // unmet target on the snapshot day (see also D-078).
+    test.fail();
+    const line = page.locator('section[aria-labelledby="disclosures"] [data-removed-metric="m03"]');
+    await expect(line).toContainText(/removed .* by the team/, { timeout: 5_000 });
+  });
 });
