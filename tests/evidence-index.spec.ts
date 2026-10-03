@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
-import { ACCOUNT_FACTS, ADMIN, ATTESTATION, CONTRACT_FACTS, ESCROW_V1, LEDGER, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
+import { ACCOUNT_FACTS, ADMIN, ATTESTATION, CONTRACT_FACTS, ESCROW_V1, LEDGER, PLATFORM, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
 import { txDifferences } from "../tools/onchain-verify/compare.ts";
 import { contractCallsBy, observeAccount, observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
 import { readAgents, readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
@@ -21,11 +21,16 @@ const EXPLORER_LINK = /https:\/\/stellar\.expert\/explorer\/([a-z]+)\/(tx|contra
 
 type ExplorerLink = { network: string; kind: string; id: string };
 
-/** The distinct stellar.expert links the live evidence page renders. */
-async function liveLinks(request: APIRequestContext): Promise<ExplorerLink[]> {
+/** The live evidence page's HTML. */
+async function evidenceHtml(request: APIRequestContext): Promise<string> {
   const res = await request.get("/evidence", { timeout: COLD_START_TIMEOUT });
   expect(res.status(), "the evidence page answers").toBe(200);
-  const html = await res.text();
+  return res.text();
+}
+
+/** The distinct stellar.expert links the live evidence page renders. */
+async function liveLinks(request: APIRequestContext): Promise<ExplorerLink[]> {
+  const html = await evidenceHtml(request);
   const explorerUrls = html.match(/stellar\.expert\/explorer\//g) ?? [];
   expect([...html.matchAll(EXPLORER_LINK)].length, "every explorer link is a tx, contract or account link")
     .toBe(explorerUrls.length);
@@ -49,6 +54,41 @@ const rpc = (request: APIRequestContext): PostJson => async (url, data) => {
 };
 
 const sorted = (ids: Iterable<string>) => [...ids].sort();
+
+/** The team's public register of its own wallets, kept by the backend repo. */
+const TEAM_REGISTER = "https://raw.githubusercontent.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/main/app/data/team_wallets.json";
+
+type TeamWallet = { address: string; role: string };
+
+async function teamRegister(request: APIRequestContext): Promise<TeamWallet[]> {
+  const res = await request.get(TEAM_REGISTER, { timeout: 30_000 });
+  expect(res.status(), "the team wallet register answers").toBe(200);
+  const { wallets } = (await res.json()) as { wallets: TeamWallet[] };
+  expect(wallets.length, "the team wallet register lists wallets").toBeGreaterThan(0);
+  return wallets;
+}
+
+/** Every key the team owns: its register plus the platform role keys pinned in facts.ts. */
+async function teamKeys(request: APIRequestContext): Promise<Set<string>> {
+  return new Set([...(await teamRegister(request)).map((w) => w.address), ADMIN, PLATFORM]);
+}
+
+/** Whether `html` shows `wallet` in full or abbreviated as prefix…suffix. */
+function showsWallet(html: string, wallet: string): boolean {
+  if (html.includes(wallet)) return true;
+  return [...html.matchAll(/\b(G[A-Z2-7]{3,})…([A-Z2-7]{3,})\b/g)]
+    .some(([, prefix = "", suffix = ""]) => wallet.startsWith(prefix) && wallet.endsWith(suffix));
+}
+
+/** Whether `html` shows `agentId` as a whole word. */
+function showsAgent(html: string, agentId: string): boolean {
+  for (let at = html.indexOf(agentId); at >= 0; at = html.indexOf(agentId, at + 1)) {
+    const before = html[at - 1] ?? "";
+    const after = html[at + agentId.length] ?? "";
+    if (!/\w/.test(before) && !/\w/.test(after)) return true;
+  }
+  return false;
+}
 
 test.describe("OV-01 — the evidence index's explorer links", () => {
   test("every live link is on testnet and has a pinned claim, and every claim is linked", async ({ request }) => {
@@ -145,5 +185,38 @@ test.describe("OV-01 — the evidence index's explorer links", () => {
       total: charges.length,
       sinceSprint: charges.filter((c) => c.createdAt >= sprintStart).length,
     }, "charges the v1 settler (the admin wallet) has made, to date").toEqual({ total, sinceSprint: 0 });
+  });
+});
+
+test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10)", () => {
+  test("RV-04 no outside operator's agent id, wallet or hash appears on the page", async ({ request }) => {
+    // D-092 (Critical): the index links outside operators' registrations and
+    // wallets. Expected to fail until the page drops them; it then passes
+    // unexpectedly and this marker must go.
+    test.fail();
+    test.slow();
+    const html = await evidenceHtml(request);
+    const team = await teamKeys(request);
+    const links = await liveLinks(request);
+    const wallets = new Set(links.filter((l) => l.kind === "account").map((l) => l.id));
+    const outsideHashes = new Set<string>();
+    const outsideAgents = new Set<string>();
+    const txLinks = links.filter((l) => l.kind === "tx");
+    for (const [i, link] of txLinks.entries()) {
+      const tx = await observeTx(horizon(request), link.id);
+      expect(tx, `linked transaction ${i + 1} of ${txLinks.length} is on Horizon testnet`).not.toBeNull();
+      if (!tx) continue;
+      wallets.add(tx.source);
+      if (!team.has(tx.source)) outsideHashes.add(tx.hash);
+      for (const { call } of tx.ops) {
+        const [owner, agentId] = call?.contract === REGISTRY && call.fn === "register" ? call.args : [];
+        if (typeof owner === "string" && typeof agentId === "string" && !team.has(owner)) outsideAgents.add(agentId);
+      }
+    }
+    expect({
+      wallets: [...wallets].filter((w) => !team.has(w) && showsWallet(html, w)).length,
+      agentIds: [...outsideAgents].filter((id) => showsAgent(html, id)).length,
+      hashes: outsideHashes.size,
+    }, "outside operators' identifiers on the evidence page (counts only, by consent)").toEqual({ wallets: 0, agentIds: 0, hashes: 0 });
   });
 });
