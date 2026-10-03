@@ -89,3 +89,31 @@ test.describe("RV-06 the evidence index printed to PDF", () => {
     expect(printed.length, "printed URL lines equal the number of links").toBe(onPaper.length);
   });
 });
+
+/** The page's own words for one disclosure, title, text and what changed since the SOW, in one string. */
+async function disclosure(page: Page, id: string): Promise<string> {
+  const item = page.locator(`section[aria-labelledby="disclosures"] [data-disclosure="${id}"]`);
+  await expect(item, `disclosure ${id} is in the Disclosures section`).toHaveCount(1);
+  return (await item.innerText()).replace(/\s+/g, " ");
+}
+
+test.describe("RV-03 the Disclosures section states each limit in plain words", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(EVIDENCE, { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 2, name: "Disclosures" })).toBeVisible();
+  });
+
+  test("RV-03 testnet-only scope: built and validated on testnet, no mainnet funds at risk", async ({ page }) => {
+    const text = await disclosure(page, "testnet");
+    expect(text).toMatch(/^Testnet only\b/);
+    expect(text).toMatch(/built and validated on Stellar testnet/);
+    expect(text).toMatch(/no mainnet funds are at risk/);
+    expect(text).toMatch(/Every Stellar Expert link in this index points at the testnet explorer/);
+    // The claim holds on the page itself: no explorer link leaves testnet.
+    const explorer = await page
+      .locator(`${ARTICLE} a[href*="stellar.expert/explorer/"]`)
+      .evaluateAll((links) => links.map((a) => a.getAttribute("href")!));
+    expect(explorer.length).toBeGreaterThan(0);
+    expect(explorer.filter((href) => !href.includes("/explorer/testnet/")).length, "explorer links off testnet").toBe(0);
+  });
+});
