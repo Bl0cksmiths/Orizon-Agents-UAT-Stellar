@@ -235,3 +235,48 @@ test.describe("PP-01 each public page renders fully, with no session", () => {
     });
   });
 });
+
+/** What a reader gets from a page's `main`: its outline, its words, its links. */
+type Reading = { headings: string[]; textLength: number; hrefs: string[] };
+
+async function readingOf(browser: Browser, path: string, javaScriptEnabled: boolean): Promise<Reading> {
+  let reading: Reading = { headings: [], textLength: 0, hrefs: [] };
+  await visit(
+    browser,
+    path,
+    async (page) => {
+      reading = await page.locator("main").evaluate((main) => ({
+        headings: Array.from(main.querySelectorAll("h1,h2,h3")).map(
+          (h) => `${h.tagName}: ${(h.textContent ?? "").replace(/\s+/g, " ").trim()}`,
+        ),
+        textLength: (main as HTMLElement).innerText.length,
+        hrefs: [...new Set(Array.from(main.querySelectorAll("a[href]")).map((a) => (a as HTMLAnchorElement).href))].sort(),
+      }));
+    },
+    { javaScriptEnabled },
+  );
+  return reading;
+}
+
+test.describe("PP-02 each public page reads in full with JavaScript off and no wallet", () => {
+  for (const { path, label } of PAGES) {
+    /**
+     * The page as served is the page: with no script at all, the same
+     * headings in the same order, the same links, and the same text within
+     * 2% (the guide's copy buttons, which need script to copy, are the only
+     * part allowed to differ, and they are a few words).
+     */
+    test(`PP-02 ${label} (${path}) with JavaScript off has the same headings, links and text`, async ({
+      browser,
+    }) => {
+      test.setTimeout(COLD_START_TIMEOUT * 3);
+      const withScript = await readingOf(browser, path, true);
+      const without = await readingOf(browser, path, false);
+      expect(withScript.headings.length, `${path} has no heading in main`).toBeGreaterThan(0);
+      expect(without.headings, `${path}: the outline differs with JavaScript off`).toEqual(withScript.headings);
+      expect(without.hrefs, `${path}: the links differ with JavaScript off`).toEqual(withScript.hrefs);
+      const drift = Math.abs(without.textLength - withScript.textLength) / withScript.textLength;
+      expect(drift, `${path}: main text ${without.textLength} chars without script, ${withScript.textLength} with`).toBeLessThanOrEqual(0.02);
+    });
+  }
+});
