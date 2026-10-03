@@ -280,3 +280,34 @@ test.describe("PP-02 each public page reads in full with JavaScript off and no w
     });
   }
 });
+
+test.describe("PP-05 /demo states its state honestly, and plays with no account", () => {
+  /**
+   * Published since 2026-10-03, so the honest state is "published": one
+   * player per part, each started from the keyboard alone, each swapping its
+   * poster for the privacy-enhanced embed. The embed's own request is
+   * aborted (see YOUTUBE_EMBED); the frame and its address are what the site
+   * controls.
+   */
+  test("PP-05 /demo is published, and each part's Play button starts its video from the keyboard", async ({
+    browser,
+  }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 2);
+    await visit(browser, "/demo", async (page) => {
+      await expect(page.locator('[data-demo="published"]')).toHaveCount(1);
+      const parts = await page.getByRole("heading", { level: 2, name: /^Part \d+:/ }).count();
+      expect(parts, "/demo shows no part").toBeGreaterThan(0);
+      const players = page.locator("[data-demo-player]");
+      await expect(players).toHaveCount(parts);
+      for (let i = 0; i < parts; i++) {
+        const player = players.nth(i);
+        const play = player.getByRole("button", { name: /^Play video: .+ \(\d+ min(?: \d+ s)?\)$/ });
+        await expect(play, `part ${i + 1} has no named Play button`).toBeVisible();
+        await play.focus();
+        await page.keyboard.press("Enter");
+        await expect(player).toHaveAttribute("data-demo-player", "embed");
+        await expect(player.locator("iframe")).toHaveAttribute("src", /^https:\/\/www\.youtube-nocookie\.com\/embed\/[\w-]{11}\b/);
+      }
+    });
+  });
+});
