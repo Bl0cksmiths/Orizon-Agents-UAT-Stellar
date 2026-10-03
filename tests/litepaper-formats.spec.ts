@@ -261,34 +261,47 @@ test.describe("PP-04 litepaper §6 across the four downloads", () => {
   });
 });
 
-test("PP-04 the litepaper page's §6 link opens the HTML book at §6", async ({ page }) => {
-  test.setTimeout(120_000);
-  const res = await page.goto("/litepaper");
-  expect(res?.status(), "/litepaper did not answer 200").toBe(200);
+test.describe("PP-04 the HTML book's §6 link", () => {
+  // Laying out the 3.6 MB book keeps WebKit and Firefox busy for tens of
+  // seconds on a loaded machine, and WebKit scrolls to the fragment only once
+  // the document has finished loading, so the steps below wait on the
+  // suite's navigation budget rather than the 15 s action and assertion
+  // defaults, and the test's budget covers launching the browser too.
+  const busy = 90_000;
+  test.describe.configure({ timeout: 300_000 });
 
-  const link = page.locator('a[href$=".html#operations-and-governance"]');
-  await expect(link, "/litepaper offers exactly one §6 link").toHaveCount(1);
-  // The book is 3.6 MB with its figures inlined; its `load` can outlast the
-  // 15 s action budget on a slow link, so the click does not wait for it and
-  // the navigation gets the suite's navigation budget instead.
-  await link.click({ noWaitAfter: true });
-  await page.waitForURL(/\/orizon-agents-litepaper\.html#operations-and-governance$/, {
-    waitUntil: "domcontentloaded",
+  test("PP-04 the litepaper page's §6 link opens the HTML book at §6", async ({ page }) => {
+    const res = await page.goto("/litepaper");
+    expect(res?.status(), "/litepaper did not answer 200").toBe(200);
+
+    const link = page.locator('a[href$=".html#operations-and-governance"]');
+    await expect(link, "/litepaper offers exactly one §6 link").toHaveCount(1);
+    // The book inlines its figures, so its `load` can come long after the
+    // click; the click does not wait for it and the URL check below waits
+    // instead.
+    await link.click({ noWaitAfter: true, timeout: busy });
+    await expect(page).toHaveURL(/\/orizon-agents-litepaper\.html#operations-and-governance$/, { timeout: busy });
+
+    const heading = page.locator("h1#operations-and-governance");
+    await expect(heading, "the §6 anchor is not the chapter heading").toHaveText(SECTION_6, { timeout: busy });
+    // The book is long, so the browser may settle the scroll after load; the
+    // heading's top must come to rest inside the viewport, not merely exist. A
+    // pixel of tolerance absorbs sub-pixel rounding of a scrolled-to top.
+    await expect
+      .poll(
+        () =>
+          heading.evaluate(
+            (el) => {
+              const top = el.getBoundingClientRect().top;
+              return top >= -1 && top < window.innerHeight ? "in view" : `top at ${Math.round(top)} px of ${window.innerHeight}`;
+            },
+            undefined,
+            // WebKit can hold the page's script thread for more than 15 s
+            // while it lays the book out.
+            { timeout: busy },
+          ),
+        { message: "the §6 heading is not scrolled into view", timeout: busy },
+      )
+      .toBe("in view");
   });
-
-  const heading = page.locator("#operations-and-governance");
-  await expect(heading).toHaveText(SECTION_6);
-  expect(await heading.evaluate((el) => el.tagName), "the §6 anchor is not the chapter heading").toBe("H1");
-  // The book is long, so the browser may settle the scroll after load; the
-  // heading's top must come to rest inside the viewport, not merely exist.
-  await expect
-    .poll(
-      () =>
-        heading.evaluate((el) => {
-          const top = el.getBoundingClientRect().top;
-          return top >= 0 && top < window.innerHeight ? "in view" : `top at ${Math.round(top)} px of ${window.innerHeight}`;
-        }),
-      { message: "the §6 heading is not scrolled into view" },
-    )
-    .toBe("in view");
 });
