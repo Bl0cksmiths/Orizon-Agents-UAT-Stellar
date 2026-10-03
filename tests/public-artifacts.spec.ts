@@ -235,24 +235,19 @@ const UNPUBLISHED_NOTICE =
 
 test.describe("OV-05 the demo video, with no wallet and no session", () => {
   /**
-   * What is there today: the page is public and says plainly that there is
-   * no video yet, and offers the deliverables to verify instead. It does not
-   * stage one. If a video is published this test fails on the notice, and
-   * the pinned test below starts passing.
+   * The demo was published on 2026-10-03 (story 6.10 re-check): the page is
+   * public, marked published, and no longer carries the unpublished notice.
    */
-  test("OV-05 /demo is public and says honestly that no video is recorded yet", async ({
+  test("OV-05 /demo is public and published, with no unpublished notice", async ({
     browser,
   }) => {
     await visitFresh(browser, DEMO_PATH, async (page) => {
       await expect(
         page.getByRole("heading", { level: 1, name: "Orizon Agents, end to end" }),
       ).toBeVisible();
-      await expect(page.locator('[data-demo="unpublished"]')).toHaveCount(1);
-      await expect(page.getByRole("note").filter({ hasText: UNPUBLISHED_NOTICE })).toBeVisible();
-      await expect(
-        page.getByRole("heading", { level: 2, name: "Verify each deliverable yourself" }),
-      ).toBeVisible();
-      await expect(page.locator("main video, main iframe")).toHaveCount(0);
+      await expect(page.locator('[data-demo="published"]')).toHaveCount(1);
+      await expect(page.locator('[data-demo="unpublished"]')).toHaveCount(0);
+      await expect(page.getByText(UNPUBLISHED_NOTICE)).toHaveCount(0);
     });
   });
 
