@@ -473,3 +473,18 @@ steps are in `checklists/6.09-onboarding-and-phone.md`. See
 | OB-07 | spec: OB-07 team wallets excluded; checklist F | API **pass**; not visible on the page while D-091 is open |
 | OB-08 | spec: OB-08 page renders the live report; OB-08 transport (expected failure) | **fail** — D-091 |
 | OB-09 | spec: OB-09 checklist, live error state, rendered report at 360 px; checklist G | automated **pass**; screen-reader pass open |
+
+## RV — re-verification of the evidence index after escrow v2 (story 6.10)
+
+Verified against `https://orizons.xyz/evidence` (frontend `main` `049f3d52`) on
+2026-10-03. Report: `evidence/6.10-evidence-reverification.md`; link-by-link
+review: `evidence/6.10-link-review.md`.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| RV-01 | `tests/evidence-index.spec.ts` RV-01 label tests (all pass); `tests/sow-checklist.spec.ts` OV-07 links and RV-01 adoption link (expected failure); `evidence/6.10-link-review.md` | **fail**: 10 misleading labels (D-087, D-081, D-088, D-095, D-096), 1 link not resolving (D-091) |
+| RV-02 | `tests/sow-checklist.spec.ts` RV-02 D2-c, RD-d, RD-e and OV-07 D1-c/D4-c, D4-a; `tests/evidence-reverify.spec.ts` m01/m02, m04, m05, m11; status judgements in the link review | **fail**: `6.1-D3-b` and `6.1-D4-a` partial, m05 not met (D-080, D-094); m01/m02 disputed (D-093) |
+| RV-03 | `tests/evidence-reverify.spec.ts` RV-03 disclosure and team-wallet tests | **fail**: D-097, D-098; the other disclosures pass |
+| RV-04 | `tests/evidence-index.spec.ts` RV-04 (expected failure) | **fail**: D-092 |
+| RV-05 | `npm run evidence:verify`, report `evidence/6.10/evidence-verify-report.md` (redacted) | **fail**: exit 3, adoption link unverified (D-091) |
+| RV-06 | `tests/evidence-reverify.spec.ts` RV-06 | **pass** on each project run alone; the full 4-project run was stopped for low memory and is not yet done |
