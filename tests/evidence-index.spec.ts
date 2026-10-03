@@ -312,6 +312,16 @@ test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10
     expect(wrong, "pinned transaction links whose label gives no date or another day").toEqual([]);
   });
 
+  test("RV-01 every pinned transaction's label states its true amount in XLM", async ({ request }) => {
+    const wrong = (await pinnedTxLinks(request)).flatMap((link) => {
+      const moved = link.facts.transfers.map(([, , amount]) => Number(amount));
+      return [...link.label.matchAll(/(\d+(?:\.\d+)?) XLM/g)]
+        .filter(([, amount]) => !moved.includes(Number(amount)))
+        .map(([stated]) => `#${link.position} says ${stated}; native transfers ${show(link.facts.transfers)}`);
+    });
+    expect(wrong, "XLM amounts in pinned transaction labels that the transaction did not move").toEqual([]);
+  });
+
   test("RV-04 no outside operator's agent id, wallet or hash appears on the page", async ({ request }) => {
     // D-092 (Critical): the index links outside operators' registrations and
     // wallets. Expected to fail until the page drops them; it then passes
