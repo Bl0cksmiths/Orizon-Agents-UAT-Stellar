@@ -3820,3 +3820,27 @@ as-of date.
 **Verified by** — `docs/uat/evidence/6.10-link-review.md` (finding P4).
 
 ---
+## D-097 — The m03 removal line does not say who removed it, or that it was the one metric at 0
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** RV-03 (story 6.10); 5.05 `removed_metrics` m03 and its disclosure
+
+**Steps to reproduce** — read the m03 line under Disclosures on
+`https://orizons.xyz/evidence`, then `removed_metrics` in
+`content/evidence/index.json`.
+
+**Expected** — a reader can tell that the team removed one of its own targets,
+and which: m03, "workflows routed to external agents and settled", the only
+metric at 0, removed on the snapshot day.
+
+**Actual** — the index records "Removed from the sprint's requirements by the
+team lead", but the page renders only the date, in the passive voice.
+
+**Resolution path** — render the note as written, and say m03 stood at 0.
+Related to D-078.
+
+**Verified by** — `tests/evidence-reverify.spec.ts` RV-03 m03 removal test
+(expected failure).
+
+---
