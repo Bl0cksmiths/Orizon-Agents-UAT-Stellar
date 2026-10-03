@@ -350,3 +350,42 @@ test.describe("PP-05 /demo states its state honestly, and plays with no account"
     );
   });
 });
+
+test.describe("PP-06 /evidence printed to PDF", () => {
+  /**
+   * The site's chrome outside the article (the header with its navs, the
+   * footer, the skip link) takes no visible space on paper: under print
+   * media nothing of it is laid out larger than a pixel (the skip link is
+   * already clipped to one on screen until it is focused, so on screen only
+   * its presence is checked). Every link printing its URL is RV-06's
+   * (evidence-reverify.spec.ts).
+   */
+  test("PP-06 the header, navigation, footer and skip link are not shown in print", async ({ browser }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 2);
+    await visit(browser, "/evidence", async (page) => {
+      const chrome = () =>
+        page.evaluate(() => {
+          const outsideMain = (sel: string) => Array.from(document.querySelectorAll(sel)).filter((el) => !el.closest("main"));
+          const parts: Record<string, Element[]> = {
+            header: outsideMain("header"),
+            nav: outsideMain("nav"),
+            footer: outsideMain("footer"),
+            "skip link": Array.from(document.querySelectorAll('a[href="#main"]')),
+          };
+          return Object.entries(parts).map(([part, els]) => ({
+            part,
+            count: els.length,
+            shown: els.filter((el) => Array.from(el.getClientRects()).some((r) => r.width > 1 && r.height > 1)).length,
+          }));
+        });
+      for (const { part, count, shown } of await chrome()) {
+        expect(count, `/evidence has no ${part} to hide`).toBeGreaterThan(0);
+        if (part !== "skip link") expect(shown, `the ${part} is not shown on screen`).toBeGreaterThan(0);
+      }
+      await page.emulateMedia({ media: "print" });
+      for (const { part, shown } of await chrome()) {
+        expect(shown, `the ${part} is still shown in print`).toBe(0);
+      }
+    });
+  });
+});
