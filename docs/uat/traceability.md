@@ -488,3 +488,20 @@ review: `evidence/6.10-link-review.md`.
 | RV-04 | `tests/evidence-index.spec.ts` RV-04 (expected failure) | **fail**: D-092 |
 | RV-05 | `npm run evidence:verify`, report `evidence/6.10/evidence-verify-report.md` (redacted) | **fail**: exit 3, adoption link unverified (D-091) |
 | RV-06 | `tests/evidence-reverify.spec.ts` RV-06 | **pass** on each project run alone; the full 4-project run was stopped for low memory and is not yet done |
+
+## PP — the public Epic 5 pages on every device (story 6.11)
+
+Verified against production on 2026-10-03. Evidence:
+`evidence/6.11-public-pages.md`; person-run steps:
+`checklists/6.11-devices-and-screen-readers.md`.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| PP-01 | `tests/public-pages.spec.ts` PP-01 tests (3 engines, desktop and phone width); checklist A on real devices | engines: **fail** on D-099 (new-tab wording); links pass except D-091; real devices open |
+| PP-02 | `tests/public-pages.spec.ts` PP-02; checklist B | engines **pass**; real devices open |
+| PP-03 | `tests/guide-samples.spec.ts`; checklist C | **pass** in Chromium; WebKit and Firefox not verified (memory) |
+| PP-04 | `tests/litepaper-formats.spec.ts`; checklist D | formats **pass** in every engine; §6 link passes in Chromium and WebKit, Firefox teardown overran |
+| PP-05 | `tests/public-pages.spec.ts` PP-05; `tests/public-artifacts.spec.ts` OV-05; checklist D | engines **pass**; real devices open |
+| PP-06 | `tests/public-pages.spec.ts` PP-06; `tests/evidence-reverify.spec.ts` RV-06; checklist E | engines **pass**; real print dialogs open |
+| PP-07 | `tests/public-pages.spec.ts` PP-07 (structure); checklist F (VoiceOver, NVDA) | structure **pass**; screen readers open |
+| PP-08 | `tests/public-pages.spec.ts` PP-08 (long name); checklist G | long name **pass**; external output blocked on 6.09's reference agent |
