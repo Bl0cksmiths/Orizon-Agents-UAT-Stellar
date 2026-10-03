@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { PLATFORM } from "../tools/onchain-verify/facts.ts";
 
 /**
  * Story 6.10, RV-02, RV-03 and RV-06: the public evidence index re-verified
@@ -90,6 +91,11 @@ test.describe("RV-06 the evidence index printed to PDF", () => {
   });
 });
 
+/** A key as the page shortens it in prose: its first five and last four characters. */
+function short(account: string): string {
+  return `${account.slice(0, 5)}…${account.slice(-4)}`;
+}
+
 /** The page's own words for one disclosure, title, text and what changed since the SOW, in one string. */
 async function disclosure(page: Page, id: string): Promise<string> {
   const item = page.locator(`section[aria-labelledby="disclosures"] [data-disclosure="${id}"]`);
@@ -115,5 +121,15 @@ test.describe("RV-03 the Disclosures section states each limit in plain words", 
       .evaluateAll((links) => links.map((a) => a.getAttribute("href")!));
     expect(explorer.length).toBeGreaterThan(0);
     expect(explorer.filter((href) => !href.includes("/explorer/testnet/")).length, "explorer links off testnet").toBe(0);
+  });
+
+  test("RV-03 refunds are credits paid from the platform's own funds, not the operator's or the escrow's", async ({ page }) => {
+    const text = await disclosure(page, "platform_credits");
+    expect(text).toMatch(/^Refunds are credits paid from the platform's own funds/);
+    expect(text).toMatch(/the platform sends the buyer a credit from its own balance/);
+    expect(text).toMatch(/not taken back from the agent's owner/);
+    expect(text).toMatch(/not drawn from the buyer's authorization/);
+    // It names the key that pays, as the page shortens it.
+    expect(text).toContain(`${short(PLATFORM)}) pays dispute credits`);
   });
 });
