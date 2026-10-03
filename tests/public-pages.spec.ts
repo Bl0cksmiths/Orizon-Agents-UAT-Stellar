@@ -186,6 +186,36 @@ test.describe("PP-01 each public page renders fully, with no session", () => {
         expect(broken, `${path}: links that do not answer, to a client or to a browser`).toEqual([]);
       });
     });
+
+    /**
+     * A link that opens a new tab says so in its accessible name, in the
+     * site's own words ("(opens in a new tab)", as on /demo's explorer links).
+     * "(opens GitHub)" says where a link goes, not that it leaves this tab.
+     */
+    test(`PP-01 every new-tab link on ${label} (${path}) says it opens a new tab`, async ({ browser }) => {
+      // D-09x (pending id): the shared site footer's new-tab links (ERC-8004,
+      // x402, Contracts, Docs, API, Status, Changelog, GitHub, LinkedIn) say
+      // nothing of the new tab on every page, and the evidence and litepaper
+      // links say "(opens GitHub)" / "(opens Stellar Expert)" instead.
+      test.fail(true, "D-09x (pending id): new-tab links that do not say so");
+      test.setTimeout(COLD_START_TIMEOUT * 2);
+      await visit(browser, path, async (page) => {
+        const names = await page.locator("a[target=_blank]").evaluateAll((links) =>
+          links.map((a) => {
+            const byIds = a
+              .getAttribute("aria-labelledby")
+              ?.split(/\s+/)
+              .map((id) => document.getElementById(id)?.textContent ?? "")
+              .join(" ");
+            const name = a.getAttribute("aria-label") ?? byIds ?? a.textContent ?? "";
+            return { name: name.replace(/\s+/g, " ").trim(), href: a.getAttribute("href") ?? "" };
+          }),
+        );
+        expect(names.length, `${path} has no new-tab link`).toBeGreaterThan(0);
+        const unnamed = names.filter((l) => !/opens in a new tab/i.test(l.name)).map((l) => `${l.name.slice(0, 70)} → ${l.href}`);
+        expect(unnamed, `${path}: new-tab links whose name does not say so`).toEqual([]);
+      });
+    });
   }
 
   /**
