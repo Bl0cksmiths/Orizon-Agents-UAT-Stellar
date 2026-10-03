@@ -1105,3 +1105,11 @@ test, a report or an evidence file. Outside operators are `OP-1`, `OP-2`, and
 the spec discovers their agents at run time and names them by position only.
 The QA agent is registered from a wallet already declared in
 `app/data/team_wallets.json`, so it is counted as a team agent.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| OB-01 | a fresh agent id, a funded QA wallet declared in the team register, and only the guide | Steps 1–9 are followed literally | the agent ends registered, bound and `ready: true`, and every point where the guide and the product disagree is filed |
+| OB-02 | an agent with no endpoint bound | readiness is checked | `bound` is `todo` saying nothing is bound, `reachable` is `todo` saying there is nothing to check, and `ready` is `false` |
+| OB-03 | an agent bound to a parked or HTML page | readiness is checked | `reachable` still reads done (F-033) and `ready` is `true`; it is the only ready agent that is not a real agent, and the guide warns about it in Step 6 and under Known issues |
+| OB-04 | an agent bound to a dead endpoint | readiness is checked | `reachable` is `failed`, its detail names the outcome and its action says what to do |
+| OB-05 | the healthy reference agent, bound | readiness is checked | `registered`, `active`, `bound`, `reachable` and `routable` are all done and `ready` is `true` |
