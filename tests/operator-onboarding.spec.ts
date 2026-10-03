@@ -117,4 +117,17 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
     expect(host.html, "the ready outside agent's host serves HTML").toBe(true);
     expect(host.health, "the ready outside agent's host does not answer the reference agent's health JSON").toBe(false);
   });
+
+  test("OB-03 every other agent that reads ready answers the reference agent's health JSON", async ({ request }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 3);
+    // Team and outside alike. Only bound agents can read ready, and there are
+    // a handful, so this is one readiness read and at most one host GET each.
+    const bound = (await listAgents(request)).filter((agent) => agent.bound === true);
+    expect(bound.length, "agents with an endpoint bound").toBeGreaterThan(0);
+    const reports = await Promise.all(bound.map((agent) => readiness(request, agent.id)));
+    const ready = reports.filter((report) => report.ready);
+    const hosts = await Promise.all(ready.map((report) => probeBoundHost(request, report.agent_id)));
+    // The F-033 parked page is the one ready agent allowed not to be an agent.
+    expect(hosts.filter((host) => !host.health), "ready agents whose host is not an agent").toHaveLength(1);
+  });
 });
