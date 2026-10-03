@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { COLD_START_TIMEOUT } from "./fixtures";
+import { COLD_START_TIMEOUT, stubWalletSession } from "./fixtures";
 
 /**
  * OB — story 6.09, operator onboarding, readiness and the Ecosystem page on
@@ -35,6 +35,9 @@ function step(report: Readiness, key: string): Step {
 
 const TEAM_REGISTER =
   "https://raw.githubusercontent.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/main/app/data/team_wallets.json";
+
+// The team's QA throwaway operator key: owns uat605_ext_op and uat624_ext_op.
+const QA_OPERATOR_KEY = "GBWMD26IB6CMG3JO3HU7SD7ZJSTF4BIJ5JS77ANMLJ52M6FV6K3J7BQJ";
 
 type Agent = { id: string; owner: string | null; bound: boolean | null };
 
@@ -152,5 +155,17 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
     expect(step6.text).toContain("(F-033)");
     const known = await section("known-issues", "friction-log-coverage");
     expect(known.ids).toEqual(expect.arrayContaining(["F-033", "F-034", "F-035"]));
+  });
+
+  test("OB-06 the console can bind but offers no unbind, as the guide says (F-031)", async ({ page }) => {
+    test.setTimeout(180_000);
+    // The QA operator key owns uat605_ext_op, which is bound: the one state in
+    // which an unbind control would belong on the page.
+    await stubWalletSession(page, { address: QA_OPERATOR_KEY });
+    await page.goto("/app/bind?agent=uat605_ext_op");
+    await expect(page.getByRole("button", { name: /Replace endpoint/ })).toBeVisible({ timeout: 90_000 });
+    const unbind = /unbind|revoke|remove (the )?(binding|endpoint)/i;
+    await expect(page.getByRole("button", { name: unbind })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: unbind })).toHaveCount(0);
   });
 });
