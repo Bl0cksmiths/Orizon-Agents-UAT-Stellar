@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
-import { ACCOUNT_FACTS, ADMIN, ATTESTATION, CONTRACT_FACTS, ESCROW_V1, LEDGER, PLATFORM, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
+import { ACCOUNT_FACTS, ADMIN, ATTESTATION, CONTRACT_FACTS, ESCROW_V1, LEDGER, PLATFORM, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS, type TxFacts } from "../tools/onchain-verify/facts.ts";
 import { show, txDifferences } from "../tools/onchain-verify/compare.ts";
 import { contractCallsBy, observeAccount, observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
 import { readAgents, readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
@@ -77,6 +77,17 @@ const OUTSIDE_WALLET = /^An outside operator's wallet (G[A-Z2-7]+)…([A-Z2-7]+)
 function ownsClaim(owns: string): { count: number } | { names: string[] } {
   const count = /^(\d+) agents?$/.exec(owns)?.[1];
   return count ? { count: Number(count) } : { names: sorted(owns.split(/, | and /)) };
+}
+
+/** The page's links to pinned transactions, each with the facts pinned for it. */
+async function pinnedTxLinks(request: APIRequestContext): Promise<(LabelledLink & { facts: TxFacts })[]> {
+  const links = labelledLinks(await evidenceHtml(request));
+  const pinned = links.flatMap((link) => {
+    const facts = link.kind === "tx" ? TX_FACTS.get(link.id) : undefined;
+    return facts ? [{ ...link, facts }] : [];
+  });
+  expect(pinned.length, "the page links pinned transactions").toBeGreaterThan(0);
+  return pinned;
 }
 
 /** Horizon reads through Playwright's request context, body parsed whatever the status. */
@@ -292,6 +303,13 @@ test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10
         ownsAsLabelled: true,
       });
     }
+  });
+
+  test("RV-01 every pinned transaction's label states its true date", async ({ request }) => {
+    const wrong = (await pinnedTxLinks(request))
+      .filter((link) => / — (\d{4}-\d{2}-\d{2})\b/.exec(link.label)?.[1] !== link.facts.date)
+      .map((link) => `#${link.position} says "${link.label}", ledger day ${link.facts.date}`);
+    expect(wrong, "pinned transaction links whose label gives no date or another day").toEqual([]);
   });
 
   test("RV-04 no outside operator's agent id, wallet or hash appears on the page", async ({ request }) => {
