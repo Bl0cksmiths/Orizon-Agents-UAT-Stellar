@@ -309,5 +309,24 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
       expect(report.window_days, "the report states a settled window").toBeGreaterThan(0);
       await expect(item(TARGET_LABELS.settled_external_workflows)).toContainText(windowSentence(report.window_days));
     });
+
+    test("OB-09 at 360 px the rendered report fits, names every new-tab link and reads each job id in full", async ({ page }) => {
+      test.setTimeout(180_000);
+      await page.setViewportSize({ width: 360, height: 780 });
+      await showReport(page, report);
+      await expectNoHorizontalOverflow(page);
+      const away = page.locator('main a[target="_blank"]');
+      const total = await away.count();
+      expect(total, "new-tab links on the page").toBeGreaterThan(0);
+      await expect(away.and(page.getByRole("link", { name: /opens in a new tab/ })), "new-tab links that say so").toHaveCount(total);
+      // Each distinct job is one settled workflow. None has settled yet, so the
+      // count pins that at zero and the job-id check reads each one once it exists.
+      const jobs = report.operators.flatMap((operator) => operator.agents.flatMap((agent) => agent.settled_workflows.map((workflow) => workflow.job_id_hex)));
+      expect(new Set(jobs).size, "distinct settled jobs listed").toBe(report.totals.settled_external_workflows);
+      for (const id of new Set(jobs)) {
+        const listed = jobs.filter((job) => job === id).length;
+        await expect(page.getByRole("cell", { name: id, exact: true }), "a job cell read as its full id").toHaveCount(listed);
+      }
+    });
   });
 });
