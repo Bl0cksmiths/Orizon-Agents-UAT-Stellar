@@ -332,3 +332,15 @@ test("RV-02 RD-e: the live API reports testnet, the contracts RD-f links, and es
   const routes = Object.keys((await readLive<{ paths: object }>(request, item, "/openapi.json")).paths);
   expect(routes.filter((r) => r.startsWith("/api/disputes")).length, "the dispute routes").toBeGreaterThan(0);
 });
+
+test("RV-02 RD-d: the dApp reports testnet, on the contracts the live API reports", async ({ request }) => {
+  test.setTimeout(240_000);
+  const rows = await readRows(request);
+  expect(itemById(rows, "6.1-RD-d").status).toBe("present");
+  const res = await request.get("/api/stellar/network", { timeout: 120_000 });
+  expect(res.status(), "the dApp's own network route").toBe(200);
+  const dapp = (await res.json()) as Network;
+  expect(dapp.network).toBe("testnet");
+  const api = await readLive<Network>(request, itemById(rows, "6.1-RD-e"), "/api/stellar/network");
+  expect(dapp.contracts, "the dApp and the API use the same contracts").toEqual(api.contracts);
+});
