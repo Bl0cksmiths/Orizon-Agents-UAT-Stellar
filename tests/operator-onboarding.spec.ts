@@ -189,4 +189,16 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
     }
     await expectNoHorizontalOverflow(page);
   });
+
+  test("OB-09 at 360 px the live Ecosystem page says its figures did not arrive, offers a retry, and fits", async ({ page }) => {
+    test.setTimeout(240_000);
+    // D-091: the report does not answer within the page's 60 s budget, so this
+    // is the state a visitor meets today. It must not read as a count of zero.
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.goto("/app/ecosystem");
+    await expect(page.getByText("Nothing below is a count of zero", { exact: false })).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByRole("button", { name: /retry/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No external operators yet" })).toHaveCount(0);
+    await expectNoHorizontalOverflow(page);
+  });
 });
