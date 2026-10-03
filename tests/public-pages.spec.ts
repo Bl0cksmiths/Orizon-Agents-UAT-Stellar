@@ -378,6 +378,10 @@ test.describe("PP-06 /evidence printed to PDF", () => {
             shown: els.filter((el) => Array.from(el.getClientRects()).some((r) => r.width > 1 && r.height > 1)).length,
           }));
         });
+      // Below lg the navigation sits behind "Open menu": opened, it is on
+      // screen, so the print check below has something to hide.
+      const menu = page.getByRole("button", { name: "Open menu" });
+      if (await menu.isVisible()) await menu.click();
       for (const { part, count, shown } of await chrome()) {
         expect(count, `/evidence has no ${part} to hide`).toBeGreaterThan(0);
         if (part !== "skip link") expect(shown, `the ${part} is not shown on screen`).toBeGreaterThan(0);
