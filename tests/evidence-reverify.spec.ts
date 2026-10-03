@@ -263,7 +263,12 @@ function platformRoles(): Map<string, string[]> {
   return out;
 }
 
-const HORIZON_BUDGET = 180_000;
+/**
+ * A test that reads every linked transaction makes about 120 Horizon calls,
+ * six at a time. Measured: a single call took up to 9 s from the QA machine,
+ * so the reads alone can take three minutes before the page and teardown.
+ */
+const HORIZON_BUDGET = 360_000;
 
 test.describe("RV-03 every team wallet used in a run is disclosed", () => {
   test("RV-03 every account in a linked transaction is in the register, holds a platform role, or is named on the page", async ({ page, request }) => {
