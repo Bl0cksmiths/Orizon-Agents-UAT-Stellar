@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { ADMIN, BUYER_GB4K6, BUYER_GCNQA, CONTRACT_FACTS, ESCROW_V2, PLATFORM } from "../tools/onchain-verify/facts.ts";
+import { ADMIN, BUYER_GB4K6, BUYER_GCNQA, CONTRACT_FACTS, ESCROW_V2, PLATFORM, REGISTRY } from "../tools/onchain-verify/facts.ts";
 import { observeTx, type GetJson, type ObservedTx } from "../tools/onchain-verify/horizon.ts";
 
 /**
@@ -416,5 +416,38 @@ test.describe("RV-02 each metric's achieved value against its source", () => {
       const body = (await res.json()) as { license?: { spdx_id?: string } | null };
       expect(body.license?.spdx_id, `${repo} licence`).toBe("MIT");
     }
+  });
+
+  test("RV-02 m01 and m02 achieved 11 and 7: stated with their measuring time, and the counted registrations hold on testnet", async ({ page, request }) => {
+    // The live counter (GET /api/ecosystem/adoption) cannot be read inside a
+    // test budget: it takes 6 to 15 minutes or never answers (D-091). The
+    // figures are judged instead against the time the page says they were
+    // measured and the registrations the row links, which are immutable.
+    const m01 = await metricRow(page, "Externally-operated agents registered on Testnet");
+    const m02 = await metricRow(page, "Unique external operator wallet addresses");
+    expect([m01.achieved, m01.status, m02.achieved, m02.status]).toEqual(["11", "met", "7", "met"]);
+    await expect(page.locator("[data-as-of] time")).toHaveAttribute("datetime", "2026-09-30");
+    const header = page.locator(`${ARTICLE} > header`);
+    await expect(header).toContainText("metrics 1 and 2 at 15:48 UTC");
+    await expect(header).toContainText("re-read that day to confirm them: 11 outside agents from 7 wallets");
+
+    const register = await teamRegister(request);
+    const roles = platformRoles();
+    const counted: string[] = [];
+    for (const hash of await linkedTxHashes(m01.row)) {
+      if ((await labelOf(m01.row, hash)).includes("(counted: outside operator)")) counted.push(hash);
+    }
+    const txs = await observeAll(horizon(request), counted);
+    const measured = Date.parse("2026-09-30T15:48:00Z");
+    const ok = txs.filter(
+      (tx) =>
+        tx.successful &&
+        Date.parse(tx.createdAt) <= measured &&
+        tx.ops.some((op) => op.call?.contract === REGISTRY && op.call.fn === "register") &&
+        !register.has(tx.source) &&
+        !roles.has(tx.source),
+    );
+    expect(ok.length, "counted registrations that are outside, successful and before the measurement").toBe(Number(m01.achieved));
+    expect(new Set(ok.map((tx) => tx.source)).size, "their distinct owners").toBe(Number(m02.achieved));
   });
 });
