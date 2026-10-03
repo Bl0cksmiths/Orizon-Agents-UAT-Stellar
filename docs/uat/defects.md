@@ -3312,7 +3312,7 @@ Evidence: `docs/uat/evidence/6.04-evidence-links.md` §4, §8.
 ## D-082 — The demo video is not recorded, so /demo has nothing to play
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** Resolved 2026-10-03 — published on /demo in two parts; what the video shows is D-094
 - **Affects:** OV-05 (story 6.04); SOW §6.3 m10, §6.2 D4-a
 
 **Steps to reproduce** — open `https://orizons.xyz/demo` with no wallet and no
@@ -3337,6 +3337,13 @@ manifest, and the `test.fail()` pin turns into an unexpected pass.
 `tests/public-artifacts.spec.ts`
 `OV-05 the demo video is published on /demo and its player is on the page`.
 Evidence: `docs/uat/evidence/6.04-public-artifacts.md`.
+
+**Resolved 2026-10-03 (story 6.10)** — `/demo` is published and plays two
+parts (189 s and 71 s). Verified by `tests/public-artifacts.spec.ts` "OV-05
+the demo video is published on /demo and its player is on the page" (marker
+removed) and "OV-05 /demo is public and published, with no unpublished
+notice". Whether those parts meet D4-a's "operator + buyer perspectives" is
+D-094.
 
 ---
 ## D-083 — The AttestationRegistry never extends a TTL: the seals and the registry archive on 2026-10-07
