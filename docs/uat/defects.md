@@ -3597,3 +3597,43 @@ receipt the API can still serve.
 `docs/uat/evidence/6.04-onchain-verification.md` (OV-07).
 
 ---
+## D-091 — The Ecosystem page never shows its figures: the adoption report takes over five minutes
+
+- **Severity:** Critical
+- **Status:** Open
+- **Affects:** OB-07, OB-08, OB-09 (story 6.09); story 5.02 (the Ecosystem page)
+
+**Steps to reproduce** — open `https://orizons.xyz/app/ecosystem`, or
+`curl -sS https://orizons.xyz/api/ecosystem/adoption`.
+
+**Expected** — the page shows the three adoption counts against their targets,
+the operators and the excluded team wallets, within the page's 60 s request
+budget.
+
+**Actual** — on 2026-10-03 the page reads "Loading ecosystem adoption…" for 60
+s, then "Could not read ecosystem adoption. Nothing below is a count of zero;
+the figures simply did not arrive. GET /ecosystem/adoption → timeout after
+60s", and retries. Through `orizons.xyz` the route answers `502
+ROUTER_EXTERNAL_TARGET_ERROR` after 122 s. Read directly from the backend host
+it answered `200` after 337 s, with `degraded: true` and 29 unreadable agents.
+The report scans settlements for every external agent
+(`app/services/adoption_svc.py` `build_report`), and the registry now holds
+516 on-chain agents whose owner is not a team wallet, against 11 when the page
+was built. The answer is cached for about 30 s, so the next reader after that
+starts the scan again.
+
+**Impact** — the page that publishes SOW §6.3's adoption evidence shows no
+figure to anyone. It fails honestly: it never shows a zero.
+
+**Workaround** — read `https://orizon-agents-be-stellar.onrender.com/api/ecosystem/adoption`
+directly and wait about six minutes.
+
+**Resolution path** — compute the report in the background and serve the last
+finished one with its age, or bound the scan, so a read answers inside the
+page's budget at any registry size.
+
+**Verified by** — `tests/operator-onboarding.spec.ts` "OB-08 the adoption
+report answers through orizons.xyz inside the page's budget" (expected
+failure). Evidence: `docs/uat/evidence/6.09-operator-onboarding.md`.
+
+---
