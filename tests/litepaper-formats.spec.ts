@@ -1,5 +1,6 @@
 import { inflateRawSync } from "node:zlib";
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 /**
  * PP-04 (story 6.11, verifies 5.04) — the litepaper's PDF, HTML, Word and
@@ -81,8 +82,14 @@ function words(text: string): Word[] {
  * (the other formats render them as bullets and numbers, or not as text at
  * all), table alignment rows, HTML comments and autolink brackets. Emphasis,
  * code and table pipes are stripped by the word reduction.
+ *
+ * `printed` gives the text the PDF is expected to carry. The PDF is the HTML
+ * book printed, and the book's print stylesheet appends every web link's
+ * address after it (`a[href^="http"]::after { content: " " attr(href) }`), so
+ * that a reader on paper can follow it. In print, an autolink therefore reads
+ * as its address twice; that is the book's design, not a divergence.
  */
-function markdownSection(md: string): string {
+function markdownSection(md: string, printed = false): string {
   const lines = md.split(/\r?\n/);
   const start = lines.indexOf(`# ${SECTION_6}`);
   const end = lines.indexOf(`# ${SECTION_7}`);
@@ -94,7 +101,7 @@ function markdownSection(md: string): string {
     .map((line) =>
       line
         .replace(/<!--.*?-->/g, " ")
-        .replace(/<(https?:[^>\s]+)>/g, "$1")
+        .replace(/<(https?:[^>\s]+)>/g, printed ? "$1 $1" : "$1")
         .replace(/^#+\s/, "")
         .replace(/^\s*(?:[-*+]|\d+\.)\s+/, ""),
     )
@@ -167,6 +174,39 @@ function docxSection(docx: Buffer): string {
 }
 
 /**
+ * §6 of the PDF. The PDF has no structure to anchor on, so the headings are
+ * found by type size: the §6 and §7 titles also appear in the table of
+ * contents, and the chapter heading is the largest run of each. An ordered
+ * list's number is printed as a run of its own at the start of a line
+ * ("1."); it is dropped, as list markers are in every other format.
+ */
+async function pdfSection(pdf: Buffer): Promise<string> {
+  const document = await getDocument({ data: new Uint8Array(pdf) }).promise;
+  const runs: { text: string; eol: boolean; size: number }[] = [];
+  for (let n = 1; n <= document.numPages; n++) {
+    const content = await (await document.getPage(n)).getTextContent();
+    let lineStart = true;
+    for (const item of content.items) {
+      if (!("str" in item)) continue;
+      const marker = lineStart && /^\d+\.$/.test(item.str);
+      lineStart = item.hasEOL;
+      if (!marker) {
+        const size = Math.hypot(item.transform[0] as number, item.transform[1] as number);
+        runs.push({ text: item.str, eol: item.hasEOL, size });
+      }
+    }
+  }
+  await document.destroy();
+  const heading = (title: string): number =>
+    runs.reduce((best, run, i) => (run.text === title && (best < 0 || run.size > runs[best]!.size) ? i : best), -1);
+  const start = heading(SECTION_6);
+  const end = heading(SECTION_7);
+  expect(start, `the PDF has no "${SECTION_6}" heading`).toBeGreaterThanOrEqual(0);
+  expect(end, "the PDF's §7 heading does not follow §6").toBeGreaterThan(start);
+  return runs.slice(start, end).map((run) => run.text + (run.eol ? "\n" : "")).join("");
+}
+
+/**
  * Asserts two renderings of §6 carry the same words. On a mismatch the
  * message quotes about twelve words around the first difference from each
  * side, so the defect can be logged from the report alone.
@@ -210,5 +250,13 @@ test.describe("PP-04 litepaper §6 across the four downloads", () => {
     const md = (await download(request, "md")).toString("utf8");
     const docx = await download(request, "docx");
     expectSameWords("Word", words(markdownSection(md)), words(docxSection(docx)));
+  });
+
+  test("PP-04 the PDF download's §6 has the same words", async ({ request }) => {
+    // Reading all 103 pages' text takes about 15 s on an idle machine.
+    test.setTimeout(120_000);
+    const md = (await download(request, "md")).toString("utf8");
+    const pdf = await download(request, "pdf");
+    expectSameWords("PDF", words(markdownSection(md, true)), words(await pdfSection(pdf)));
   });
 });
