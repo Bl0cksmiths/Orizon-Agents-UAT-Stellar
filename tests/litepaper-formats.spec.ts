@@ -260,3 +260,35 @@ test.describe("PP-04 litepaper §6 across the four downloads", () => {
     expectSameWords("PDF", words(markdownSection(md, true)), words(await pdfSection(pdf)));
   });
 });
+
+test("PP-04 the litepaper page's §6 link opens the HTML book at §6", async ({ page }) => {
+  test.setTimeout(120_000);
+  const res = await page.goto("/litepaper");
+  expect(res?.status(), "/litepaper did not answer 200").toBe(200);
+
+  const link = page.locator('a[href$=".html#operations-and-governance"]');
+  await expect(link, "/litepaper offers exactly one §6 link").toHaveCount(1);
+  // The book is 3.6 MB with its figures inlined; its `load` can outlast the
+  // 15 s action budget on a slow link, so the click does not wait for it and
+  // the navigation gets the suite's navigation budget instead.
+  await link.click({ noWaitAfter: true });
+  await page.waitForURL(/\/orizon-agents-litepaper\.html#operations-and-governance$/, {
+    waitUntil: "domcontentloaded",
+  });
+
+  const heading = page.locator("#operations-and-governance");
+  await expect(heading).toHaveText(SECTION_6);
+  expect(await heading.evaluate((el) => el.tagName), "the §6 anchor is not the chapter heading").toBe("H1");
+  // The book is long, so the browser may settle the scroll after load; the
+  // heading's top must come to rest inside the viewport, not merely exist.
+  await expect
+    .poll(
+      () =>
+        heading.evaluate((el) => {
+          const top = el.getBoundingClientRect().top;
+          return top >= 0 && top < window.innerHeight ? "in view" : `top at ${Math.round(top)} px of ${window.innerHeight}`;
+        }),
+      { message: "the §6 heading is not scrolled into view" },
+    )
+    .toBe("in view");
+});
