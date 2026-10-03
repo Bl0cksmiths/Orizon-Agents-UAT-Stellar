@@ -374,4 +374,23 @@ test.describe("RV-02 each metric's achieved value against its source", () => {
     await expect(m04.row).toContainText("all from the team's own escrow v2 test runs of 2026-09-30");
     await expect(m04.row).toContainText("so no outside operator was paid");
   });
+
+  test("RV-02 m05 achieved 1: the linked refund is a successful transfer from the platform key to a team buyer", async ({ page, request }) => {
+    const m05 = await metricRow(page, "Dispute → partial-refund settlements");
+    expect(m05.achieved).toBe("1");
+    const register = await teamRegister(request);
+    const txs = await observeAll(horizon(request), await linkedTxHashes(m05.row));
+    const counted: ObservedTx[] = [];
+    for (const tx of txs) if (/^Refund\b.*\(counted\)/.test(await labelOf(m05.row, tx.hash))) counted.push(tx);
+    expect(counted.length, "refunds the row counts").toBe(Number(m05.achieved));
+    for (const tx of counted) {
+      expect(tx.successful).toBe(true);
+      expect(tx.source, "signed by the platform key").toBe(PLATFORM);
+      const paid = tx.ops.flatMap((op) => op.transfers.filter((t) => t.from === PLATFORM));
+      expect(paid, "one transfer out of the platform key").toHaveLength(1);
+      expect(register.has(paid[0]!.to), "paid to a team buyer in the register").toBe(true);
+      await expect(m05.row).toContainText(`paid the buyer ${Number(paid[0]!.amount)} XLM back from the platform's signing key`);
+    }
+    await expect(m05.row).toContainText("from the team's own test run of 2026-09-30");
+  });
 });
