@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { PLATFORM } from "../tools/onchain-verify/facts.ts";
+import { ADMIN, CONTRACT_FACTS, ESCROW_V2, PLATFORM } from "../tools/onchain-verify/facts.ts";
 
 /**
  * Story 6.10, RV-02, RV-03 and RV-06: the public evidence index re-verified
@@ -140,5 +140,28 @@ test.describe("RV-03 the Disclosures section states each limit in plain words", 
     expect(text).toMatch(/links that address to their agent in Orizon's database/);
     expect(text).toMatch(/decided by Orizon's database, not by the chain/);
     expect(text).toMatch(/Changed since the SOW: Not in the SOW/);
+  });
+
+  test("RV-03 the signing key's roles: each role the platform key holds on-chain is named", async ({ page }) => {
+    // The roles the contracts give the platform key (OV-01 reads them from
+    // instance storage), each with the words the page must use for it.
+    const words: Record<string, RegExp> = {
+      Scorer: /writes ratings/,
+      Sealer: /seals attestations/,
+      Settler: /signs the settlements on escrow v2/,
+    };
+    const held = [...CONTRACT_FACTS].flatMap(([contract, roles]) =>
+      Object.entries(roles).flatMap(([role, holder]) => (holder === PLATFORM ? [{ contract, role }] : [])),
+    );
+    expect(held.map((h) => h.role).sort()).toEqual(Object.keys(words).sort());
+    expect(held.find((h) => h.role === "Settler")?.contract).toBe(ESCROW_V2);
+    const credits = await disclosure(page, "platform_credits");
+    for (const { role } of held) expect(credits, `the ${role} role`).toMatch(words[role]!);
+    expect(credits).toContain(`The v1 escrow's settler was the admin key (${short(ADMIN)})`);
+    const settler = await disclosure(page, "single_settler_key");
+    expect(settler).toMatch(/one team-held key releases payments, with no multi-signature or threshold control/);
+    expect(settler).toContain(`the rating (scorer) and sealing (sealer) roles moved from the admin wallet ${short(ADMIN)} to a separate production key, ${short(PLATFORM)}`);
+    expect(settler).toContain(`the production key ${short(PLATFORM)} signs the settlements`);
+    expect(settler).toMatch(/Both keys are held by the team/);
   });
 });
