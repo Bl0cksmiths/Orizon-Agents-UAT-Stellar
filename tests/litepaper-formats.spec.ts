@@ -1,3 +1,4 @@
+import { inflateRawSync } from "node:zlib";
 import { test, expect, type APIRequestContext } from "@playwright/test";
 
 /**
@@ -121,6 +122,51 @@ function htmlSection(html: string): string {
 }
 
 /**
+ * Reads one entry of a zip archive through its central directory. Only the
+ * two methods a .docx uses are supported: 0 (stored) and 8 (deflated).
+ */
+function unzipEntry(zip: Buffer, name: string): Buffer {
+  let eocd = zip.length - 22;
+  while (eocd >= 0 && zip.readUInt32LE(eocd) !== 0x06054b50) eocd--;
+  expect(eocd, "the .docx has no zip end-of-central-directory record").toBeGreaterThanOrEqual(0);
+  let entry = zip.readUInt32LE(eocd + 16);
+  for (let i = zip.readUInt16LE(eocd + 10); i > 0; i--) {
+    expect(zip.readUInt32LE(entry), "corrupt zip central directory").toBe(0x02014b50);
+    const method = zip.readUInt16LE(entry + 10);
+    const size = zip.readUInt32LE(entry + 20);
+    const nameLength = zip.readUInt16LE(entry + 28);
+    const local = zip.readUInt32LE(entry + 42);
+    if (zip.toString("utf8", entry + 46, entry + 46 + nameLength) === name) {
+      const data = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+      const raw = zip.subarray(data, data + size);
+      expect([0, 8], `${name} uses an unsupported zip method`).toContain(method);
+      return method === 0 ? raw : inflateRawSync(raw);
+    }
+    entry += 46 + nameLength + zip.readUInt16LE(entry + 30) + zip.readUInt16LE(entry + 32);
+  }
+  throw new Error(`the .docx has no ${name}`);
+}
+
+/**
+ * §6 of the Word document: the paragraphs from the `Heading1` titled §6 to
+ * the one titled §7, as the text of their `<w:t>` runs. Field codes, deleted
+ * text and numbering live outside `<w:t>`, so a list's numbers and bullets
+ * are not text here, as in the HTML.
+ */
+function docxSection(docx: Buffer): string {
+  const xml = unzipEntry(docx, "word/document.xml").toString("utf8");
+  const paragraphs = [...xml.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)].map(([p]) => ({
+    heading1: /<w:pStyle w:val="Heading1"/.test(p),
+    text: decodeEntities([...p.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g)].map((t) => t[1]).join("")),
+  }));
+  const start = paragraphs.findIndex((p) => p.heading1 && p.text === SECTION_6);
+  const end = paragraphs.findIndex((p) => p.heading1 && p.text === SECTION_7);
+  expect(start, `the Word document has no "${SECTION_6}" Heading1`).toBeGreaterThanOrEqual(0);
+  expect(end, "the Word document's §7 Heading1 does not follow §6").toBeGreaterThan(start);
+  return paragraphs.slice(start, end).map((p) => p.text).join("\n");
+}
+
+/**
  * Asserts two renderings of §6 carry the same words. On a mismatch the
  * message quotes about twelve words around the first difference from each
  * side, so the defect can be logged from the report alone.
@@ -158,5 +204,11 @@ test.describe("PP-04 litepaper §6 across the four downloads", () => {
     const md = (await download(request, "md")).toString("utf8");
     const html = (await download(request, "html")).toString("utf8");
     expectSameWords("HTML", words(markdownSection(md)), words(htmlSection(html)));
+  });
+
+  test("PP-04 the Word download's §6 has the same words", async ({ request }) => {
+    const md = (await download(request, "md")).toString("utf8");
+    const docx = await download(request, "docx");
+    expectSameWords("Word", words(markdownSection(md)), words(docxSection(docx)));
   });
 });
