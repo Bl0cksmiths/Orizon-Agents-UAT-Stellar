@@ -164,4 +164,16 @@ test.describe("RV-03 the Disclosures section states each limit in plain words", 
     expect(settler).toContain(`the production key ${short(PLATFORM)} signs the settlements`);
     expect(settler).toMatch(/Both keys are held by the team/);
   });
+
+  test("RV-03 the m03 removal is a line of its own in the Disclosures, and m03 has no metrics row", async ({ page }) => {
+    const line = page.locator('section[aria-labelledby="disclosures"] [data-removed-metric="m03"]');
+    await expect(line).toHaveCount(1);
+    await expect(line).toContainText(
+      "SOW §6.3 metric m03 (Workflows routed to external agents & settled on Testnet, target ≥ 3) was removed from the sprint’s requirements on September 30, 2026.",
+    );
+    await expect(line.locator("time")).toHaveAttribute("datetime", "2026-09-30");
+    const metrics = page.locator('section[aria-labelledby="success-metrics"]');
+    await expect(metrics.locator("[data-metric-status]")).toHaveCount(10);
+    await expect(metrics).not.toContainText("Workflows routed to external agents");
+  });
 });
