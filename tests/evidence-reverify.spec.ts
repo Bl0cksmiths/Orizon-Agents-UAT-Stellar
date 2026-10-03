@@ -1,6 +1,7 @@
 import { test, expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { ADMIN, BUYER_GB4K6, BUYER_GCNQA, CONTRACT_FACTS, ESCROW_V2, PLATFORM, REGISTRY } from "../tools/onchain-verify/facts.ts";
 import { observeTx, type GetJson, type ObservedTx } from "../tools/onchain-verify/horizon.ts";
+import { COLD_START_TIMEOUT } from "./fixtures";
 
 /**
  * Story 6.10, RV-02, RV-03 and RV-06: the public evidence index re-verified
@@ -13,6 +14,14 @@ import { observeTx, type GetJson, type ObservedTx } from "../tools/onchain-verif
  */
 
 const EVIDENCE = "/evidence";
+
+/*
+ * The page is static, but it is long (some 230 links) and laying it out for
+ * print in Firefox and WebKit, four engines at once on a shared QA machine,
+ * outran the 60 s default and 15 s waits in the first full run. Page waits
+ * get the suite's cold-start budget; Horizon-bound tests set their own.
+ */
+test.describe.configure({ timeout: 2 * COLD_START_TIMEOUT });
 
 /** The article the index renders into; nav and footer sit outside it. */
 const ARTICLE = "[data-evidence-page]";
@@ -48,7 +57,7 @@ async function printedLinks(page: Page): Promise<PrintedLink[]> {
         anchorShown: laidOut(a),
       };
     });
-  });
+  }, undefined, { timeout: COLD_START_TIMEOUT });
 }
 
 /** The URL a reader must see on paper for a link: its own address, made absolute for the site's pages. */
@@ -69,7 +78,7 @@ test.describe("RV-06 the evidence index printed to PDF", () => {
     // The page is static and server-rendered: the article is complete at
     // DOMContentLoaded, so the test does not wait on fonts and script chunks.
     await page.goto(EVIDENCE, { waitUntil: "domcontentloaded" });
-    await expect(page.locator(ARTICLE)).toBeVisible();
+    await expect(page.locator(ARTICLE)).toBeVisible({ timeout: COLD_START_TIMEOUT });
   });
 
   test("RV-06 every link in the index prints its full URL, and only on paper", async ({ page }) => {
@@ -120,7 +129,7 @@ async function disclosure(page: Page, id: string): Promise<string> {
 test.describe("RV-03 the Disclosures section states each limit in plain words", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(EVIDENCE, { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { level: 2, name: "Disclosures" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Disclosures" })).toBeVisible({ timeout: COLD_START_TIMEOUT });
   });
 
   test("RV-03 testnet-only scope: built and validated on testnet, no mainnet funds at risk", async ({ page }) => {
@@ -363,7 +372,9 @@ test.describe("RV-02 each metric's achieved value against its source", () => {
   test.beforeEach(async ({ page }) => {
     test.setTimeout(HORIZON_BUDGET);
     await page.goto(EVIDENCE, { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { level: 2, name: "Success metrics (SOW §6.3)" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Success metrics (SOW §6.3)" })).toBeVisible({
+      timeout: COLD_START_TIMEOUT,
+    });
   });
 
   test("RV-02 m04 achieved 3: three escrow v2 payouts on testnet, each a team run the page calls one", async ({ page, request }) => {
