@@ -41,6 +41,35 @@ async function liveLinks(request: APIRequestContext): Promise<ExplorerLink[]> {
   return [...seen.values()];
 }
 
+type LabelledLink = ExplorerLink & {
+  /** 1-based place among the page's explorer links, the way findings cite a link. */
+  position: number;
+  /** The visible link text, entities decoded, screen-reader suffix dropped. */
+  label: string;
+};
+
+const ENTITIES: Record<string, string> = { "&#x27;": "'", "&quot;": '"', "&amp;": "&", "&lt;": "<", "&gt;": ">" };
+
+/** Every stellar.expert anchor the page renders, in page order, with its label. */
+function labelledLinks(html: string): LabelledLink[] {
+  const anchors = html.matchAll(/<a\b[^>]*\bhref="https:\/\/stellar\.expert\/explorer\/([a-z]+)\/(tx|contract|account)\/([A-Za-z0-9]+)"[^>]*>([\s\S]*?)<\/a>/g);
+  return [...anchors].map(([, network = "", kind = "", id = "", inner = ""], i) => ({
+    network,
+    kind,
+    id,
+    position: i + 1,
+    label: inner
+      .replace(/<span class="sr-only">[\s\S]*?<\/span>/g, "")
+      .replace(/<[^>]+>|↗/g, "")
+      .replace(/&#x27;|&quot;|&amp;|&lt;|&gt;/g, (e) => ENTITIES[e] ?? e)
+      .replace(/\s+/g, " ")
+      .trim(),
+  }));
+}
+
+/** "Registration of <agent> [signed] by an outside operator's wallet <G…X> … — <date>". */
+const OUTSIDE_REGISTRATION = /^Registration of (\S+) (?:signed )?by an outside operator's wallet (G[A-Z2-7]+)…([A-Z2-7]+)\b.*? — (\d{4}-\d{2}-\d{2})\b/;
+
 /** Horizon reads through Playwright's request context, body parsed whatever the status. */
 const horizon = (request: APIRequestContext): GetJson => async (url) => {
   const res = await request.get(url, { timeout: 30_000 });
@@ -189,6 +218,42 @@ test.describe("OV-01 — the evidence index's explorer links", () => {
 });
 
 test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10)", () => {
+  test("RV-01 every link labelled as an outside registration is a successful register call on the AgentRegistry, signed by a wallet outside the team register, on the date its label gives, naming the agent its label names", async ({ request }) => {
+    test.slow();
+    const html = await evidenceHtml(request);
+    const team = await teamKeys(request);
+    const outside = labelledLinks(html).filter((l) => l.kind === "tx" && /outside operator/.test(l.label));
+    const unparsed = outside.filter((l) => !OUTSIDE_REGISTRATION.test(l.label)).map((l) => l.position);
+    expect(unparsed, "outside-operator transaction links whose label is not a dated registration").toEqual([]);
+    const seen = new Map<string, Awaited<ReturnType<typeof observeTx>>>();
+    for (const link of outside) {
+      const [, agent, prefix = "", suffix = "", date] = OUTSIDE_REGISTRATION.exec(link.label) ?? [];
+      const tx = seen.get(link.id) ?? (await observeTx(horizon(request), link.id));
+      seen.set(link.id, tx);
+      const call = tx?.ops.length === 1 ? tx.ops[0]?.call : undefined;
+      const signer = tx?.source ?? "";
+      expect({
+        resolves: tx !== null,
+        successful: tx?.successful,
+        registerOnRegistry: call?.contract === REGISTRY && call.fn === "register",
+        signerOutsideTeam: !team.has(signer),
+        ownerIsSigner: call?.args[0] === signer,
+        agentAsLabelled: call?.args[1] === agent,
+        walletAsLabelled: signer.startsWith(prefix) && signer.endsWith(suffix),
+        dateAsLabelled: tx?.createdAt.slice(0, 10) === date,
+      }, `outside registration link #${link.position} against Horizon testnet`).toEqual({
+        resolves: true,
+        successful: true,
+        registerOnRegistry: true,
+        signerOutsideTeam: true,
+        ownerIsSigner: true,
+        agentAsLabelled: true,
+        walletAsLabelled: true,
+        dateAsLabelled: true,
+      });
+    }
+  });
+
   test("RV-04 no outside operator's agent id, wallet or hash appears on the page", async ({ request }) => {
     // D-092 (Critical): the index links outside operators' registrations and
     // wallets. Expected to fail until the page drops them; it then passes
