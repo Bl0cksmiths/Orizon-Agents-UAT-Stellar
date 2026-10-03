@@ -3642,3 +3642,41 @@ report answers through orizons.xyz within the page's 60 s budget" (expected
 failure). Evidence: `docs/uat/evidence/6.09-operator-onboarding.md`.
 
 ---
+## D-092 — The evidence index names outside operators: their agents, wallets and registration hashes
+
+- **Severity:** Critical
+- **Status:** Open
+- **Affects:** RV-04 (story 6.10); 5.05 items `6.1-D1-c`, `6.1-D4-c`, `m01`, `m02`, `m06`
+
+**Steps to reproduce** — open `https://orizons.xyz/evidence` and read the
+links under `6.1-D1-c`, `6.1-D4-c`, `m01`, `m02` and `m06`; or read
+`content/evidence/index.json` on frontend `main` (`049f3d52`).
+
+**Expected** — no outside operator's agent id, wallet or hash on the page. The
+index links `/app/ecosystem` instead, as the consent rule in the backend's
+`docs/operators/sow-metrics.md#consent` and runbook step 10.1
+(`--withhold-external`, the default) require until every operator named has
+consented in writing.
+
+**Actual** — on 2026-10-03 the page carries 11 outside agents' names, 7 outside
+wallets (abbreviated in labels, in full in account links) and the 11 hashes of
+their registrations, across those five items. The index's own method note
+says they were added on 2026-10-01 because "the platform lists outside
+operators publicly". No consent is recorded in the index, the runbook or the
+backend. This report repeats none of them.
+
+**Impact** — personal identifiers of people outside the team are published on
+the page submitted for the §6.2 checklist, without the recorded consent the
+team's own rule requires.
+
+**Resolution path** — regenerate the outside links with `--withhold-external`
+(one link to `/app/ecosystem`, counts unchanged), or record each operator's
+written consent first. Note that 6.04's D-089 asked for registration hashes on
+`6.1-D1-c` and `6.1-D4-c`; the consent rule means those must be team-run or
+consented ones.
+
+**Verified by** — `tests/evidence-index.spec.ts` "RV-04 no outside operator's
+agent id, wallet or hash appears on the page" (expected failure). Evidence:
+`docs/uat/evidence/6.10-evidence-reverification.md`.
+
+---
