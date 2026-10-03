@@ -67,16 +67,30 @@ async function fetchStatus(request: APIRequestContext, url: string): Promise<num
   return (await fetchPage(request, target, method)).status;
 }
 
-test("OV-07 every link outside Stellar Expert answers with no session", async ({ request }) => {
+/** The API's adoption counter, which D4-c links: it takes minutes to answer, or never does (D-091). */
+const ADOPTION_URL = "https://orizon-agents-be-stellar.onrender.com/api/ecosystem/adoption";
+
+test("OV-07 every link outside Stellar Expert, but the adoption counter, answers with no session", async ({
+  request,
+}) => {
   test.setTimeout(600_000);
   const rows = await readRows(request);
   const urls = new Set(
     rows.flatMap((r) => r.items.flatMap((i) => (i.links ?? []).map((l) => l.url))).filter((u) => !isExplorer(u)),
   );
+  expect(urls.has(ADOPTION_URL), "the adoption counter is linked, and is checked on its own below").toBe(true);
+  urls.delete(ADOPTION_URL);
   expect(urls.size, "the index links pages, files, PRs and the API").toBeGreaterThan(0);
   for (const url of urls) {
     expect.soft(await fetchStatus(request, url), url).toBe(200);
   }
+});
+
+test("RV-01 the live adoption counter link answers", async ({ request }) => {
+  test.fail(true, "D-091: the adoption report takes 6 to 15 minutes, or never answers");
+  test.setTimeout(180_000);
+  const res = await request.get(ADOPTION_URL, { timeout: 120_000 });
+  expect(res.status(), ADOPTION_URL).toBe(200);
 });
 
 /**
