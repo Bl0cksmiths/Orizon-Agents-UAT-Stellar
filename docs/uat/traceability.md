@@ -454,3 +454,22 @@ own console dispute has run. See `evidence/6.08-dispute-escrow-v2.md`.
 | DE-04 | console run step 5, then the DE-03 tests on that dispute | open, waiting on Dan's restart |
 | DE-05 | spec: DE-05 API and console window tests (pass); console run step 6 for the cap | window **pass**; cap open, waiting on Dan |
 | DE-06 | spec: DE-06 counts tagged transfers on-chain (passes on the baseline); console run step 4 | open, waiting on Dan's second uphold |
+
+## OB — operator onboarding, readiness and the Ecosystem page (story 6.09)
+
+Verified against the deployed service. The spec
+(`tests/operator-onboarding.spec.ts`) runs 48/48 as expected; the person-run
+steps are in `checklists/6.09-onboarding-and-phone.md`. See
+`evidence/6.09-operator-onboarding.md`.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| OB-01 | checklist A–D (guide Steps 1–9 with Freighter); spec: guide warnings | open, waiting on QA's Freighter run |
+| OB-02 | spec: OB-02 unbound agent | **pass** |
+| OB-03 | spec: OB-03 F-033 case, other ready agents, guide warnings | **pass** (F-033 confirmed, as warned) |
+| OB-04 | spec: OB-04 dead quick tunnel | **pass** |
+| OB-05 | checklist B–C (reference agent deployed and bound) | open, no healthy agent is bound anywhere yet |
+| OB-06 | spec: OB-06 no unbind in the console; checklist E (API unbind, console rebind) | console side **pass** (F-031/F-037); read-back open |
+| OB-07 | spec: OB-07 team wallets excluded; checklist F | API **pass**; not visible on the page while D-091 is open |
+| OB-08 | spec: OB-08 page renders the live report; OB-08 transport (expected failure) | **fail** — D-091 |
+| OB-09 | spec: OB-09 checklist, live error state, rendered report at 360 px; checklist G | automated **pass**; screen-reader pass open |
