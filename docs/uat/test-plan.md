@@ -1158,3 +1158,32 @@ count, never the identifier.
 | RV-04 | the whole page | it is searched for outside operators' agent ids, wallets and hashes | none appears |
 | RV-05 | the deployed index | `npm run evidence:verify` runs | every link passes, and the report is attached |
 | RV-06 | the page printed to PDF | each link is read on paper | every link prints its URL |
+
+## Acceptance criteria — PP, public Epic 5 pages on every device (story 6.11, verifies 5.03 / 5.04 / 5.06)
+
+SOW §8's "reachable by anyone", checked on the four public pages:
+`/guide/list-your-agent` (v1.1.0), `/demo`, `/litepaper` (v0.5, with PDF,
+HTML, Word and Markdown downloads) and `/evidence`. Production URLs only; no
+page may need a login, a wallet or JavaScript.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| PP-01 | each public page, on each device and browser in the matrix | it is opened | it renders fully, nothing scrolls sideways, text is readable, every link works, and every new-tab link says so |
+| PP-02 | JavaScript disabled and no wallet | each page is opened | its full content reads; on the guide only the copy buttons may be inert |
+| PP-03 | three samples copied with the guide's copy buttons | each is run as written against testnet | each produces the result the guide documents |
+| PP-04 | the litepaper's PDF, HTML, Word and Markdown downloads | §6 is compared across them | it matches in all four, and the HTML book's §6 link opens at §6 |
+| PP-05 | `/demo` | it is opened with no account | it states its state honestly; once published, the video plays with no account |
+| PP-06 | `/evidence` printed to PDF | it is read on paper | the navigation is hidden and every link prints its URL |
+| PP-07 | VoiceOver or NVDA | each page is navigated by headings and landmarks | every section is reachable and named |
+| PP-08 | the two fixes of 2026-09-30 (frontend #102) | they are re-checked | an external agent's output renders on the trace page, and a long agent name does not break mid-word at 390 px |
+
+**How each is verified.** Real engines (Chromium, WebKit, Firefox) at desktop
+and phone widths cover what a browser can prove: `tests/public-pages.spec.ts`
+(PP-01, PP-02, PP-05, PP-06, the structure half of PP-07, and PP-08's long
+name), `tests/guide-samples.spec.ts` (PP-03) and
+`tests/litepaper-formats.spec.ts` (PP-04). A person covers what only a real
+device or a screen reader can show, from
+`docs/uat/checklists/6.11-devices-and-screen-readers.md`, and records the
+matrix actually used in `evidence/6.11-public-pages.md`. The story assumed
+`/demo` unpublished; it was published on 2026-10-03, so PP-05 tests the
+published state.
