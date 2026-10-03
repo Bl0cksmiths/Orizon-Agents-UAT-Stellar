@@ -71,6 +71,29 @@ async function probeBoundHost(request: APIRequestContext, id: string): Promise<{
   };
 }
 
+// The adoption report is read from the backend host directly: through
+// orizons.xyz the rewrite gives up long before the report is computed (D-091).
+const BACKEND = "https://orizon-agents-be-stellar.onrender.com";
+// A cold computation measured 4 to 12 minutes on 2026-10-03.
+const ADOPTION_TIMEOUT = 900_000;
+
+type Counts = { external_agents: number; unique_operator_wallets: number; settled_external_workflows: number };
+type Adoption = {
+  window_days: number;
+  targets: Counts;
+  totals: Counts;
+  operators: { owner: string; agents: { agent_id: string; settled_workflows: { job_id_hex: string }[] }[] }[];
+  excluded: { owner: string; reason: string; role: string | null; agent_ids: string[] }[];
+};
+
+/** The live report. The type names only what is checked; every other field
+ * the backend sent is kept as it came. */
+async function adoptionReport(request: APIRequestContext): Promise<Adoption> {
+  const response = await request.get(`${BACKEND}/api/ecosystem/adoption`, { timeout: ADOPTION_TIMEOUT });
+  expect(response.status()).toBe(200);
+  return (await response.json()) as Adoption;
+}
+
 /** The reference agent's health answer: JSON with `ok: true`. */
 function isHealthJson(body: string): boolean {
   try {
@@ -210,5 +233,27 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
     await expect(page.getByRole("button", { name: /retry/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: "No external operators yet" })).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
+  });
+
+  test("OB-07 every team wallet's agents are excluded with its role and never counted", async ({ request }) => {
+    test.setTimeout(ADOPTION_TIMEOUT + 60_000);
+    const team = await teamWallets(request);
+    const agents = await listAgents(request);
+    const report = await adoptionReport(request);
+    const owning = [...team.keys()].filter((wallet) => agents.some((agent) => agent.owner === wallet));
+    expect(owning.length, "team wallets that own agents").toBeGreaterThan(0);
+    for (const wallet of owning) {
+      const excluded = report.excluded.filter((entry) => entry.owner === wallet);
+      expect(excluded, `${wallet} listed once under excluded`).toHaveLength(1);
+      expect(excluded[0]!.reason).toBe("team_wallet");
+      expect(excluded[0]!.role).toBe(team.get(wallet));
+      const owned = agents.filter((agent) => agent.owner === wallet).map((agent) => agent.id);
+      expect(excluded[0]!.agent_ids).toEqual(expect.arrayContaining(owned));
+    }
+    const operatorWallets = report.operators.map((operator) => operator.owner);
+    expect(operatorWallets.filter((wallet) => team.has(wallet)), "team wallets counted as operators").toEqual([]);
+    const counted = report.operators.reduce((sum, operator) => sum + operator.agents.length, 0);
+    expect(report.totals.external_agents).toBe(counted);
+    expect(report.totals.unique_operator_wallets).toBe(report.operators.length);
   });
 });
