@@ -3680,3 +3680,38 @@ agent id, wallet or hash appears on the page" (expected failure). Evidence:
 `docs/uat/evidence/6.10-evidence-reverification.md`.
 
 ---
+## D-093 — The team's own demo registers an agent the index counts as an outside operator's
+
+- **Severity:** Major
+- **Status:** Open — needs the team to confirm who holds the wallet
+- **Affects:** RV-02 (story 6.10); 5.05 items `6.1-D1-c`, `6.1-D4-c`, `6.1-D4-a`, metrics `m01`, `m02`
+
+**Steps to reproduce** — watch part 1 of the demo linked at `6.1-D4-a #2`, and
+compare the agent it registers with the registration at `6.1-D1-c #5`.
+
+**Expected** — an agent the index counts as an outside operator's is
+registered by someone outside the team, and the team's demo does not show the
+team registering it.
+
+**Actual** — part 1 registers, from Freighter, an agent with the same display
+name, the same four skills and the same 0.033 XLM price as `6.1-D1-c #5`. The
+narrator calls Orizon "our platform", and the video sits on a personal
+channel under the name GitHub shows merging the team's pull requests. The
+wallet that signed that registration signed five of the 11 registrations the
+index counts as outside (`6.1-D1-c #2`–`#6`). If that wallet is the team's,
+m01 and m02 fall from 11 and 7 to 5 and 5 (with D-085), still above the
+target of 2.
+
+**What is not established** — who holds the wallet. This rests on the
+narration, the channel and the matching agent details, not on the chain.
+
+**Resolution path** — the team states whether the wallet is its own. If it
+is, add it to `app/data/team_wallets.json` and restate m01, m02 and the five
+links; if not, disclose why the team's demo registers an outside operator's
+agent.
+
+**Verified by** — `docs/uat/evidence/6.10-link-review.md` (`6.1-D4-a #2`,
+status judgements for `m01`, `m02`, finding P1). Not testable without
+identifiers this suite may not hold; manual.
+
+---
