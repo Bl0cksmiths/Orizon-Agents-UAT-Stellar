@@ -297,4 +297,23 @@ test.describe("RV-03 every team wallet used in a run is disclosed", () => {
     const unknown = [...accounts].filter((a) => !register.has(a) && !roles.has(a) && !names(prose, a));
     expect(unknown.length, "accounts in linked transactions that the page and the register both leave out").toBe(0);
   });
+
+  test("RV-03 every team wallet that paid or was paid in a linked run is named in the page's own words", async ({ page, request }) => {
+    test.setTimeout(HORIZON_BUDGET);
+    await page.goto(EVIDENCE, { waitUntil: "domcontentloaded" });
+    const article = page.locator(ARTICLE);
+    const prose = (await article.innerText()).replace(/\s+/g, " ");
+    const txs = await observeAll(horizon(request), await linkedTxHashes(article));
+    const register = await teamRegister(request);
+    const roles = platformRoles();
+    const moved = new Set(
+      txs.flatMap((tx) => tx.ops.flatMap((op) => op.transfers.flatMap((t) => [t.from, t.to]))).filter((a) => a.startsWith("G")),
+    );
+    const team = [...moved].filter((a) => register.has(a) || roles.has(a));
+    expect(team.length, "team wallets moved money in the linked runs").toBeGreaterThan(0);
+    // Being in the register is not enough here: a reader of the page alone
+    // must see each wallet whose balance a linked run changed.
+    const unnamed = team.filter((a) => !names(prose, a));
+    expect(unnamed.map((a) => `${register.get(a) ?? roles.get(a)!.join("/")} ${short(a)}`)).toEqual([]);
+  });
 });
