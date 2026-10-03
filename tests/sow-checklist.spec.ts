@@ -11,6 +11,10 @@ import { observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
  *
  * An item the chain or the API contradicts is pinned with its defect id, so
  * the test fails, and must be revisited, when the index or the deploy changes.
+ *
+ * Story 6.10 re-runs it on the index after escrow v2: RV-01 (each link
+ * resolves, the adoption counter on its own because of D-091) and RV-02 (an
+ * item's status judged from the API, the chain or the page, not its label).
  */
 
 const INDEX_URL =
