@@ -3715,3 +3715,29 @@ status judgements for `m01`, `m02`, finding P1). Not testable without
 identifiers this suite may not hold; manual.
 
 ---
+## D-094 — The demo video is marked present and met, but there is no single 3–5 minute video
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** RV-02 (story 6.10); 5.05 item `6.1-D4-a`, metric `m10`; supersedes D-082's "not recorded"
+
+**Steps to reproduce** — open `https://orizons.xyz/demo` and the two YouTube
+links under `6.1-D4-a` and `m10`; read each video's length and publish date
+from YouTube.
+
+**Expected** — the SOW's "3–5 min demo video" (m10), showing the deliverables
+of this sprint, before `6.1-D4-a` reads present and m10 met.
+
+**Actual** — `/demo` plays two unlisted clips one after the other: 189 s,
+published 2026-10-02, and 71 s, published 2026-07-24 ("Orizons Demo APAC
+Finalists (Buyers/Users)"), recorded on the July console before SOW v4. Neither
+is 3–5 minutes on its own; together they are 4 min 20 s. Of the four
+deliverables, only D1 (registration) is shown.
+
+**Resolution path** — publish one 3–5 minute video of the current build, or
+mark `6.1-D4-a` partial and m10 not met, saying why.
+
+**Verified by** — `docs/uat/evidence/6.10-link-review.md` (`6.1-D4-a`, `m10`,
+finding P2); `tests/sow-checklist.spec.ts` D4-a test.
+
+---
