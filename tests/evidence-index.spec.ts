@@ -132,7 +132,14 @@ test.describe("OV-01 — the evidence index's explorer links", () => {
   test("every live link is on testnet and has a pinned claim, and every claim is linked", async ({ request }) => {
     const links = await liveLinks(request);
     expect(links.filter((l) => l.network !== "testnet"), "links off testnet").toEqual([]);
-    const ids = (kind: string) => sorted(links.filter((l) => l.kind === kind).map((l) => l.id));
+    // Outside operators' registrations and wallets are verified by rule in
+    // RV-01, not pinned: pinning them would write their identifiers into this
+    // repo (D-092).
+    const byRule = new Set(labelledLinks(await evidenceHtml(request))
+      .filter((l) => (l.kind === "tx" && OUTSIDE_REGISTRATION.test(l.label))
+        || (l.kind === "account" && OUTSIDE_WALLET.test(l.label)))
+      .map((l) => l.id));
+    const ids = (kind: string) => sorted(links.filter((l) => l.kind === kind && !byRule.has(l.id)).map((l) => l.id));
     expect(ids("tx")).toEqual(sorted(TX_FACTS.keys()));
     expect(ids("contract")).toEqual(sorted(CONTRACT_FACTS.keys()));
     expect(ids("account")).toEqual(sorted(ACCOUNT_FACTS.keys()));
