@@ -132,4 +132,13 @@ test.describe("RV-03 the Disclosures section states each limit in plain words", 
     // It names the key that pays, as the page shortens it.
     expect(text).toContain(`${short(PLATFORM)}) pays dispute credits`);
   });
+
+  test("RV-03 the binding of an agent to its server address is off-chain, in Orizon's database", async ({ page }) => {
+    const text = await disclosure(page, "offchain_binding");
+    expect(text).toMatch(/^An agent's server address is stored off-chain/);
+    expect(text).toMatch(/It has no field for the address of the operator's server/);
+    expect(text).toMatch(/links that address to their agent in Orizon's database/);
+    expect(text).toMatch(/decided by Orizon's database, not by the chain/);
+    expect(text).toMatch(/Changed since the SOW: Not in the SOW/);
+  });
 });
