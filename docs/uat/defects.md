@@ -3638,7 +3638,7 @@ finished one with its age, or bound the scan, so a read answers inside the
 page's budget at any registry size.
 
 **Verified by** — `tests/operator-onboarding.spec.ts` "OB-08 the adoption
-report answers through orizons.xyz inside the page's budget" (expected
+report answers through orizons.xyz within the page's 60 s budget" (expected
 failure). Evidence: `docs/uat/evidence/6.09-operator-onboarding.md`.
 
 ---
