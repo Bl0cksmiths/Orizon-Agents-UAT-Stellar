@@ -130,4 +130,27 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
     // The F-033 parked page is the one ready agent allowed not to be an agent.
     expect(hosts.filter((host) => !host.health), "ready agents whose host is not an agent").toHaveLength(1);
   });
+
+  test("OB-03 the guide warns in Step 6 and under Known issues that reachable is not proof of an agent", async ({ page }) => {
+    await page.goto("/guide/list-your-agent");
+    await expect(page.locator("dt", { hasText: /^Version$/ }).locator("xpath=following-sibling::dd[1]")).toHaveText("1.1.0");
+    // The guide's sections are flat: a section is everything between its h2
+    // and the next one, read here as text and as its tables' first column.
+    const section = (from: string, to: string) =>
+      page.evaluate(
+        ({ start, end }) => {
+          const range = document.createRange();
+          range.setStartAfter(document.getElementById(start)!);
+          range.setEndBefore(document.getElementById(end)!);
+          const ids = [...range.cloneContents().querySelectorAll("tbody tr")].map((row) => row.querySelector("td")?.textContent?.match(/F-\d{3}/)?.[0]);
+          return { text: range.toString().replace(/\s+/g, " "), ids };
+        },
+        { start: from, end: to },
+      );
+    const step6 = await section("step-6-check-readiness", "step-7-get-routed");
+    expect(step6.text).toContain("reachable: done means only that something at the bound URL answered. It does not mean your agent did.");
+    expect(step6.text).toContain("(F-033)");
+    const known = await section("known-issues", "friction-log-coverage");
+    expect(known.ids).toEqual(expect.arrayContaining(["F-033", "F-034", "F-035"]));
+  });
 });
