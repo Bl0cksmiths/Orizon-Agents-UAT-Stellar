@@ -1,4 +1,4 @@
-import { test, expect, type Browser, type BrowserContextOptions, type Page } from "@playwright/test";
+import { test, expect, devices, type Browser, type BrowserContextOptions, type Page } from "@playwright/test";
 import { COLD_START_TIMEOUT, expectHeadingStructure, expectNoHorizontalOverflow } from "./fixtures";
 
 /**
@@ -432,4 +432,109 @@ test.describe("PP-07 each public page can be navigated by landmarks and headings
       });
     });
   }
+});
+
+test.describe("PP-08 a long agent name does not break mid-word at 390 px", () => {
+  /**
+   * Frontend 08cb8066 capped the agent cell at 18rem and let a name wrap
+   * inside it (`overflow-wrap: anywhere` on the name), and 0db4b8bf took
+   * `break-all` off the status badge for `overflow-wrap: break-word` (frontend
+   * origin/main app/app/agents/page.tsx). Re-checked on the live registry at
+   * a phone's 390 px, the iPhone 13 profile where the engine takes it: no
+   * word that fits its cell is split across lines, in any agent's name or
+   * status, and the longest name stays inside its cell and its row. The
+   * names are read at run time and never written down: most belong to
+   * outside operators.
+   */
+  test("PP-08 /app/agents at 390 px: names and status badges wrap between words, and the longest name fits its row", async ({
+    browser,
+    browserName,
+  }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 3);
+    // Firefox has no mobile emulation (`isMobile`), so it gets the width alone.
+    const phone = browserName === "firefox" ? { viewport: devices["iPhone 13"].viewport } : devices["iPhone 13"];
+    await visit(
+      browser,
+      "/app/agents",
+      async (page) => {
+        const table = page.getByRole("table", { name: /^Agent registry/ });
+        await expect(table.locator("tbody th[scope=row]").first()).toBeVisible({ timeout: COLD_START_TIMEOUT });
+        await expectNoHorizontalOverflow(page);
+        const report = await table.evaluate((t) => {
+          const statusCol = Array.from(t.querySelectorAll("thead th")).findIndex(
+            (th) => (th.textContent ?? "").trim().toLowerCase() === "status",
+          );
+          const probe = document.createElement("span");
+          probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap";
+          document.body.append(probe);
+          /** How wide `word` sets on one line in `like`'s font. */
+          const widthOf = (word: string, like: Element): number => {
+            const s = getComputedStyle(like);
+            probe.style.font = s.font;
+            probe.style.letterSpacing = s.letterSpacing;
+            probe.style.textTransform = s.textTransform;
+            probe.textContent = word;
+            return probe.getBoundingClientRect().width;
+          };
+          /**
+           * Words in `el` laid over two lines although `room` px would hold
+           * them. A hyphen ends a word for this count: the line may break
+           * after it, as "(non-" / "executing)", which is not mid-word.
+           */
+          const splitWords = (el: Element, room: number): number => {
+            let split = 0;
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+              if (node.parentElement?.closest(".sr-only")) continue;
+              for (const m of (node.textContent ?? "").matchAll(/[^\s\-\u2010]+[\-\u2010]*/g)) {
+                const range = document.createRange();
+                range.setStart(node, m.index);
+                range.setEnd(node, m.index + m[0].length);
+                const lines = new Set(Array.from(range.getClientRects()).filter((r) => r.width > 0).map((r) => Math.round(r.top)));
+                if (lines.size > 1 && widthOf(m[0], node.parentElement as Element) <= room) split++;
+              }
+            }
+            return split;
+          };
+          const contentWidth = (el: Element): number => {
+            const s = getComputedStyle(el);
+            return el.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
+          };
+          const rows = Array.from(t.querySelectorAll("tbody tr")).filter((tr) => tr.querySelector("th[scope=row] span[id]"));
+          const out = { rows: rows.length, statusCol, styles: [] as string[], splitNames: [] as number[], splitBadges: [] as number[], longest: { row: -1, chars: 0, overflow: 0, outsideRow: 0 } };
+          rows.forEach((tr, i) => {
+            const name = tr.querySelector("th[scope=row] span[id]") as HTMLElement;
+            const badge = tr.children[statusCol]?.querySelector("span") as HTMLElement | null;
+            for (const [what, el, wrap] of [["name", name, "anywhere"], ["badge", badge, "break-word"]] as const) {
+              if (!el) { out.styles.push(`row ${i}: no ${what}`); continue; }
+              const s = getComputedStyle(el);
+              if (s.wordBreak === "break-all" || s.overflowWrap !== wrap) out.styles.push(`row ${i} ${what}: word-break ${s.wordBreak}, overflow-wrap ${s.overflowWrap}`);
+            }
+            if (splitWords(name, contentWidth(name.parentElement as Element)) > 0) out.splitNames.push(i);
+            if (badge && splitWords(badge, contentWidth(badge)) > 0) out.splitBadges.push(i);
+            const chars = Array.from(name.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent ?? "").join("").trim().length;
+            if (chars > out.longest.chars) {
+              const cell = name.closest("th") as HTMLElement;
+              out.longest = {
+                row: i,
+                chars,
+                overflow: Math.max(cell.scrollWidth - cell.clientWidth, name.getBoundingClientRect().right - cell.getBoundingClientRect().right),
+                outsideRow: cell.getBoundingClientRect().right - tr.getBoundingClientRect().right,
+              };
+            }
+          });
+          probe.remove();
+          return out;
+        });
+        expect(report.rows, "the registry lists no agent").toBeGreaterThan(0);
+        expect(report.statusCol, "the registry has no status column").toBeGreaterThan(0);
+        expect(report.styles, "name or badge wrapping rules other than the fix's").toEqual([]);
+        expect(report.splitNames, "rows whose agent name splits a word that fits its cell").toEqual([]);
+        expect(report.splitBadges, "rows whose status badge splits a word that fits it").toEqual([]);
+        expect(report.longest.overflow, `the longest name (${report.longest.chars} chars, row ${report.longest.row}) overflows its cell`).toBeLessThanOrEqual(1);
+        expect(report.longest.outsideRow, "the longest name's cell runs past its row").toBeLessThanOrEqual(1);
+      },
+      phone,
+    );
+  });
 });
