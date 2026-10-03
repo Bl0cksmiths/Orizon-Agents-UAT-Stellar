@@ -33,8 +33,20 @@ async function copySample(page: Page, id: string, browserName: string): Promise<
   const caption = page.locator(`figure#${id} > figcaption`);
   const button = caption.getByRole("button", { name: /^Copy / });
   await expect(button).toBeEnabled();
+  /* The announcement clears itself after 2 s, which a loaded machine can
+     miss between polls, so the first text the live region receives is
+     recorded on it as it happens instead of polled for. */
+  const status = caption.getByRole("status");
+  await status.evaluate((region) => {
+    const observer = new MutationObserver(() => {
+      if (!region.textContent) return;
+      observer.disconnect();
+      region.setAttribute("data-announced", region.textContent);
+    });
+    observer.observe(region, { childList: true, characterData: true, subtree: true });
+  });
   await button.click();
-  await expect(caption.getByRole("status")).toHaveText("Copied");
+  await expect(status).toHaveAttribute("data-announced", "Copied");
   if (browserName === "chromium") {
     return page.evaluate(() => navigator.clipboard.readText());
   }
