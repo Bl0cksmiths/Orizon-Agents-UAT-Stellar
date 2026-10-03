@@ -3267,6 +3267,12 @@ dispute with a credit below the charge and cite that transaction.
 passing on 2026-10-02; the dispute record read live the same day. Evidence:
 `docs/uat/evidence/6.04-metrics-and-operators.md` §2.
 
+**Re-checked 2026-10-03 (story 6.10)** — still open, and m05 still reads
+met. The second dispute's refund (18:03 UTC on 2026-09-30) is also the whole
+0.01 of a 0.01 charge, so no refund on the chain is partial. `/demo`'s evidence
+table also calls the full refund a "Partial-credit refund". RV-02 judges
+`6.1-D3-b` partial and m05 not met. `docs/uat/evidence/6.10-link-review.md`.
+
 ---
 ## D-081 — Three faulty-run rating links quote "lower bound" values the chain does not carry
 
