@@ -178,14 +178,60 @@ test("OV-07 D1-c and D4-c are marked present and link registrations by wallets o
   }
 });
 
-test("OV-07 D4-a: the demo video is marked missing, and /demo has no player", async ({ request }) => {
+/** A running time as the index writes it ("3 min 9 s"), in seconds. */
+function seconds(label: string): number {
+  const m = /(\d+) min (\d+) s/.exec(label);
+  if (!m) throw new Error(`no running time in "${label}"`);
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/** A YouTube video's running time from its public watch page, which needs no API key (oEmbed carries none). */
+async function youtubeSeconds(request: APIRequestContext, url: string): Promise<number> {
+  const page = await fetchPage(request, url);
+  expect(page.status, url).toBe(200);
+  const m = /"lengthSeconds":"(\d+)"/.exec(page.body);
+  if (!m) throw new Error(`${url} states no running time`);
+  return Number(m[1]);
+}
+
+/**
+ * D4-a and m10 (updated 2026-10-03): the demo is published on /demo in two
+ * parts. Each part must play on /demo with no session, run as long on YouTube
+ * as the index says, and the parts together must meet m10's "3–5 min".
+ */
+test("OV-07 D4-a: the demo is marked present, /demo plays each part the index links, and they run 3 to 5 minutes", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(300_000);
   const rows = await readRows(request);
-  expect(itemById(rows, "6.1-D4-a").status, "D-082").toBe("missing");
-  const demo = await request.get("/demo");
-  expect(demo.status()).toBe(200);
-  const html = await demo.text();
-  expect(html, "D-082").toContain('data-demo="unpublished"');
-  expect(html, "D-082").not.toMatch(/<video|<iframe/);
+  const item = itemById(rows, "6.1-D4-a");
+  expect(item.status).toBe("present");
+  const demoLink = (item.links ?? []).find((l) => l.kind === "page");
+  expect(demoLink && new URL(demoLink.url).pathname, "D4-a links the /demo page").toBe("/demo");
+  const parts = (item.links ?? []).filter((l) => l.kind === "video");
+  expect(parts.length, "D4-a links the demo's parts").toBeGreaterThan(0);
+
+  const demo = await page.goto("/demo");
+  expect(demo?.status(), "/demo with no session").toBe(200);
+  await expect(page.locator('[data-demo="published"]')).toHaveCount(1);
+  let total = 0;
+  for (const part of parts) {
+    const id = new URL(part.url).searchParams.get("v");
+    expect(id, part.url).toBeTruthy();
+    const stated = seconds(part.label);
+    const oembed = await request.get(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(part.url)}`);
+    expect(oembed.status(), `${part.label}: public on YouTube`).toBe(200);
+    const { title } = (await oembed.json()) as { title: string };
+    const running = `${Math.floor(stated / 60)} min ${stated % 60} s`;
+    await page.locator("[data-demo-player]").getByRole("button", { name: `Play video: ${title} (${running})` }).click();
+    await expect(page.locator(`iframe[src*="${id}"]`), `${part.label}: the player loads`).toHaveCount(1);
+    expect(await youtubeSeconds(request, part.url), `${part.label}: running time on YouTube`).toBe(stated);
+    total += stated;
+  }
+  expect(seconds(demoLink!.label), "the parts' stated total").toBe(total);
+  expect(total, "m10: 3–5 min").toBeGreaterThanOrEqual(180);
+  expect(total, "m10: 3–5 min").toBeLessThanOrEqual(300);
 });
 
 const BACKEND = "https://orizon-agents-be-stellar.onrender.com";
