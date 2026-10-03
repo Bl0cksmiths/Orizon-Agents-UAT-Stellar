@@ -317,3 +317,61 @@ test.describe("RV-03 every team wallet used in a run is disclosed", () => {
     expect(unnamed.map((a) => `${register.get(a) ?? roles.get(a)!.join("/")} ${short(a)}`)).toEqual([]);
   });
 });
+
+/** One metric's row in the Success metrics table, found by its SOW words, with its achieved value and status. */
+async function metricRow(page: Page, metric: string): Promise<{ row: Locator; achieved: string; status: string | null }> {
+  const row = page
+    .locator('section[aria-labelledby="success-metrics"] tbody tr')
+    .filter({ has: page.getByRole("rowheader").filter({ hasText: metric }) });
+  await expect(row, `one row for "${metric}"`).toHaveCount(1);
+  const achieved = (await row.getByRole("cell").nth(1).locator("span.font-semibold").innerText()).trim();
+  const status = await row.locator("[data-metric-status]").getAttribute("data-metric-status");
+  return { row, achieved, status };
+}
+
+/** The visible label of the link to a transaction, in the given scope. */
+async function labelOf(scope: Locator, hash: string): Promise<string> {
+  const text = await scope.locator(`a[href$="/tx/${hash}"]`).first().textContent();
+  return (text ?? "").replace(/\s+/g, " ");
+}
+
+test.describe("RV-02 each metric's achieved value against its source", () => {
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(HORIZON_BUDGET);
+    await page.goto(EVIDENCE, { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 2, name: "Success metrics (SOW §6.3)" })).toBeVisible();
+  });
+
+  test("RV-02 m04 achieved 3: three escrow v2 payouts on testnet, each a team run the page calls one", async ({ page, request }) => {
+    const m04 = await metricRow(page, "On-chain USDC settlements (charges) recorded");
+    expect(m04.achieved).toBe("3");
+    const get = horizon(request);
+    const register = await teamRegister(request);
+    const settles = (await observeAll(get, await linkedTxHashes(m04.row))).filter(
+      (tx) => tx.successful && tx.ops.some((op) => op.call?.contract === ESCROW_V2 && op.call.fn === "settle"),
+    );
+    const payouts = settles.flatMap((tx) =>
+      tx.ops.flatMap((op) => op.transfers.filter((t) => t.from === ESCROW_V2).map((t) => ({ tx, payout: t }))),
+    );
+    expect(payouts.length, "payouts of the escrow v2 settlements the row links").toBe(Number(m04.achieved));
+    // Each payer is the buyer the link names; its own authorization, linked
+    // elsewhere on the page, is the escrow v2 deposit of the paid-out amount.
+    const authorizations = (await observeAll(get, await linkedTxHashes(page.locator(ARTICLE)))).filter(
+      (tx) => tx.successful && tx.ops.some((op) => op.call?.contract === ESCROW_V2 && op.call.fn === "authorize"),
+    );
+    for (const [i, { tx, payout }] of payouts.entries()) {
+      const label = await labelOf(m04.row, tx.hash);
+      expect(label, `counted charge ${i + 1} is called a team test run`).toMatch(/\(counted; a team test run:/);
+      expect(label, `counted charge ${i + 1} has no outside framing`).not.toMatch(/\b(external|customer|outside)\b/i);
+      expect(register.has(payout.to), `counted charge ${i + 1} pays a team wallet`).toBe(true);
+      const payer = [...register.keys()].find((a) => a !== payout.to && names(label, a));
+      expect(payer, `counted charge ${i + 1} names its buyer from the register`).toBeDefined();
+      const deposit = authorizations.find((a) =>
+        a.ops.some((op) => op.transfers.some((t) => t.from === payer && t.to === ESCROW_V2 && t.amount === payout.amount)),
+      );
+      expect(deposit, `counted charge ${i + 1}: ${short(payer!)} deposited ${payout.amount} XLM on escrow v2`).toBeDefined();
+    }
+    await expect(m04.row).toContainText("all from the team's own escrow v2 test runs of 2026-09-30");
+    await expect(m04.row).toContainText("so no outside operator was paid");
+  });
+});
