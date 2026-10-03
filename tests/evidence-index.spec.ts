@@ -445,6 +445,27 @@ test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10
     expect(wrong, "pinned account links whose label misnames the wallet, its role or its agents").toEqual([]);
   });
 
+  test("RV-01 every contract link's label states the counts pinned at the snapshot", async ({ request }) => {
+    const { registrations: r, ratings, seals, v1Charges } = SNAPSHOT;
+    const n = (word: string) => ({ one: 1, two: 2, three: 3 })[word] ?? Number(word);
+    const claims: { contract: string; says: RegExp; pinned: number[] }[] = [
+      { contract: REGISTRY, says: /all (\d+) registrations, (\d+) by team wallets and (\d+) by (\d+) outside operators/, pinned: [r.total, r.team, r.outside, r.outsideOwners] },
+      { contract: LEDGER, says: /(\d+) ratings, (\w+) of them a dispute/, pinned: [ratings.total, ratings.disputes] },
+      { contract: ATTESTATION, says: /(\d+) pre-sprint seals, then the (\w+) team runs' seals/, pinned: [seals.preSprint, seals.runs] },
+      { contract: ESCROW_V1, says: /(\d+) pre-sprint self-payments and none since/, pinned: [v1Charges.total] },
+    ];
+    const links = labelledLinks(await evidenceHtml(request)).filter((l) => l.kind === "contract");
+    const wrong = links.flatMap(({ position, label, id }) => claims
+      .filter((c) => c.contract === id)
+      .flatMap((c) => {
+        const stated = c.says.exec(label)?.slice(1).map(n);
+        return stated && show(stated) !== show(c.pinned) ? [`#${position} states ${stated.join("/")}; pinned ${c.pinned.join("/")}`] : [];
+      }));
+    const checked = links.filter((l) => claims.some((c) => c.contract === l.id && c.says.test(l.label))).length;
+    expect(checked, "contract links whose label states a count").toBeGreaterThan(0);
+    expect(wrong, "contract links whose label states counts other than those pinned at the snapshot").toEqual([]);
+  });
+
   test("RV-04 no outside operator's agent id, wallet or hash appears on the page", async ({ request }) => {
     // D-092 (Critical): the index links outside operators' registrations and
     // wallets. Expected to fail until the page drops them; it then passes
