@@ -332,7 +332,7 @@ test.describe("RV-03 every team wallet used in a run is disclosed", () => {
   });
 
   test("RV-03 every team wallet that paid or was paid in an escrow v2 run is named in the Disclosures section itself", async ({ page, request }) => {
-    // D-09x (pending id): RV-03 asks the Disclosures section to name every
+    // D-098: RV-03 asks the Disclosures section to name every
     // team wallet used in a run. The buyer key of the first escrow v2 run is
     // named only in the Notes and the metric rows, not in the Disclosures.
     test.fail();
