@@ -1136,3 +1136,25 @@ wallets. On 2026-10-03 the marketplace lists 516 on-chain agents whose owner
 is not in the team register, from 511 owners; a sample of 25 of those owners
 were all created by friendbot, 24 of them between 2026-10-01 and 2026-10-03.
 The spec re-derives every count at run time and never hard-codes one.
+
+## Acceptance criteria — RV, re-verification of the public evidence index after escrow v2 (story 6.10, verifies 5.05)
+
+6.04 (OV-01..OV-08) verified an earlier index. This re-runs it against the
+index deployed from frontend `main` (`content/evidence/index.json`, snapshot
+as of 2026-09-30 with later edits on 2026-10-01 and 2026-10-03), judging
+honesty, not reachability: a link that resolves to a true transaction under a
+misleading label is a finding. Findings are defects against 5.05 that quote
+the item id.
+
+**Consent.** Outside operators' agent ids, wallets and hashes must not appear
+on the page. Where they do, this suite and its reports name the item id and a
+count, never the identifier.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| RV-01 | every link on the index | each is opened and its label compared with what it shows | each resolves, and each label is true about who signed, what it did, the date and the amount |
+| RV-02 | each deliverable item and metric | its status and achieved value are judged independently from its links and sources | each is the status the evidence supports; every disagreement is recorded with its reason |
+| RV-03 | the disclosures section | it is read | it states testnet-only scope, platform-funded credits, off-chain binding, the signing key's roles, the m03 removal and every team wallet used in a run |
+| RV-04 | the whole page | it is searched for outside operators' agent ids, wallets and hashes | none appears |
+| RV-05 | the deployed index | `npm run evidence:verify` runs | every link passes, and the report is attached |
+| RV-06 | the page printed to PDF | each link is read on paper | every link prints its URL |
