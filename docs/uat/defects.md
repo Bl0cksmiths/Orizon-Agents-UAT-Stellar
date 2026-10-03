@@ -3527,6 +3527,11 @@ unfinished.
 `OV-05 the integration guide is published as validated, not as a draft`.
 Evidence: `docs/uat/evidence/6.04-public-artifacts.md`.
 
+**Re-checked 2026-10-03 (story 6.10)** — worse than filed. The guide still
+reads "Draft — not yet validated by a newcomer", and the index has dropped
+its "· draft" marker from `6.1-D4-b #1` and `m09 #1`, so the page no longer
+says so. `docs/uat/evidence/6.10-link-review.md`.
+
 ---
 ## D-089 — §6.2 D1-c and D4-c are marked present with no outside registration transaction hash
 
