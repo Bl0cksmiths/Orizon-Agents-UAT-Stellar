@@ -1113,3 +1113,7 @@ The QA agent is registered from a wallet already declared in
 | OB-03 | an agent bound to a parked or HTML page | readiness is checked | `reachable` still reads done (F-033) and `ready` is `true`; it is the only ready agent that is not a real agent, and the guide warns about it in Step 6 and under Known issues |
 | OB-04 | an agent bound to a dead endpoint | readiness is checked | `reachable` is `failed`, its detail names the outcome and its action says what to do |
 | OB-05 | the healthy reference agent, bound | readiness is checked | `registered`, `active`, `bound`, `reachable` and `routable` are all done and `ready` is `true` |
+| OB-06 | the QA agent, bound | it is unbound and rebound from the console | each change succeeds and the binding reads back as it should after each one, in the API and on the page |
+| OB-07 | an agent owned by a declared team wallet | the Ecosystem page and the adoption report are read | it is listed under excluded, with its role, and is not counted among external agents or operator wallets |
+| OB-08 | the Ecosystem page and `GET /api/ecosystem/adoption` | they are compared | every count on the page equals the report's, and the window sentence states the report's `window_days` |
+| OB-09 | a 360 px viewport and a screen reader | the Ecosystem page and the readiness checklist are used | nothing scrolls sideways, every new-tab link says so to assistive technology, and the full job id is readable |
