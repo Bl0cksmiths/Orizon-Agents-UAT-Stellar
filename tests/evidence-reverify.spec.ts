@@ -321,6 +321,25 @@ test.describe("RV-03 every team wallet used in a run is disclosed", () => {
     const unnamed = team.filter((a) => !names(prose, a));
     expect(unnamed.map((a) => `${register.get(a) ?? roles.get(a)!.join("/")} ${short(a)}`)).toEqual([]);
   });
+
+  test("RV-03 every team wallet that paid or was paid in an escrow v2 run is named in the Disclosures section itself", async ({ page, request }) => {
+    // D-09x (pending id): RV-03 asks the Disclosures section to name every
+    // team wallet used in a run. The buyer key of the first escrow v2 run is
+    // named only in the Notes and the metric rows, not in the Disclosures.
+    test.fail();
+    test.setTimeout(HORIZON_BUDGET);
+    await page.goto(EVIDENCE, { waitUntil: "domcontentloaded" });
+    const disclosures = (await page.locator('section[aria-labelledby="disclosures"]').innerText()).replace(/\s+/g, " ");
+    const txs = await observeAll(horizon(request), await linkedTxHashes(page.locator(ARTICLE)));
+    const register = await teamRegister(request);
+    const inRun = (t: { from: string; to: string }) => t.from === ESCROW_V2 || t.to === ESCROW_V2 || t.from === PLATFORM;
+    const runs = txs.filter((tx) => tx.successful && tx.ops.some((op) => op.transfers.some(inRun)));
+    const moved = runs.flatMap((tx) => tx.ops.flatMap((op) => op.transfers.flatMap((t) => [t.from, t.to])));
+    const wallets = new Set(moved.filter((a) => register.has(a)));
+    expect(wallets.size, "team wallets in the escrow v2 runs and the refund").toBeGreaterThan(0);
+    const unnamed = [...wallets].filter((a) => !names(disclosures, a));
+    expect(unnamed.map((a) => `${register.get(a)} ${short(a)}`)).toEqual([]);
+  });
 });
 
 /** One metric's row in the Success metrics table, found by its SOW words, with its achieved value and status. */
