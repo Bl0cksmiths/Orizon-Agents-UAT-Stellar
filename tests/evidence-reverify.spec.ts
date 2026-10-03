@@ -1,5 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { ADMIN, BUYER_GB4K6, BUYER_GCNQA, CONTRACT_FACTS, ESCROW_V2, PLATFORM } from "../tools/onchain-verify/facts.ts";
+import { observeTx, type GetJson, type ObservedTx } from "../tools/onchain-verify/horizon.ts";
 
 /**
  * Story 6.10, RV-02, RV-03 and RV-06: the public evidence index re-verified
@@ -212,5 +213,88 @@ test.describe("RV-03 the Disclosures section states each limit in plain words", 
       expect(names(text, account), `the note names the ${role} ${short(account)}`).toBe(true);
     }
     await expect(page.locator(`${ARTICLE} a[href="${REGISTER_URL}"]`).first(), "the page links the register").toBeVisible();
+  });
+});
+
+/** Horizon reads through Playwright's request context, body parsed whatever the status. */
+const horizon = (request: APIRequestContext): GetJson => async (url) => {
+  const res = await request.get(url, { timeout: 30_000 });
+  return { status: res.status(), body: await res.json() };
+};
+
+/** Every transaction hash the article links on the testnet explorer, once each, in page order. */
+async function linkedTxHashes(scope: Locator): Promise<string[]> {
+  const hrefs = await scope
+    .locator('a[href*="stellar.expert/explorer/testnet/tx/"]')
+    .evaluateAll((links) => links.map((a) => a.getAttribute("href")!));
+  return [...new Set(hrefs.map((href) => /\/tx\/([0-9a-f]{64})$/.exec(href)?.[1] ?? href))];
+}
+
+/** Each hash read from Horizon, a few at a time; a hash Horizon does not know is a dead link. */
+async function observeAll(get: GetJson, hashes: string[]): Promise<ObservedTx[]> {
+  const out: ObservedTx[] = [];
+  for (let i = 0; i < hashes.length; i += 6) {
+    const batch = await Promise.all(hashes.slice(i, i + 6).map((hash) => observeTx(get, hash)));
+    batch.forEach((tx, j) => {
+      if (!tx) throw new Error(`linked transaction ${i + j + 1} is not on testnet`);
+      out.push(tx);
+    });
+  }
+  return out;
+}
+
+/** The register's wallets, read from the raw file behind the address the page links. */
+async function teamRegister(request: APIRequestContext): Promise<Map<string, string>> {
+  const raw = REGISTER_URL.replace("https://github.com/", "https://raw.githubusercontent.com/").replace("/blob/", "/");
+  const res = await request.get(raw, { timeout: 30_000 });
+  expect(res.status(), "the register the page links answers").toBe(200);
+  const body = (await res.json()) as { wallets: { address: string; role: string }[] };
+  return new Map(body.wallets.map((w) => [w.address, w.role]));
+}
+
+/** Accounts the contracts give a platform role, each with its roles, from the on-chain facts OV-01 checks. */
+function platformRoles(): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const roles of CONTRACT_FACTS.values()) {
+    for (const [role, holder] of Object.entries(roles)) {
+      if (typeof holder === "string" && holder.startsWith("G")) out.set(holder, [...(out.get(holder) ?? []), role]);
+    }
+  }
+  return out;
+}
+
+const HORIZON_BUDGET = 180_000;
+
+test.describe("RV-03 every team wallet used in a run is disclosed", () => {
+  test("RV-03 every account in a linked transaction is in the register, holds a platform role, or is named on the page", async ({ page, request }) => {
+    test.setTimeout(HORIZON_BUDGET);
+    await page.goto(EVIDENCE, { waitUntil: "domcontentloaded" });
+    const article = page.locator(ARTICLE);
+    const prose = (await article.innerText()).replace(/\s+/g, " ");
+    const hashes = await linkedTxHashes(article);
+    expect(hashes.length, "the page links transactions").toBeGreaterThan(40);
+    const txs = await observeAll(horizon(request), hashes);
+    const register = await teamRegister(request);
+    const roles = platformRoles();
+
+    const accounts = new Set<string>();
+    for (const tx of txs) {
+      accounts.add(tx.source);
+      for (const op of tx.ops) {
+        accounts.add(op.source);
+        for (const t of op.transfers) for (const a of [t.from, t.to]) if (a.startsWith("G")) accounts.add(a);
+      }
+    }
+    const team = [...accounts].filter((a) => register.has(a) || roles.has(a));
+    test.info().annotations.push({
+      type: "RV-03 accounts",
+      description: `${accounts.size} accounts in ${txs.length} linked transactions, ${team.length} of them team or platform keys`,
+    });
+    const undisclosedTeam = team.filter((a) => !register.has(a) && !names(prose, a));
+    expect(undisclosedTeam.map((a) => `${roles.get(a)!.join("/")} ${short(a)}`), "team keys neither registered nor named").toEqual([]);
+    // An account in neither the register nor the page cannot be told apart:
+    // named by count only, since it may be an outside operator's.
+    const unknown = [...accounts].filter((a) => !register.has(a) && !roles.has(a) && !names(prose, a));
+    expect(unknown.length, "accounts in linked transactions that the page and the register both leave out").toBe(0);
   });
 });
