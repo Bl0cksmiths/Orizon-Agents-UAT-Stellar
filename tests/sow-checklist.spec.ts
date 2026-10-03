@@ -296,3 +296,39 @@ test("RV-02 D2-c: the floor the index quotes is the floor the live API applies",
   expect(params.floor_bps).toBe(Number(quoted![1]));
   expect((params.floor_bps / 10_000) * 5).toBe(Number(quoted![2]));
 });
+
+type Network = { network: string; contracts: Record<string, string> };
+
+/** The contract and account ids RD-f links on Stellar Expert. */
+function explorerIds(item: Item, kind: "contract" | "account"): Set<string> {
+  const pattern = new RegExp(`^https://stellar\.expert/explorer/testnet/${kind}/([A-Z0-9]{56})$`);
+  return new Set((item.links ?? []).flatMap((l) => pattern.exec(l.url)?.[1] ?? []));
+}
+
+test("RV-02 RD-e: the live API reports testnet, the contracts RD-f links, and escrow v2 with refunds on", async ({
+  request,
+}) => {
+  test.setTimeout(240_000);
+  const rows = await readRows(request);
+  const item = itemById(rows, "6.1-RD-e");
+  expect(item.status).toBe("present");
+  const linked = itemById(rows, "6.1-RD-f");
+  const network = await readLive<Network>(request, item, "/api/stellar/network");
+  expect(network.network).toBe("testnet");
+  expect(Object.keys(network.contracts), "four contracts").toHaveLength(4);
+  for (const [role, id] of Object.entries(network.contracts)) {
+    expect(explorerIds(linked, "contract").has(id), `RD-f links the live ${role}`).toBe(true);
+  }
+  const readiness = await readLive<{
+    status: string;
+    escrow: { contract: string; version: number };
+    disputes: { reconcile: { enabled: boolean } };
+    ratings: { signer: string };
+  }>(request, item, "/readiness");
+  expect(readiness.status).toBe("ready");
+  expect(readiness.escrow).toEqual({ contract: network.contracts.payment_escrow, version: 2 });
+  expect(readiness.disputes.reconcile.enabled, "refund reconciliation on").toBe(true);
+  expect(explorerIds(linked, "account").has(readiness.ratings.signer), "RD-f links the scoring key").toBe(true);
+  const routes = Object.keys((await readLive<{ paths: object }>(request, item, "/openapi.json")).paths);
+  expect(routes.filter((r) => r.startsWith("/api/disputes")).length, "the dispute routes").toBeGreaterThan(0);
+});
