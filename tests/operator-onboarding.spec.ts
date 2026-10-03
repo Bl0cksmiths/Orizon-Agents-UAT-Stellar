@@ -172,6 +172,16 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
     await expect(page.getByRole("link", { name: unbind })).toHaveCount(0);
   });
 
+  test("OB-08 the adoption report answers through orizons.xyz within the page's 60 s budget", async ({ request }) => {
+    // D-091: computed per request across every outside agent, the report takes
+    // minutes; through the site's rewrite it answers 502 after about 122 s and
+    // the page gives up at 60 s. Remove the marker when it answers in time.
+    test.fail();
+    test.setTimeout(120_000);
+    const response = await request.get("/api/ecosystem/adoption", { timeout: 60_000 });
+    expect(response.status()).toBe(200);
+  });
+
   test("OB-09 at 360 px the readiness checklist shows all seven steps, fits, and names its new-tab links", async ({ page }) => {
     test.setTimeout(180_000);
     await page.setViewportSize({ width: 360, height: 780 });
