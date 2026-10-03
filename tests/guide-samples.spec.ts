@@ -191,3 +191,14 @@ test("PP-03 each copy button copies exactly its block's visible text", async ({
     expect(copied, id).toBe(await page.locator(`#${id}-code`).innerText());
   }
 });
+
+test("PP-03 'Read your agent's binding' (binding-read) for an unbound agent answers binding_not_found", async ({
+  page,
+  browserName,
+}) => {
+  /* Team agent, never bound. The guide: "A 404 with binding_not_found means
+     the bind did not land." The sample prints only the body, so the code is
+     what a reader sees. */
+  const actual = await runAsWritten(page, browserName, "binding-read", { AGENT_ID: "w1_audit_a7x" });
+  expect(actual).toMatchObject({ error: { code: "binding_not_found" } });
+});
