@@ -1,7 +1,7 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
 import { ACCOUNT_FACTS, ADMIN, ATTESTATION, CONTRACT_FACTS, ESCROW_V1, LEDGER, PLATFORM, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS } from "../tools/onchain-verify/facts.ts";
-import { txDifferences } from "../tools/onchain-verify/compare.ts";
+import { show, txDifferences } from "../tools/onchain-verify/compare.ts";
 import { contractCallsBy, observeAccount, observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
 import { readAgents, readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
 
@@ -69,6 +69,15 @@ function labelledLinks(html: string): LabelledLink[] {
 
 /** "Registration of <agent> [signed] by an outside operator's wallet <G…X> … — <date>". */
 const OUTSIDE_REGISTRATION = /^Registration of (\S+) (?:signed )?by an outside operator's wallet (G[A-Z2-7]+)…([A-Z2-7]+)\b.*? — (\d{4}-\d{2}-\d{2})\b/;
+
+/** "An outside operator's wallet <G…X> — owns <agents> …". */
+const OUTSIDE_WALLET = /^An outside operator's wallet (G[A-Z2-7]+)…([A-Z2-7]+) — owns (.+?)(?: \(|$)/;
+
+/** What "owns …" in a label claims: a count ("5 agents") or the agents by name ("a, b and c"). */
+function ownsClaim(owns: string): { count: number } | { names: string[] } {
+  const count = /^(\d+) agents?$/.exec(owns)?.[1];
+  return count ? { count: Number(count) } : { names: sorted(owns.split(/, | and /)) };
+}
 
 /** Horizon reads through Playwright's request context, body parsed whatever the status. */
 const horizon = (request: APIRequestContext): GetJson => async (url) => {
@@ -250,6 +259,30 @@ test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10
         agentAsLabelled: true,
         walletAsLabelled: true,
         dateAsLabelled: true,
+      });
+    }
+  });
+
+  test("RV-01 every link labelled as an outside operator's wallet is an account outside the team register that owned the agents its label names at the snapshot", async ({ request }) => {
+    const html = await evidenceHtml(request);
+    const team = await teamKeys(request);
+    const wallets = labelledLinks(html).filter((l) => l.kind === "account" && /outside operator/.test(l.label));
+    const unparsed = wallets.filter((l) => !OUTSIDE_WALLET.test(l.label)).map((l) => l.position);
+    expect(unparsed, "outside-operator account links whose label does not say what the wallet owns").toEqual([]);
+    const asOf = new Date(SNAPSHOT.registrations.at);
+    const agents = (await readAgents(rpc(request), REGISTRY)).filter((agent) => agent.registeredAt <= asOf);
+    for (const link of wallets) {
+      const [, prefix = "", suffix = "", owns = ""] = OUTSIDE_WALLET.exec(link.label) ?? [];
+      const owned = sorted(agents.filter((agent) => agent.owner === link.id).map((agent) => agent.id));
+      const claim = ownsClaim(owns);
+      expect({
+        outsideTeam: !team.has(link.id),
+        walletAsLabelled: link.id.startsWith(prefix) && link.id.endsWith(suffix),
+        ownsAsLabelled: "count" in claim ? owned.length === claim.count : show(owned) === show(claim.names),
+      }, `outside wallet link #${link.position} against the AgentRegistry on testnet`).toEqual({
+        outsideTeam: true,
+        walletAsLabelled: true,
+        ownsAsLabelled: true,
       });
     }
   });
