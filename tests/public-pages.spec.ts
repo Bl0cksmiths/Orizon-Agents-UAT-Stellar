@@ -389,3 +389,47 @@ test.describe("PP-06 /evidence printed to PDF", () => {
     });
   });
 });
+
+test.describe("PP-07 each public page can be navigated by landmarks and headings", () => {
+  for (const { path, label } of PAGES) {
+    /**
+     * What a screen reader's landmark and heading lists are built from, as
+     * the engine's own accessibility tree reports it: one main, one banner,
+     * one contentinfo; every section, nav and aside named, so a landmark list
+     * does not read "region, region, navigation"; and every h2 on the page
+     * present in the tree under its own words. Listening to it is the
+     * device checklist's half of PP-07.
+     */
+    test(`PP-07 ${label} (${path}) has named landmarks and every h2 in the accessibility tree`, async ({ browser }) => {
+      test.setTimeout(COLD_START_TIMEOUT * 2);
+      await visit(browser, path, async (page) => {
+        await expect(page.getByRole("main")).toHaveCount(1);
+        await expect(page.getByRole("banner")).toHaveCount(1);
+        await expect(page.getByRole("contentinfo")).toHaveCount(1);
+
+        const unnamed = await page
+          .locator("section:not([role]), nav:not([role]), aside:not([role]), [role=region], [role=navigation], [role=complementary]")
+          .evaluateAll((els) =>
+            els
+              .filter((el) => {
+                const byIds = (el.getAttribute("aria-labelledby") ?? "")
+                  .split(/\s+/)
+                  .map((id) => document.getElementById(id)?.textContent ?? "")
+                  .join(" ");
+                return !(el.getAttribute("aria-label") ?? byIds).trim();
+              })
+              .map((el) => `<${el.tagName.toLowerCase()} class="${el.className}">`),
+          );
+        expect(unnamed, `${path}: sections, navs and asides with no name`).toEqual([]);
+
+        const h2s = await page
+          .locator("h2")
+          .evaluateAll((hs) => hs.filter((h) => h.checkVisibility()).map((h) => (h.textContent ?? "").replace(/\s+/g, " ").trim()));
+        expect(h2s.length, `${path} has no h2`).toBeGreaterThan(0);
+        const inTree = page.getByRole("heading", { level: 2 });
+        await expect(inTree).toHaveCount(h2s.length);
+        for (const [i, text] of h2s.entries()) await expect(inTree.nth(i)).toHaveAccessibleName(text);
+      });
+    });
+  }
+});
