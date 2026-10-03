@@ -3741,3 +3741,32 @@ mark `6.1-D4-a` partial and m10 not met, saying why.
 finding P2); `tests/sow-checklist.spec.ts` D4-a test.
 
 ---
+## D-095 — Counts on the index are undated, and wrong today
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** RV-01 (story 6.10); 5.05 items `6.1-D1-c #12`, `6.1-D4-c #12`, `6.1-D3-a #3`, the Disclosures line "Today they stand at 11, 7 and 0", and the page heading "As of September 30, 2026"
+
+**Steps to reproduce** — read those labels and the page heading on
+`https://orizons.xyz/evidence`; open each contract link on Stellar Expert.
+
+**Expected** — every count carries the date it was measured, and the page's
+"as of" date covers everything on it.
+
+**Actual** — on 2026-10-03:
+- the registry links say 25 registrations, 14 by the team and 11 by 7 outside
+  operators; the registry holds 579, 14 by the team and 565 from 560 outside
+  wallets;
+- the ReputationLedger link says 41 ratings and 1 dispute; it holds 49 and 2,
+  the second dispute rating at 18:03 UTC on 2026-09-30;
+- "Today they stand at 11, 7 and 0" in Disclosures says "today" with no date;
+- the page heads itself "As of September 30, 2026", while the outside links
+  were added on 2026-10-01 and `6.1-D4-a` and m10 rest on a video of
+  2026-10-02 and edits of 2026-10-03.
+
+**Resolution path** — date each count ("as of 2026-09-30 15:48 UTC"), and
+state the later edits next to the as-of date.
+
+**Verified by** — `docs/uat/evidence/6.10-link-review.md` (findings P3, P5).
+
+---
