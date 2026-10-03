@@ -274,3 +274,25 @@ test("OV-07 D3-c: the live receipt's task is unknown to the API; only its settle
   expect(body.settlement?.charge_tx).toBe("785428bf6552208750b375703556c534da557dccd64df8d1db7f954a04ca554b");
   expect(body.settlement?.proof_tx).toBe("efca274fb83b50865cfc20dc40b6949e5abd1ae23ed3e7a7622e6c9eda37c0a8");
 });
+
+/** The index's live API link, and what it answers, parsed whatever the status. */
+async function readLive<T>(request: APIRequestContext, item: Item, path: string): Promise<T> {
+  const link = (item.links ?? []).find((l) => l.url === `${BACKEND}${path}`);
+  expect(link, `${item.id} links ${path}`).toBeDefined();
+  const res = await request.get(link!.url, { timeout: 120_000 });
+  expect(res.status(), link!.url).toBe(200);
+  return (await res.json()) as T;
+}
+
+test("RV-02 D2-c: the floor the index quotes is the floor the live API applies", async ({ request }) => {
+  test.setTimeout(180_000);
+  const item = itemById(await readRows(request), "6.1-D2-c");
+  expect(item.status).toBe("present");
+  const label = (item.links ?? []).find((l) => l.url.endsWith("/api/stellar/reputation/params"))?.label ?? "";
+  const quoted = /floor is (\d+) of 10000, which is ([\d.]+) out of 5/.exec(label);
+  expect(quoted, "the params link quotes the floor in basis points and out of 5").not.toBeNull();
+  const params = await readLive<{ enabled: boolean; floor_bps: number }>(request, item, "/api/stellar/reputation/params");
+  expect(params.enabled, "routing by reputation is on").toBe(true);
+  expect(params.floor_bps).toBe(Number(quoted![1]));
+  expect((params.floor_bps / 10_000) * 5).toBe(Number(quoted![2]));
+});
