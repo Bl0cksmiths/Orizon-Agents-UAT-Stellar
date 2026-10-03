@@ -1117,3 +1117,22 @@ The QA agent is registered from a wallet already declared in
 | OB-07 | an agent owned by a declared team wallet | the Ecosystem page and the adoption report are read | it is listed under excluded, with its role, and is not counted among external agents or operator wallets |
 | OB-08 | the Ecosystem page and `GET /api/ecosystem/adoption` | they are compared | every count on the page equals the report's, and the window sentence states the report's `window_days` |
 | OB-09 | a 360 px viewport and a screen reader | the Ecosystem page and the readiness checklist are used | nothing scrolls sideways, every new-tab link says so to assistive technology, and the full job id is readable |
+
+**How each is verified.** What can be read without a key is asserted live by
+`tests/operator-onboarding.spec.ts`: readiness on team fixture agents (OB-02,
+OB-04), the parked-page case discovered at run time (OB-03), the adoption
+report against the team register and the page (OB-07, OB-08), the guide's own
+claims, and the 360 px layout and new-tab announcements (OB-09). Whatever needs
+Freighter, a deployed reference agent or a real screen reader (OB-01, OB-05,
+OB-06, and the screen-reader half of OB-09) is run by a person from
+`docs/uat/checklists/6.09-onboarding-and-phone.md` and recorded in
+`evidence/6.09-operator-onboarding.md`.
+
+**Fixtures** — all team wallets, all testnet: unbound `w1_audit_a7x`
+(`GBI2I3WL…ADBH`); dead quick tunnel `uat605_ext_op` (`GBWMD26I…7BQJ`).
+
+**The story's baseline is stale.** It states 11 outside agents from 7 outside
+wallets. On 2026-10-03 the marketplace lists 516 on-chain agents whose owner
+is not in the team register, from 511 owners; a sample of 25 of those owners
+were all created by friendbot, 24 of them between 2026-10-01 and 2026-10-03.
+The spec re-derives every count at run time and never hard-codes one.
