@@ -19,8 +19,12 @@ DRILL_BACKEND=/path/to/Orizon-Agents-BE-Stellar \
 
 Each check prints PASS, FAIL, XFAIL or XPASS. It exits 1 on any FAIL, and also
 on any XPASS, because an XPASS means the defect is fixed and its pin must come
-off. `the error line carries the amount` is pinned to D-075. `a rating refused at
-simulation is reported as nothing landed` is pinned to D-076.
+off. Two checks were pinned this way, and both pins are now off: `the error line
+carries the amount` (D-075) and `a rating refused at simulation is reported as
+nothing landed` (D-076).
 
-Result at backend `08efeda`, 2026-09-26: 24 pass and 4 XFAIL, which are D-075 once
-per failure mode and D-076 once.
+Results:
+- Backend `08efeda`, 2026-09-26: 24 pass and 4 XFAIL (D-075 once per failure mode,
+  D-076 once).
+- Backend `6da6da7`, 2026-10-01: 28 pass, nothing pinned, exit 0. Both defects are
+  fixed there.

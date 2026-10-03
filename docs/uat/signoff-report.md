@@ -417,7 +417,7 @@ Surface in brackets: (`main`) = backend pytest, (dep) = the deployed stack.
 **13 pass, 3 partial, 1 fail** against `main`. On the deployed stack two further
 criteria cannot be met at all until the backend is deployed.
 
-## Recommendation for story 6.02: NO-GO
+## Recommendation for story 6.02: NO-GO (superseded 2026-10-02 by GO; see "Story 6.02 re-checked")
 
 Not because the reputation floor is broken — most of it is right, and the parts
 this story was told to treat as correct are provably correct. The floor's
@@ -462,6 +462,36 @@ It is NO-GO on four specific things:
 
 Nothing in this list needs a new test. Every item above is already pinned by one
 that fails today and passes when it is fixed.
+
+## Story 6.02 re-checked 2026-10-02: GO on RF-01..RF-17
+
+Re-checked during story 6.04 against backend `9aa6fca`, frontend `0c8a10b7` and
+the deploy; the full record is `evidence/6.02-recheck.md`. The recommendation
+moves from NO-GO to **GO on RF-01..RF-17**.
+
+| id | 6.02 verdict | today |
+| --- | --- | --- |
+| RF-05 | Fail (D-028) | **Pass** (`main`, dep): `faulty_test_v2`, a real bound agent at 5459 bps, was named in a free-form intent, not hired, and reported `below_floor` with `5459 < 5500 bps` |
+| RF-11 | Pass (`main`) · Fail (dep, D-031) | **Pass** (`main`, dep): the deploy serves `reputation_degraded`, `rep_degraded` and `degraded` |
+| RF-13 | Pass (`main`) · Fail (dep, D-031) | **Pass** (`main`); the deploy serves the notices channel. A relaxation cannot be induced live |
+| RF-14 | Partial (D-034, D-035) | **Partial** (D-034 only): D-035 is fixed and deployed |
+| RF-16 | Partial | **Partial**, now observable live: settled ratings moved reputation both ways |
+| the other twelve | Pass | **Pass** |
+
+**Today: 15 pass, 2 partial, 0 fail.** Two of the four NO-GO reasons are gone:
+D-028 is fixed and holds live (backend `06be686`), and D-031 is resolved: the
+deploy serves every field RF-11 and RF-14 need. What stays open:
+
+- **D-027 and D-025, as open process items.** The backend verification for 6.02
+  is still on three unpublished local branches, and two of its 24 tests now
+  need rewriting for upstream changes; upstream's own floor suites (90 passed)
+  cover the same ground. Browser coverage is still Chromium only, so this is
+  not cross-browser sign-off.
+- **D-026 and D-034, as Minor.** The deploy still names no build, and the floor
+  panel still ships collapsed. Both are pinned by `test.fail()`.
+
+The live spec `tests/reputation-floor.spec.ts`: 13 passed on chromium-desktop,
+two of them the expected failures of the D-034 and D-026 pins.
 
 ## Delivery hygiene, audited
 
@@ -524,25 +554,87 @@ observed response shape, since the deployment exposes no build identifier.
 
 # Story 6.03 — dispute, refund and negative-rating path
 
-## Recommendation for story 6.03: NO-GO
+## Recommendation for story 6.03: GO on the criteria; the story stays open for the recording
 
-Rolled up 2026-09-26 from 6.03a–g and a re-check against today's code. The full
-record is `evidence/6.03-dispute-refund-rating.md`.
+Re-rolled 2026-10-01 on the new deploy (escrow v2; backend at or after `6da6da7`).
+The 2026-09-26 roll-up was NO-GO, with one criterion blocked and four failing.
+The full record is §6 of `evidence/6.03-dispute-refund-rating.md`.
 
-| criterion | verdict | holding it back |
+| criterion | verdict | caveat |
 | --- | --- | --- |
-| SD-01 both on-chain artifacts | Blocked | D-050 (no settlement, behind D-039), D-051 (refunds off) |
-| SD-02 one transfer across four duplicate paths | Pass in code | on-chain proof waits on SD-01 |
-| SD-03 window edges, closing time stated | Fail | D-060; D-056 fixed at `08efeda`, not deployed |
-| SD-04 non-payer refused | Pass in code | live waits on D-050 |
-| SD-05 survives a restart | Pass in code | D-065 latent |
-| SD-06 credit bounded before signing | Fail | D-054, D-055 |
-| SD-07 reputation moves, not cached | Fail | D-066 |
-| SD-08 failed rating keeps credit, logged | Fail | D-075 (new) |
+| SD-01 both on-chain artifacts | Pass, live | two upheld disputes, each with one refund and one `dispute` rating; the asset is XLM, not USDC |
+| SD-02 one transfer across duplicate paths | Pass | one transfer per dispute on-chain; the duplicate attempts were not fired live |
+| SD-03 window edges, closing time stated | Pass, live | the dialog's close handling is confirmed in code only |
+| SD-04 non-payer refused | Pass, live | the UI half was not re-checked live |
+| SD-05 survives a restart | Pass | D-065 latent while task auth is off |
+| SD-06 credit bounded before signing | Pass in code | D-055: the refusal names neither amount nor cap |
+| SD-07 reputation moves, not cached | Pass, live | the script path's drill pin is not lifted |
+| SD-08 failed rating keeps credit, logged | Pass in code | the deploy's logs cannot be read from outside |
 
-Deliverable 3 is **not captured**. The drill's testnet refund and dispute rating
-prove the code path, but they are neither USDC nor the platform's ledger.
+Deliverable 3: the refund tx (`cb2c5792…`) and the dispute rating tx
+(`b512135f…`) are on the deploy and resolve on Stellar Expert. **The recording
+of the dispute UI is still missing**, and the story closes when it exists. Both
+disputes are the team's own run, and both refunds paid the whole step.
 
-Refunds stay off until the deploy runs backend `08efeda` or later, and
-`MAX_REFUND_USDC` is confirmed finite. The ordered steps are in §5 of the
-evidence.
+# Story 6.04 — independent verification of every on-chain claim
+
+## Recommendation for story 6.04: NO-GO
+
+Verified 2026-10-02 on testnet, against `https://orizons.xyz`, the deployed
+backend, Horizon and Stellar RPC, never the app's own rendering. The full
+record is `evidence/6.04-onchain-verification.md`.
+
+| criterion | verdict | caveat |
+| --- | --- | --- |
+| OV-01 explorer links resolve and match | **Pass** | 59 links: 55 match, 4 partial labels (D-081 Urgent, D-087), 0 mismatch, 0 dead |
+| OV-02 eleven metrics counted from chain | **Pass** | the counts are verified; four targets are not met or disputed (D-078, D-079, D-080, all Urgent) |
+| OV-03 attestations exist, re-seal refused | **Pass** | until 2026-10-07 09:29Z, when the seals archive (D-083); D-086 |
+| OV-04 two outside operators, not team | **Pass** | 6 of 7 show no on-chain team link; the Powerbot owner is one hop from the team admin (D-085) |
+| OV-05 public artifacts reachable | **Fail** | no demo video (D-082); the guide is reachable but a draft (D-088) |
+| OV-06 shortfalls stated plainly | **Pass** | m03 0 of 3, m04 0 USDC, m05 0 partial, m08 partly, m10 no; m01 10, m02 6 |
+| OV-07 §6.2 checklist reviewed | **Pass** (review) | 20 items: 14 Present, 3 qualified, 3 not Present (D1-c, D4-a, D4-c: D-089, D-082) |
+| OV-08 a full run captured at the moment | **Blocked** | authorize and settle real and verified; the settle paid nobody and nothing was sealed (D-077 Urgent) |
+
+Six criteria pass, OV-05 fails and OV-08 is blocked. Five Urgent defects are
+open, four of them evidence misstatements in the public index. The sprint's
+on-chain record is real and checkable: every link resolves, and every
+contract, function, address and amount matches. But the index claims more than
+the chain shows, and no outside operator has yet been paid.
+
+## To reach GO on 6.04
+
+1. **Bind a live outside operator** (D-077) and run one workflow end to end with
+   UAT's own buyer: authorize, a settle that pays the owner, and a seal, each
+   captured at the moment. OV-08 then passes, and m03 can move off 0. Fix D-084
+   with it.
+2. **Record and publish the demo video** on `/demo` (D-082). OV-05 then passes.
+   It needs item 1 first, to show a real paid run.
+3. **Correct the evidence index** so that it claims only what the chain shows:
+   restore m03 as 0 of 3 (D-078); mark m04 not met in USDC (D-079); mark m05 and
+   m08 as not partial (D-080); drop the off-chain lower bounds from the link
+   labels (D-081); link outside registration tx hashes in D1-c and D4-c (D-089).
+4. **Extend the AttestationRegistry TTLs before 2026-10-07 09:29Z** (D-083), or
+   the OV-03 spec turns red and the seals read as archived.
+
+D-085, D-086, D-087, D-088 and D-090 do not block GO, but each should be fixed
+or disclosed in the index before submission. Every item above is pinned by a
+spec or the run tool, so each fix shows up as a test to revisit.
+
+# Epic 6 status, 2026-10-02
+
+- **6.01 is partial.** The automated suites ran, but the manual wallet × browser
+  matrix (`wallet-browser-matrix.md`) was never run, so no real wallet has been
+  shown to sign on any browser.
+- **6.02 is GO on RF-01..RF-17** after the 2026-10-02 re-check: 15 pass,
+  2 partial, 0 fail. D-027 and D-025 stay open as process items, and D-026 and
+  D-034 as Minor.
+- **6.03 is GO on its criteria** (SD-01..SD-08) and stays open until the
+  UI recording 6.03 asks for exists. The 13-second recording in the evidence
+  index (§6.2 D3-c) shows the live receipt, but its dispute was opened through
+  the API by the team's harness, not with the Dispute button.
+- **6.04 is NO-GO.** OV-05 fails (no demo video) and OV-08 is blocked (no live
+  outside operator), and five Urgent defects are open against the evidence
+  index and the money path.
+
+The epic is not ready to submit. The shortest path is 6.04's four GO items. The
+first one, a live outside operator, also unblocks the demo video.

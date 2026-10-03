@@ -1041,3 +1041,120 @@ on Stellar Expert (testnet).
 | SD-06 | a credit above the settled amount or the refund cap | it is attempted | it is clamped or refused before anything is signed, and the refusal is logged | DR-11, IB-05 |
 | SD-07 | an upheld dispute | the reputation is read and a new plan is built | `dispute_rate_bps` has risen, and the plan uses the new score rather than a cached one | RC-01, RC-03, RC-04 |
 | SD-08 | a refund that lands and a rating write that then fails | the failure is handled | the buyer keeps the credit, and the log line carries the dispute id, job id, payer and amount | DS-01 (rating unconfirmed), DU-04, and a direct log check |
+
+## Acceptance criteria — OV, independent verification of every on-chain claim (story 6.04)
+
+The last gate before submission. The claims under test are the public evidence
+index (`https://orizons.xyz/evidence`, built from the frontend's
+`content/evidence/index.json`), and the SOW v4 §6.2 checklist and §6.3 metrics
+it cites. Every check is made independently: on Horizon testnet and Stellar RPC,
+or as a page with no session. The application's own rendering never counts as
+proof of an on-chain fact. A transaction that resolves but shows something else
+fails, and that is worse than a dead link.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| OV-01 | every explorer link in the evidence index | each is resolved independently on testnet | it resolves, and shows the contract, function, addresses and amounts the index claims |
+| OV-02 | the eleven §6.3 metrics | each is counted from chain data, not the dashboard | each has a verified actual value recorded against its target |
+| OV-03 | each claimed workflow attestation | `AttestationRegistry.get` is called and a re-seal is simulated | the attestation exists, and the re-seal fails `AlreadyExists` |
+| OV-04 | the claimed external operator addresses | each is checked against wallets the team controls | at least two are distinct and demonstrably not team-controlled |
+| OV-05 | the registration page, the integration guide and the demo video | each is opened in a fresh context with no wallet and no session | each is fully reachable |
+| OV-06 | any §6.3 target that was not met | the verification report is written | it states the actual value and the reason plainly, never rounded up |
+| OV-07 | verification is complete | the SOW §6.2 checklist is reviewed | every row is marked Present, or the report states precisely why it cannot be |
+| OV-08 | the deployed dApp on testnet | a complete validation workflow is run end to end by UAT's own buyer | every artifact it produces (authorize, settle, seal) is captured at the moment of the run and resolves on Stellar Expert |
+
+Two inputs bound this story:
+- **Seals expire.** The AttestationRegistry never extends an entry's lifetime,
+  and the 2026-09-30 seals expire around 2026-10-07. OV-03 must run before then.
+- **The asset is testnet XLM.** Every escrow amount moves native XLM; "USDC" in
+  a metric's wording is checked against what actually moved.
+
+## Acceptance criteria — DE, dispute and refund on escrow v2 (story 6.08, verifies 5.01 AC2 / AC4 and Epic 4)
+
+The first dispute raised by someone other than the developer, from the
+console's Dispute button, on the live deployment. Refunds are on since
+2026-09-30. The credit is a platform credit from the signing key
+`GDB4N25U…CDHP` (also escrow v2's settler), never a clawback, and is refused
+above `MAX_REFUND_USDC` (1.0) rather than reduced. Each refund pays the payer's
+G address muxed with `sha256(dispute_id ‖ "orizon-refund:v1")[:8]`, so a
+transfer names the dispute it pays and "paid once" is counted on-chain.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| DE-01 | a settled step the buyer paid for, inside its window | the buyer opens the Dispute dialog and signs | the dispute is recorded and the receipt shows it under review |
+| DE-02 | a wallet that did not pay for the workflow | it tries to dispute a step | it is refused, with a reason the console shows |
+| DE-03 | an open dispute | it is upheld | a refund from the signing key to the buyer and a `kind=dispute` rating both land, the agent's score falls, and the receipt reads REFUNDED with both links |
+| DE-04 | a settled workflow inside its window | the backend restarts and the buyer then disputes from the console | the dispute is accepted, upheld and credited normally |
+| DE-05 | a step outside its window, and a credit above `MAX_REFUND_USDC` | each is attempted | the first is refused as out of window, the second as above the cap, with nothing paid |
+| DE-06 | a dispute already upheld and credited | it is upheld again | no second credit is sent |
+
+## Acceptance criteria — OB, operator onboarding, readiness and the Ecosystem page (story 6.09, verifies 5.02 / 5.03)
+
+The QA team onboards an agent the way an outside operator does, from the
+public guide (`/guide/list-your-agent`, v1.1.0) alone, then checks what the
+platform reports about it: the readiness checklist (`GET
+/api/agents/{id}/readiness` and the checklist on `/app/operator`) and the
+adoption counts (`/app/ecosystem`, `GET /api/ecosystem/adoption`).
+
+Known issues F-033, F-034 and F-035 (backend `docs/operators/friction-log.md`)
+are confirmed, not re-diagnosed. A defect goes to `defects.md`; friction is a
+new row in the backend friction log, mapped to a guide section.
+
+**Consent.** No outside operator's agent id, wallet or hash is written into a
+test, a report or an evidence file. Outside operators are `OP-1`, `OP-2`, and
+the spec discovers their agents at run time and names them by position only.
+The QA agent is registered from a wallet already declared in
+`app/data/team_wallets.json`, so it is counted as a team agent.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| OB-01 | a fresh agent id, a funded QA wallet declared in the team register, and only the guide | Steps 1–9 are followed literally | the agent ends registered, bound and `ready: true`, and every point where the guide and the product disagree is filed |
+| OB-02 | an agent with no endpoint bound | readiness is checked | `bound` is `todo` saying nothing is bound, `reachable` is `todo` saying there is nothing to check, and `ready` is `false` |
+| OB-03 | an agent bound to a parked or HTML page | readiness is checked | `reachable` still reads done (F-033) and `ready` is `true`; it is the only ready agent that is not a real agent, and the guide warns about it in Step 6 and under Known issues |
+| OB-04 | an agent bound to a dead endpoint | readiness is checked | `reachable` is `failed`, its detail names the outcome and its action says what to do |
+| OB-05 | the healthy reference agent, bound | readiness is checked | `registered`, `active`, `bound`, `reachable` and `routable` are all done and `ready` is `true` |
+| OB-06 | the QA agent, bound | it is unbound and rebound from the console | each change succeeds and the binding reads back as it should after each one, in the API and on the page |
+| OB-07 | an agent owned by a declared team wallet | the Ecosystem page and the adoption report are read | it is listed under excluded, with its role, and is not counted among external agents or operator wallets |
+| OB-08 | the Ecosystem page and `GET /api/ecosystem/adoption` | they are compared | every count on the page equals the report's, and the window sentence states the report's `window_days` |
+| OB-09 | a 360 px viewport and a screen reader | the Ecosystem page and the readiness checklist are used | nothing scrolls sideways, every new-tab link says so to assistive technology, and the full job id is readable |
+
+**How each is verified.** What can be read without a key is asserted live by
+`tests/operator-onboarding.spec.ts`: readiness on team fixture agents (OB-02,
+OB-04), the parked-page case discovered at run time (OB-03), the adoption
+report against the team register and the page (OB-07, OB-08), the guide's own
+claims, and the 360 px layout and new-tab announcements (OB-09). Whatever needs
+Freighter, a deployed reference agent or a real screen reader (OB-01, OB-05,
+OB-06, and the screen-reader half of OB-09) is run by a person from
+`docs/uat/checklists/6.09-onboarding-and-phone.md` and recorded in
+`evidence/6.09-operator-onboarding.md`.
+
+**Fixtures** — all team wallets, all testnet: unbound `w1_audit_a7x`
+(`GBI2I3WL…ADBH`); dead quick tunnel `uat605_ext_op` (`GBWMD26I…7BQJ`).
+
+**The story's baseline is stale.** It states 11 outside agents from 7 outside
+wallets. On 2026-10-03 the marketplace lists 516 on-chain agents whose owner
+is not in the team register, from 511 owners; a sample of 25 of those owners
+were all created by friendbot, 24 of them between 2026-10-01 and 2026-10-03.
+The spec re-derives every count at run time and never hard-codes one.
+
+## Acceptance criteria — RV, re-verification of the public evidence index after escrow v2 (story 6.10, verifies 5.05)
+
+6.04 (OV-01..OV-08) verified an earlier index. This re-runs it against the
+index deployed from frontend `main` (`content/evidence/index.json`, snapshot
+as of 2026-09-30 with later edits on 2026-10-01 and 2026-10-03), judging
+honesty, not reachability: a link that resolves to a true transaction under a
+misleading label is a finding. Findings are defects against 5.05 that quote
+the item id.
+
+**Consent.** Outside operators' agent ids, wallets and hashes must not appear
+on the page. Where they do, this suite and its reports name the item id and a
+count, never the identifier.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| RV-01 | every link on the index | each is opened and its label compared with what it shows | each resolves, and each label is true about who signed, what it did, the date and the amount |
+| RV-02 | each deliverable item and metric | its status and achieved value are judged independently from its links and sources | each is the status the evidence supports; every disagreement is recorded with its reason |
+| RV-03 | the disclosures section | it is read | it states testnet-only scope, platform-funded credits, off-chain binding, the signing key's roles, the m03 removal and every team wallet used in a run |
+| RV-04 | the whole page | it is searched for outside operators' agent ids, wallets and hashes | none appears |
+| RV-05 | the deployed index | `npm run evidence:verify` runs | every link passes, and the report is attached |
+| RV-06 | the page printed to PDF | each link is read on paper | every link prints its URL |

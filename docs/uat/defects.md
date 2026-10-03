@@ -1694,7 +1694,7 @@ tx in the trace and a `ReputationLedger` event for the agent.
 ## D-039 — A buyer is never charged, and the run still reports `complete` with a `spent` that did not happen
 
 - **Severity:** Critical
-- **Status:** Open — known contract defect (`PaymentEscrow.charge` needs the payer's `require_auth()`, which only the settler's signature is present for); verified here, not re-diagnosed. **Re-verified 2026-09-24** on the redeployed backend and unchanged: the escrow contract `CBJPTMAP…525PI` has not been redeployed since 2026-09-16, seven fresh workflows produced seven `authd` events and **0** `charged`, every task still finalized `complete` with `charge_tx null`, `spent` set (0.01–0.034) and a trailing `error · on-chain settlement failed`. It is now the only one of the five 6.05 defects still open, and it is what makes D-050 unreachable
+- **Status:** **Resolved 2026-10-01** — replaced by PaymentEscrow v2 (contracts PR #4, deployed 2026-09-30 as `CCNO5TENCK3EK532I3OZLZ63323FEEULPAKJ74CUP3JZK3XQINRQ5VC4`). Funds are held in custody at `authorize`, signed by the payer, and `settle` is called by the settler, `GDB4N25…CDHP`. On testnet, v2 shows 5 `charged` events since deploy, against none ever on v1 (`CBJP…25PI`). The deploy reads v2 (`/readiness` `escrow.contract`). Verified live by `tests/dispute-path.spec.ts` DP-01 (9bfc1fb): `tsk_7e1c369cebaf41b3` has a settled charge with a 64-hex `charge_tx`. The asset is native XLM, not USDC.
 - **Affects:** EX-04, EX-05 (stories 2.02, 2.04)
 
 **Failing Given/When/Then (story 6.05)** — *Given the endpoint returns a valid
@@ -2109,7 +2109,7 @@ pointer to D-038.
 ## D-050 — No run can be disputed: the whole Epic 4 dispute path is unreachable behind the escrow defect
 
 - **Severity:** Critical
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01, with a narrower scope.** Escrow v2's `_settle_v2` writes the settlement record once the settle confirms (backend 2c12bd0). Verified live by `tests/dispute-path.spec.ts` DP-01 (9bfc1fb): `tsk_7e1c369cebaf41b3` reads `settlement_state: settled`, with step 0 (calculatorai) paid and `window_closes_at` = `settled_at` + 24 h, and its dispute is credited. DP-04 (dbb30fe) holds the no-settlement shape for a pre-v2 task. Only steps whose agent has an on-chain owner are paid and disputable: seeded `agt_*` steps settle at 0 and are refused `nothing_was_charged`.
 - **Affects:** EX-04 (stories 4.02, 4.05, 4.06); the dispute UI shipped in the frontend on 2026-09-22
 
 **Steps to reproduce** — run any workflow to completion on the deployed
@@ -2192,6 +2192,20 @@ Every open defect from stories 6.05 and 6.06 is filed as a Bug in the repository
 | D-074 | Major | BE | [#81](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/81) |
 | D-075 | Minor | BE | [#82](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/82) |
 | D-076 | Minor | BE | [#83](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/83) |
+| D-077 | Critical | BE | [#104](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/104) |
+| D-078 | Critical | FE | [#114](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/114) |
+| D-079 | Critical | BE | [#105](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/105) |
+| D-080 | Critical | BE | [#106](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/106) |
+| D-081 | Critical | FE | [#115](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/115) |
+| D-082 | Major | FE | [#116](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/116) |
+| D-083 | Medium | BE | [#107](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/107) |
+| D-084 | Medium | BE | [#108](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/108) |
+| D-085 | Medium | BE | [#109](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/109) |
+| D-086 | Minor | BE | [#110](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/110) |
+| D-087 | Minor | FE | [#117](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/117) |
+| D-088 | Minor | FE | [#118](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/118) |
+| D-089 | Major | FE | [#119](https://github.com/Bl0cksmiths/Orizon-Agents-FE-Stellar/issues/119) |
+| D-090 | Minor | BE | [#111](https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/issues/111) |
 
 D-036, D-037, D-038 and D-040 are not filed: they were resolved by the 2026-09-24 redeploy. D-050 is D-039's consequence and says so in both issues.
 
@@ -2199,7 +2213,7 @@ D-036, D-037, D-038 and D-040 are not filed: they were resolved by the 2026-09-2
 ## D-051 — The deployment has dispute refunds switched off, so no dispute can ever be upheld
 
 - **Severity:** Blocker (for story 6.03a)
-- **Status:** Open — deployment configuration, not code
+- **Status:** **Resolved 2026-10-01** — the deploy upheld and paid a real dispute on 2026-09-30: `dsp_15acee279ac02852a5877ac1696ec4b5` is `credited`, with refund `cb2c5792…` and a confirmed `dispute` rating `b512135f…` on ReputationLedger CDCSOBEV…422ZT. So `DISPUTE_REFUNDS_ENABLED` was on, with `API_KEY` set. Verified live by `tests/reputation-consequence.spec.ts` RC-01 (43b6d01, 50c2387), which reads the record and confirms both transactions on Horizon. The switch's current value cannot be read from outside, since D-052's fix answers 401 first.
 - **Affects:** DP-01, DP-02 (stories 4.03, 4.04, 6.03a)
 
 **Failing precondition (story 6.03a)** — *"`DISPUTE_REFUNDS_ENABLED=true` and a
@@ -2245,7 +2259,7 @@ on.
 ## D-052 — The adjudication routes answer an anonymous caller with their configuration state
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01** — fixed at backend 3baa84e: `require_adjudicator` checks the key before the refund switch (`security.py:522`). Verified live by `tests/adjudication-door.spec.ts` (branch uat-1001-door, b8d57d3). No key, a wrong key, a short key, a latin-1 key and raw UTF-8 bytes each get `401 invalid_api_key` on both uphold and reject. None gets a 503, so an unauthenticated caller can no longer read the switch.
 - **Affects:** DP-02 (story 4.04)
 
 **Steps to reproduce** — with no credentials at all:
@@ -2279,7 +2293,7 @@ so an anonymous caller gets `401` whatever the flag says.
 ## D-053 — Adjudication concurrency: a money-path defect, held privately
 
 - **Severity:** Critical (story 6.03b: Urgent, stop-the-line)
-- **Status:** Fixed in code, not yet deployed — details held privately
+- **Status:** **Fixed and deployed** — details held privately (re-checked 2026-10-01). The private reproduction still shows a single transfer at backend `6da6da7`. The deploy now runs a build that contains the fix: its OpenAPI carries the `OperatorApiKey` scheme, which `08efeda` introduced. IB-01 has not been exercised live, because it needs two concurrent upholds made with the operator key.
 - **Affects:** IB-01 (story 6.03b)
 
 **Re-check 2026-09-26 (story 6.03)** — the private reproduction was re-run against
@@ -2310,7 +2324,7 @@ regression test is part of the private hand-off.
 ## D-054 — `MAX_REFUND_USDC` is not validated, so a bad value silently removes the refund cap
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Fixed in code at backend `6da6da7`** (7d5e3e8, dbc2f7d, d232eb7; re-checked 2026-10-01). The service refuses to boot with a non-finite or non-positive `MAX_REFUND_USDC` (`config.py:742`), and the credit path refuses one again. No UAT test pins this. It was verified by code reading and the backend's own refund tests (190 passed in the selection run).
 - **Affects:** IB-05 (story 6.03b)
 
 **Steps to reproduce** — backend origin/main `3347090`, locally, no network:
@@ -2340,7 +2354,7 @@ boot, and refuse a non-finite amount in the cap check itself.
 ## D-055 — A refund refused at the cap does not tell the caller the amount or the cap
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** Open (re-checked 2026-10-01 at backend `6da6da7`). The service's own message now names both figures ("X USDC exceeds MAX_REFUND_USDC=Y"), and `scripts/uphold_dispute.py` prints it. But the adjudication route still sends only the code, on purpose (`routers/disputes.py:587`), and the uphold log line still prints `amount=-`.
 - **Affects:** IB-05 (story 6.03b)
 
 **Steps to reproduce** — backend origin/main `3347090`: uphold a dispute whose
@@ -2366,7 +2380,7 @@ pass the amount to `_refuse_credit`.
 ## D-056 — Every dispute refusal except the duplicate loses the service's message on the wire
 
 - **Severity:** Minor
-- **Status:** Fixed in code at backend `08efeda` for the buyer's routes, not yet deployed (re-checked 2026-09-26, story 6.03). A replay answers `400 challenge_expired` with the service's own message. A late dispute answers `409 dispute_window_closed`, "…closed at 2026-09-26T01:55:41+00:00". `not_the_payer`, `signature_malformed` and `unknown_job` carry theirs too (298574b, 042a5e2, ff75cc2). The adjudication routes still answer with a code only, which is now documented as deliberate. It moves to Resolved when WC-01 passes on the deploy.
+- **Status:** **Resolved 2026-10-01** — fixed at backend 298574b, 042a5e2 and ff75cc2 (`_refuse_buyer` keeps the service's message on the buyer's routes). Verified live by `tests/dispute-eligibility.spec.ts` WC-01 (c622eab): a challenge after the close is refused `409 dispute_window_closed`, "the dispute window for this workflow closed at 2026-10-01T09:39:30+00:00". A stranger on an open step got "only the payer of a workflow may dispute it" in a one-off live probe the same day. The adjudication routes still send the code only, which is now documented as deliberate (see D-055).
 - **Affects:** IB-02, DR-07, WC-01, WC-04 (stories 6.03b, 6.03c, 4.02) — reconfirmed 2026-09-25 by running the service locally: a dispute after the close is refused `409 dispute_window_closed` with the message `"dispute window closed"`, and the closing time the service built is dropped
 
 **Steps to reproduce** — backend origin/main `3347090`: replay a captured
@@ -2394,7 +2408,7 @@ assert it in a test that does not stub the service.
 ## D-057 — After a 409 whose refetch fails, the step offers Dispute again with no hint it is already disputed
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (b225e057, d3dfee3e, 970e5861; re-checked 2026-10-01). The backend's 409 carries the original dispute, the section adopts it at once ("already had a dispute… shown below"), and an adopted dispute survives a failed re-read. If a 409 arrives with no body, the step can still be offered again. No UAT test pins this. It was verified by code reading and the frontend's dispute suite (707 passed, 1 timeout unrelated to this).
 - **Affects:** IB-02 (story 6.03b)
 
 **Steps to reproduce** — frontend origin/main `e56a07a`, component level:
@@ -2423,7 +2437,7 @@ render it straight away, without waiting for the refetch.
 ## D-058 — In-memory dispute store: a money-path defect, held privately
 
 - **Severity:** Major (only when `DATABASE_URL` is unset)
-- **Status:** Open — details held privately
+- **Status:** **Fixed in code at backend `6da6da7`** — details held privately (re-checked 2026-10-01 with the private reproduction). It was never reachable on the deploy, which runs the Postgres store (`/readiness` shows `disputes.store: postgres`).
 - **Affects:** IB-01 (story 6.03b)
 
 Found 2026-09-24 in the backend's in-memory dispute store (origin/main
@@ -2440,7 +2454,7 @@ runs on Postgres.
 ## D-059 — A dispute reason made only of invisible characters is accepted as a reason
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01** — fixed at backend f857b43 and ed1c351. A reason with nothing visible is now refused `422 reason_invalid`. Verified live by `tests/dispute-eligibility.spec.ts` WC-05 (5813563, 249fd66): a zero-width space, a right-to-left override, an empty bidi isolate pair and a Hangul filler are each refused, and the pins are removed. Empty and whitespace-only reasons get the same code now (c30d95a, 68c6720).
 - **Affects:** WC-05 (story 6.03c)
 
 **Steps to reproduce** — live, no wallet needed:
@@ -2480,7 +2494,7 @@ documented.
 ## D-060 — A dispute dialog left open when the window closes still asks the wallet to sign
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (97eb69fa, 8c7e541a; re-checked 2026-10-01). `canSubmit` now requires the window to be open. An idle or retry form switches to "window closed" at the close. The sign step refuses before the wallet prompt, and `raiseDispute` checks the window before the challenge and before each signature. No UAT test pins this. It was verified by code reading and the frontend's dispute suite.
 - **Affects:** WC-02 (story 6.03c)
 
 **Steps to reproduce** — frontend origin/main `e56a07a`, run with the real
@@ -2511,7 +2525,7 @@ switch to the closed message at the close, before any signature.
 ## D-061 — A reason refused as a validation error is shown as a generic, retryable failure
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (e96d3d95, d3be1207; re-checked 2026-10-01). A reason refusal (`validation_error` naming `reason`, `reason_required` or the backend's new `reason_invalid`) is shown with the server's own sentence, the field is marked `aria-invalid`, and focus moves to it. No UAT test pins this. It was verified by code reading and the frontend's dispute suite.
 - **Affects:** WC-05, WC-06 (story 6.03c)
 
 **Steps to reproduce** — frontend origin/main `e56a07a`, component level:
@@ -2541,7 +2555,7 @@ field's own message, and choose the copy from the refusal rather than the code.
 ## D-062 — A reason that contains a prompt-fence marker is stored altered and truncated
 
 - **Severity:** Minor
-- **Status:** Open — the backend documents it as an accepted edge
+- **Status:** **Fixed in code at backend `6da6da7`** (f857b43, e2a8e8f; re-checked 2026-10-01). Nothing in a reason is redacted or cut any more. A reason over 500 characters is refused instead. Verified live for the cap by `tests/dispute-eligibility.spec.ts` WC-06 (1f80c5a): 500 × "é" passes to `unknown_job`, and 501 gets `422 reason_invalid`. That a fence-marker reason is stored unchanged is not exercisable live, because it needs a payer's signature to open a dispute.
 - **Affects:** WC-06 (story 6.03c)
 
 **Steps to reproduce** — backend origin/main `3347090`, run locally with a
@@ -2571,7 +2585,7 @@ redact without exceeding the cap, so what is stored is what was sent.
 ## D-063 — The startup log does not name the dispute store; it is named only at first use
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01** — fixed at backend 1e200bf and 33b4160. The store is created at startup (`main.py:198-204`), and `/readiness` reports it. Verified live by `tests/durability.spec.ts` DU-05 (cd160fb): `disputes.store` is `postgres`. **Pin not yet lifted:** `tools/restart-drill/drill.py` (the boot-log check) needs a Postgres drill run.
 - **Affects:** DU-05 (story 6.03d)
 
 **Steps to reproduce** — backend origin/main `3347090`, `DATABASE_URL` set to a
@@ -2648,7 +2662,7 @@ XFAIL, pinned to D-064); `tools/restart-drill/browser.spec.ts` "DU-04 …"
 ## D-065 — With TASK_AUTH_REQUIRED on, a backend restart hides the payer's receipt and every dispute action
 
 - **Severity:** Minor (latent: production runs with `TASK_AUTH_REQUIRED` off, confirmed live on 2026-09-25)
-- **Status:** Open
+- **Status:** Open (re-checked 2026-10-01 at frontend `7e292ca8`). Narrowed by 6e8d6579: a 404 while a receipt is already on screen is now an error and no longer erases it. But on a first read any 404 still means "no receipt route" (`use-dispute-panel.ts:460-461`), and the new read grant cannot help, because its control lives inside the hidden receipt. This is latent while `TASK_AUTH_REQUIRED` stays off, as it does in production.
 - **Affects:** DU-01, DU-02 (story 6.03d)
 
 **Steps to reproduce** — backend origin/main `3347090` on a real Postgres with
@@ -2686,7 +2700,7 @@ once the backend is known to have it.
 ## D-066 — A dispute upheld with the uphold script leaves the running server on the pre-dispute score
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Fixed in code at backend `6da6da7`** (4f13175, 15c8cf4, c6876f7; re-checked 2026-10-01). `scripts/uphold_dispute.py` now POSTs `/api/stellar/reputation/{id}/invalidate` to the running service. That needs `UPHOLD_SERVICE_URL` (or `--service-url`) and `API_KEY`; without them it prints "NOT TOLD" with the TTL warning. **Pin not yet lifted:** `tools/reputation-drill/drill.py` `phase_script` must be re-run on the testnet drill.
 - **Affects:** RC-04 (story 6.03e)
 
 **Steps to reproduce** — backend origin/main `08efeda`, run on testnet with
@@ -2727,7 +2741,7 @@ new score" (XFAIL, pinned to D-066).
 ## D-067 — The payer loses both reasons unless they are in the tab that ran the task
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Fixed in code at backend `6da6da7` and frontend `7e292ca8`** (BE 958c293, 0062fed, 95ccef6; FE 32b9f1d5, 9051f9dc, 23163266 and others; re-checked 2026-10-01). The payer signs a read challenge (`POST /api/disputes/read-challenge`, then `/read-grant`), sends the grant as `X-Dispute-Read-Grant`, and reads both reasons; the receipt shows "Show my reason". Everyone else gets `reason: ""` with `reason_withheld: true`. The deploy has both routes (OpenAPI), and a live dispute answers `reason_withheld: true` to an anonymous read. **Pins not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-07, and `tools/restart-drill/browser.spec.ts` "DU-01 the payer's own reason is on their receipt". Both need a browser run.
 - **Affects:** DS-01, DS-04 (story 6.03f); DU-01, DU-02, DU-03 in the restart drill's browser half (story 6.03d, found 2026-09-26)
 
 **Also breaks the restart drill's browser half (2026-09-26, story 6.03).** At
@@ -2798,7 +2812,7 @@ returning without the task's tab still reads why it was rejected"
 ## D-068 — A withheld reason is drawn as an empty "Your reason" quote
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (699ab458, 712b57a6; re-checked 2026-10-01). A reason that is empty after trimming is treated as absent (`lib/disputes.ts:829`), so no empty quote is drawn. **Pin not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-08 needs a browser run.
 - **Affects:** DS-01 (story 6.03f)
 
 **Steps to reproduce** — as for D-067: open any dispute's trace page with the
@@ -2828,7 +2842,7 @@ D-068).
 ## D-069 — The receipt stops polling once the refund confirms, so a rating that lands after it never shows
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (8e91f0ee, 3483e49d, 23096d91; re-checked 2026-10-01). `ratingStillComing` keeps a credited receipt polling while its rating is pending, with `rating_confirmed` null or false. Polling is every 5 s for 90 s, then every 30 s up to 15 min, then "stopped checking — reload". **Pin not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-10 needs a browser run.
 - **Affects:** DS-05 (story 6.03f)
 
 **Steps to reproduce** — with `tools/dispute-ui-drill/`: open the payer's trace
@@ -2868,7 +2882,7 @@ poll happened to land after both writes.
 ## D-070 — An upheld dispute with no transfer says the transfer "is queued", under a success tick
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (ac25c57e, 086110c0, 23a05e8e; re-checked 2026-10-01). An upheld dispute with no transfer now reads "the credit has not been paid… the platform has to send it", under a grey ○ rather than a cyan ✓. **Pin not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-13 needs a browser run.
 - **Affects:** DS-01 (story 6.03f)
 
 **Steps to reproduce** — with `tools/dispute-ui-drill/`: open the payer's
@@ -2901,7 +2915,7 @@ transfer on record …" (`test.fail()`, pinned to D-070).
 ## D-071 — The dispute dialog states the credit as exact; the receipt says "Up to"
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (1a8c56dd, cf7482a5; re-checked 2026-10-01). The dialog reads "Credited if upheld: Up to X", and the step row reads "credits up to X if upheld". Amounts now print in the network's asset, which is XLM on testnet (3359fede). **Pin not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-14 needs a browser run, and its "USDC" wording must change to XLM.
 - **Affects:** DS-01 (story 6.03f)
 
 **Steps to reproduce** — open a settled task's trace page as the payer and
@@ -2928,7 +2942,7 @@ D-071).
 ## D-072 — The two Stellar Expert links on a receipt are 15px tall on a phone
 
 - **Severity:** Minor
-- **Status:** Open
+- **Status:** **Fixed in code at frontend `7e292ca8`** (4cd0109e, c41cf1fe, f60f1b61, 2de64b93; re-checked 2026-10-01). `StellarExpertLink` is now `inline-flex min-h-6`, 24 px tall, with the text still 10 px. That covers all of its call sites. **Pin not yet lifted:** `tools/dispute-ui-drill/browser.spec.ts` FS-15 needs a browser run. The 44 px touch guidance is not met.
 - **Affects:** DS-06 (story 6.03f)
 
 **Steps to reproduce** — open a credited receipt at 360px width with touch.
@@ -2955,7 +2969,7 @@ to D-072). To be confirmed on a real phone:
 ## D-073 — Malformed JSON on the reject route is answered 422 before the adjudication guard
 
 - **Severity:** Minor
-- **Status:** Open, contested: the backend documents this as a deliberate trade-off (see below)
+- **Status:** Open, contested (re-checked live 2026-10-01). With the key now checked first, reject with malformed JSON is still answered `422 validation_error` (json_invalid) before the guard, while uphold answers `401`, and a wrong-shaped but parseable body gets 401 on both routes. The backend keeps this on purpose (`reject_dispute` docstring; `test_money_route_auth`). Pinned live in `tests/adjudication-door.spec.ts` AD-04, reject only (a693382). The product owner's decision is still needed (backend#80).
 - **Affects:** AD-04 (story 6.03g)
 
 **Steps to reproduce** — on the deploy, with no key:
@@ -3002,7 +3016,7 @@ JSON on reject …" (`test.fail()`, pinned to D-073).
 ## D-074 — `STELLAR_NETWORK=pubnet` is not recognised as mainnet by the boot guards
 
 - **Severity:** Major
-- **Status:** Open
+- **Status:** **Fixed in code at backend `6da6da7`** (ec75b03, 0f4dc64, f9a7f8a; re-checked 2026-10-01). `is_mainnet()` reads the network passphrase (`config.py:1174`), and `pubnet` is in `MAINNET_LABELS`. **Pin not yet lifted:** `tools/adjudication-drill/drill.py d074` needs a re-run.
 - **Affects:** AD-02 (story 6.03g), found beside it; the refund door itself holds
 
 **Steps to reproduce** — backend `08efeda`, loading the settings only
@@ -3037,7 +3051,7 @@ under each name. `mainnet` exits 1; `pubnet` boots and serves `/health`
 ## D-075 — A failed dispute rating is logged without the credited amount
 
 - **Severity:** Minor (story 6.03: money path, filed as Urgent Bug)
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01** — fixed at backend `6da6da7` (2eb5703, a6b49d5): the rating-outcome line now carries `credited_usdc` and `refund_tx`. Verified by `tools/rating-log-drill/drill.py`: "the error line carries the amount" passes in all three failure modes, and its pin is removed (5182f78). The deploy's own logs cannot be read from outside, so the live line is not observed.
 - **Affects:** SD-08 (story 6.03)
 
 **Steps to reproduce** — backend `08efeda`. Run the real `dispute_svc.uphold` on
@@ -3070,7 +3084,7 @@ carries the amount" is XFAIL, pinned to D-075.
 ## D-076 — A dispute rating refused at simulation is reported as "timed out, may still land"
 
 - **Severity:** Minor (story 6.03: money path, filed as Urgent Bug)
-- **Status:** Open
+- **Status:** **Resolved 2026-10-01** — fixed at backend `6da6da7` (289111c, a4be4f1, 7b0221d): the client raises `NotSubmittedError` for a failed prepare or a refused send (`client.py:557-576`), and `dispute_rating` maps it to FAILED with the reason, so the line reads "refused before it was submitted". Verified by `tools/rating-log-drill/drill.py` mode `refuse`, which now raises the client's own type (14c8576): "a rating refused at simulation is reported as nothing landed" passes, and its pin is removed (f1a655f).
 - **Affects:** SD-08, DU-04 (story 6.03); story 4.04
 
 **Steps to reproduce** — backend `08efeda`. Uphold a dispute, or re-run
@@ -3107,5 +3121,562 @@ host error, as a non-Replay `ContractError` already is.
 rating submission raises what the client raises when prepare fails, and "a
 rating refused at simulation is reported as nothing landed" is XFAIL, pinned
 to D-076. The credit is kept in that mode too.
+
+---
+## D-077 — No paid workflow can complete on the deploy: every bound agent with an on-chain owner has a dead endpoint
+
+- **Severity:** Critical (story 6.04: Urgent, money path)
+- **Status:** Open
+- **Affects:** OV-08 (story 6.04); SOW §6.3 m03, §6.2 D4 (demo video)
+
+**Steps to reproduce** — `GET /api/agents` on the deployed backend and keep the
+agents with `bound: true`. Probe each with `GET /api/agents/{id}/readiness`.
+Then run `python tools/e2e-run/run.py run` with any intent the planner routes to
+one of them.
+
+**Expected** — at least one routable agent with an on-chain owner answers a
+dispatch, so a buyer's run is delivered, `settle` pays the owner (a `charged`
+event) and the job is sealed.
+
+**Actual** — six agents are bound, all with an owner. The backend's own
+`reachable` step fails for five: `algorex` ("answered 301, a redirect"),
+`3D_Artbot` ("did not answer within 5 s"), and `faulty_test_v2`,
+`uat624_ext_op` and `uat605_ext_op` (Cloudflare quick tunnels whose hostnames
+no longer resolve). The sixth, `Powerbot`, answers 200 from a web page that does
+not speak the dispatch protocol; the 2026-10-01 run routed to it failed and its
+settle `82e79595…780b` returned the whole 0.12 XLM. UAT's run of record on
+2026-10-02 (`tsk_2ffcc633bf3d8f1d`) authorized 0.01 XLM
+(`731ab17a…2025`, ledger 4977473), the step failed, and settle
+`9ee94bd0…fe09` (ledger 4977475) carried `payouts []` and returned the custody
+to the buyer. `AttestationRegistry.get` of its job answers `NotFound`: nothing
+was sealed.
+
+**Impact** — no buyer can complete a paid workflow on the deploy. OV-08 is
+Blocked, m03 cannot move off 0, and the demo video has nothing real to show.
+
+**Resolution path** — bind a live operator endpoint (a named tunnel or a
+hosted agent, not a quick tunnel) to an agent with an owner, then re-run the
+tool. The run is one command once an endpoint answers.
+
+**Verified by** — re-checked live on 2026-10-02 at 04:38Z: the six readiness
+probes give the same verdicts, and Horizon shows both run transactions
+successful with the custody moving buyer → escrow → buyer. Evidence:
+`docs/uat/evidence/6.04-e2e-run.md`.
+
+---
+## D-078 — The evidence index drops the unmet metric m03 from the SOW's eleven, citing a removal "by the team lead"
+
+- **Severity:** Critical (story 6.04: Urgent, evidence misstatement)
+- **Status:** Open
+- **Affects:** OV-02, OV-06 (story 6.04); SOW §6.3 m03
+
+**Steps to reproduce** — read `metrics` and `removed_metrics` in the frontend's
+`content/evidence/index.json` (`origin/main` `0c8a10b7`, rendered at
+`https://orizons.xyz/evidence`). Count workflows routed to an outside-owned
+agent and settled, from every escrow v1 and v2 receipt
+(`npx playwright test tests/sow-metrics.spec.ts --project=chromium-desktop`).
+
+**Expected** — all eleven SOW §6.3 rows are shown, with m03 "Workflows routed
+to external agents & settled on Testnet" (target ≥ 3) marked not met, unless the
+SOW itself was amended with the client.
+
+**Actual** — the index shows ten metrics. m03 sits in `removed_metrics`,
+"removed from the sprint's requirements by the team lead", on 2026-09-30, the
+day its shortfall would have shown. The chain holds **0** qualifying workflows
+at every cut-off up to 2026-10-02: no receipt on either escrow pays an agent
+owned outside the team. The backend's own live counter agrees:
+`GET /api/ecosystem/adoption` reports `settled_external_workflows: 0`,
+`met: false`.
+
+**Impact** — a reviewer reading the index sees no failed transaction target.
+The one SOW metric that proves outside operators were paid is missing, not
+failed.
+
+**Resolution path** — restore m03 to the index as "0 of 3, not met", with the
+reason (D-077), unless the client has agreed in writing to drop it.
+
+**Verified by** — `tests/sow-metrics.spec.ts` `OV-02 m03 …`, passing on
+2026-10-02 with the row asserted absent and its count at 0; the adoption
+counter read live the same day. Evidence:
+`docs/uat/evidence/6.04-metrics-and-operators.md` §2.
+
+---
+## D-079 — m04 "On-chain USDC settlements" is marked met on three XLM charges between team wallets
+
+- **Severity:** Critical (story 6.04: Urgent, evidence misstatement)
+- **Status:** Open
+- **Affects:** OV-02, OV-06 (story 6.04); SOW §6.3 m04, §6.2 D4-d
+
+**Steps to reproduce** — read m04 in the evidence index; `GET
+/api/stellar/network` on the deployed backend; read every escrow v2 receipt
+(`receipt(0..Nonce-1)`) and its transfer on Horizon.
+
+**Expected** — m04 is met only on USDC settlements, or the row is marked not
+met (or disputed) with the XLM substitution stated in its status, not only in
+the prose.
+
+**Actual** — the index reads "3, met". The network document reports
+`asset: native`. All three charges counted at 10:42 UTC on 2026-09-30
+(`f0674419…1235`, `19f3420d…3397`, `785428bf…554b`), and the two after it, move
+native XLM, and each is a team buyer key (GB4K6…AYKK or GCNQA…A2GP, both in the
+team register) paying an agent the team admin GA7AI…5OQV owns (`calculatorai`,
+`keyboardai`). **0 USDC settlements exist.** The backend's method note says
+"USDC settles as native XLM on testnet"; that is a team decision, not the SOW.
+
+**Impact** — the SOW's settlement target reads as met when no USDC moved and no
+outside party took part.
+
+**Resolution path** — mark m04 not met (or disputed), stating "0 USDC; 3 XLM
+charges between team wallets" in the status itself.
+
+**Verified by** — `tests/sow-metrics.spec.ts` `OV-02 m04 …`, passing on
+2026-10-02; `/api/stellar/network` read live the same day. Evidence:
+`docs/uat/evidence/6.04-metrics-and-operators.md` §2.
+
+---
+## D-080 — m05 "partial-refund" and m08 "partial-credit refund" are marked met on refunds of 100%
+
+- **Severity:** Critical (story 6.04: Urgent, evidence misstatement)
+- **Status:** Open
+- **Affects:** OV-02, OV-06 (story 6.04); SOW §6.3 m05, m08; §6.2 D3-b
+
+**Steps to reproduce** — trace the dispute rating `b512135f…3a49` to the
+disputed charge `785428bf…554b` and the refund `cb2c5792…1e25f`; read the live
+dispute record `GET /api/disputes/dsp_15acee279ac02852a5877ac1696ec4b5`.
+
+**Expected** — m05 counts a refund smaller than what the buyer paid, and m08's
+"partial credit" is shown working at least once.
+
+**Actual** — the dispute record reads `charged_usdc: 0.01`,
+`creditable_usdc: 0.01`, `credited_usdc: 0.01`: the refund returned the whole
+0.01 XLM step, which was the whole of what the buyer paid on that job. The only
+other refund (`01c3175a…5efa5be`, after the 15:30 count) is also 0.01 of 0.01.
+The live credit policy `dispute_credited_fraction` is 1.0, and the backend
+counts any refund no larger than the charge, so a full refund passes as
+partial. **0 partial refunds exist.** The index marks m05 "1, met" and m08
+"Yes, met", and §6.2 D3-b calls the refund "the matching partial-refund
+transaction".
+
+**Impact** — two SOW rows and one checklist item read as met on a mechanism
+that has never paid a partial credit.
+
+**Resolution path** — mark m05 not met and m08 partly met, or settle one real
+dispute with a credit below the charge and cite that transaction.
+
+**Verified by** — `tests/sow-metrics.spec.ts` `OV-02 m05 …` and `OV-02 m08 …`,
+passing on 2026-10-02; the dispute record read live the same day. Evidence:
+`docs/uat/evidence/6.04-metrics-and-operators.md` §2.
+
+---
+## D-081 — Three faulty-run rating links quote "lower bound" values the chain does not carry
+
+- **Severity:** Critical (story 6.04: Urgent, evidence misstatement)
+- **Status:** Open
+- **Affects:** OV-01 (story 6.04); §6.2 D2-b
+
+**Steps to reproduce** — open `https://orizons.xyz/evidence` and find the three
+links labelled "Rating of faulty_test_v2 after failed run n of 3". Decode each
+transaction's operation on Horizon (`/transactions/{hash}/operations`):
+`e7885bf1…9663`, `2980361e…a388`, `cc83982b…e30f`.
+
+**Expected** — every value beside an explorer link is one the link shows.
+
+**Actual** — the labels state "lower bound 5677 to 5596", "5596 to 5518" and
+"5518 to 5443". Each call is
+`ReputationLedger.submit(GDB4N…CDHP, faulty_test_v2, <workflow id>, 20, 2000000, GA7AI…5OQV, auto)`,
+and its contract event carries the same fields. No lower bound appears in
+either: those figures are the platform's own Wilson computation, made off-chain.
+Score, amount, signer and day all match.
+
+**Impact** — a reviewer who follows the link to check the floor story cannot
+find the numbers the label gives. Under this story's rule a misstated piece of
+evidence is Urgent, even when the contract, function, addresses and amounts are
+right.
+
+**Resolution path** — drop the lower-bound figures from the link labels, or
+move them to the item's note, marked as computed by the platform from these
+ratings.
+
+**Verified by** — re-checked on 2026-10-02: the live page carries the three
+labels, and `e7885bf1…` decodes to the call above with no lower bound.
+`tests/evidence-index.spec.ts` (64 of 64 passed) pins each call's arguments.
+Evidence: `docs/uat/evidence/6.04-evidence-links.md` §4, §8.
+
+---
+## D-082 — The demo video is not recorded, so /demo has nothing to play
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** OV-05 (story 6.04); SOW §6.3 m10, §6.2 D4-a
+
+**Steps to reproduce** — open `https://orizons.xyz/demo` with no wallet and no
+session; read `content/demo/demo.json` on the frontend's `origin/main`.
+
+**Expected** — a 3–5 minute video, operator and buyer perspectives, in a player.
+
+**Actual** — the page answers 200 and is honest about it: `data-demo="unpublished"`,
+no `<video>` or `<iframe>`, and the notice "The demo video has not been recorded
+yet." The manifest reads `"status": "unpublished"`, `"video": null`. The script,
+shot list and narration are merged; the recording is not. The index marks
+§6.2 D4-a `missing`, so the index does not overstate it.
+
+**Impact** — OV-05 fails on one of its three artifacts; m10 is not met; §6.2 D4
+is incomplete. The video also depends on D-077: it needs a live outside agent
+and a settled payment to show.
+
+**Resolution path** — record the video once D-077 is cleared, publish the
+manifest, and the `test.fail()` pin turns into an unexpected pass.
+
+**Verified by** — re-checked over HTTP on 2026-10-02; pinned by
+`tests/public-artifacts.spec.ts`
+`OV-05 the demo video is published on /demo and its player is on the page`.
+Evidence: `docs/uat/evidence/6.04-public-artifacts.md`.
+
+---
+## D-083 — The AttestationRegistry never extends a TTL: the seals and the registry archive on 2026-10-07
+
+- **Severity:** Medium (story 6.04 grade)
+- **Status:** Open
+- **Affects:** OV-03 (story 6.04); §6.2 D4-d, RD-f
+
+**Steps to reproduce** — `getLedgerEntries` on Stellar RPC testnet for the
+registry `CBYUZKOE…HEGK` instance, its wasm, and each sprint seal's `Job` entry
+(`node --no-warnings tools/attestation-verify/capture.ts`).
+
+**Expected** — seals cited as evidence stay live: the contract or an operator
+job extends their TTLs.
+
+**Actual** — each job entry lives exactly 120,959 ledgers past its seal ledger,
+the network's minimum persistent TTL. The instance and the wasm live until
+ledger 5068358, about **2026-10-07 09:29Z**; the five sprint seals lapse between
+09:29Z and 17:48Z that day. The registry had already archived once before
+2026-09-30. The contract has no `extend_ttl`, and the backend has no TTL or
+restore handling.
+
+**Impact** — the data is not lost and write-once still holds: an archived seal
+reads back through simulation, and a re-seal still fails `AlreadyExists`. But
+explorers and plain ledger reads show the seals archived, and the next
+transaction that touches them pays a restore. OV-03's live spec turns red from
+09:29Z on 2026-10-07 until the entries are restored.
+
+**Resolution path** — extend the TTLs of the instance, the wasm and every cited
+`Job` entry before 2026-10-07 09:29Z, and add a TTL extension to `seal` or a
+scheduled operator job.
+
+**Verified by** — re-read at ledger 4978550 (2026-10-02 04:45Z): same
+live-until ledgers. `tests/attestations.spec.ts`, 16 of 16 passed on
+chromium-desktop. Evidence: `docs/uat/evidence/6.04-attestations.md` §3.
+
+---
+## D-084 — The planner routes to an agent its own readiness probe reports unreachable, and the buyer pays the fees
+
+- **Severity:** Medium (story 6.04 grade)
+- **Status:** Open
+- **Affects:** OV-08 (story 6.04)
+
+**Steps to reproduce** — `POST /api/orchestrator/decompose` with
+`{"intent":"run an algorithm reasoning task with algorex"}`; then
+`GET /api/agents/algorex/readiness`.
+
+**Expected** — an agent whose `reachable` step is `failed` is passed over, as
+unbound and below-floor agents already are, or the plan warns before the buyer
+signs.
+
+**Actual** — the plan (`pln_e2c71ee8` on the re-check) routes its one step to
+`algorex` with no notice about it, while its notices exclude `faulty_test_v2`
+(`below_floor`) and the unbound agents (`unbound_endpoint`). The readiness
+probe for `algorex` reports `reachable: failed`, "answered 301, a redirect.
+Dispatches never follow redirects." In UAT's run the buyer signed an
+authorize, the step failed in 0.3 s, and the buyer paid two transactions' fees
+for a run that could not be delivered.
+
+**Impact** — the custody comes back, so no principal is lost, but every buyer of
+such a plan signs and pays fees for a run the platform already knows will fail.
+
+**Resolution path** — exclude agents whose last readiness probe failed
+`reachable`, with a notice, or warn on the plan card before signing.
+
+**Verified by** — re-checked live on 2026-10-02 at 04:38Z with the two calls
+above. Evidence: `docs/uat/evidence/6.04-e2e-run.md` §1, §3.
+
+---
+## D-085 — m01 and m02 count the Powerbot owner as external, though it is one hop from the team admin on-chain
+
+- **Severity:** Medium (story 6.04 grade)
+- **Status:** Open
+- **Affects:** OV-04, OV-02 (story 6.04); SOW §6.3 m01, m02; §6.2 D1-c, D4-c
+
+**Steps to reproduce** — trace the Powerbot owner
+`GCVOWZY5SII2HZSYL6I5VFOOYPOJXHMATXRJVKBE227GBW45L7UAKQKX` on Horizon: its
+`create_account`, its counterparties, and each counterparty's operations
+(`npx playwright test tests/external-operators.spec.ts --project=chromium-desktop`).
+
+**Expected** — an operator counted as external has no on-chain path to a team
+wallet, or the index says it has one.
+
+**Actual** — friendbot created it on 2026-06-05, and on the same day it paid
+1000 XLM to `GDZQLM…4FHT`, its only counterparty. The team admin GA7AI…5OQV
+paid `GDZQLM…4FHT` three times (1 XLM and 0.5 XLM on 2026-04-29, 500 XLM on
+2026-05-31). `GDZQLM…4FHT` is in neither the team register nor the platform
+keys. The index counts Powerbot among 11 external agents and its owner among 7
+external wallets.
+
+**Impact** — m01 and m02 stay met (10 ≥ 2 and 6 ≥ 2), but the claim of 11 and 7
+overstates by one agent and one wallet. The other six wallets show no on-chain
+team link, which is all the chain can show: it cannot prove who holds the keys.
+
+**Resolution path** — state 10 and 6, or disclose the link and why the wallet
+still counts as outside.
+
+**Verified by** — `tests/external-operators.spec.ts`
+`OV-04 the Powerbot owner is one hop from the team admin`, and
+`tests/sow-metrics.spec.ts` m01/m02, all passing on 2026-10-02. Evidence:
+`docs/uat/evidence/6.04-metrics-and-operators.md` §3.1.
+
+---
+## D-086 — An attestation's `agents` lists the planned agents, including one that was never paid
+
+- **Severity:** Minor (story 6.04: Low)
+- **Status:** Open
+- **Affects:** OV-03 (story 6.04)
+
+**Steps to reproduce** — simulate
+`AttestationRegistry.get(fbc9b0e78d609571b2587a3c39c2de9c)` (run ac5, seal
+`41a159ff…fd64`); read the backend's
+`docs/evidence/5.01/ac5/lifecycle.jsonl` and the sheet in `docs/evidence/5.01/ac4-ac5/`.
+
+**Expected** — the attested agents match the paid receipts, or the attestation
+tells delivered agents from failed ones.
+
+**Actual** — `agents: [calculatorai, keyboardai]`, with one receipt (`…0a`,
+the calculatorai charge) and `total_spent` 100000, calculatorai's price alone.
+`keyboardai` failed, was rated 20/100, was never charged, and its 0.2 XLM came
+back to the buyer at settle. The 5.01 sheet labels the seal "Attestation seal —
+calculatorai". The bytes match the backend's claim; what `agents` means does
+not match the label.
+
+**Impact** — a reader of the seal alone would take `keyboardai` as a paid,
+delivering agent of that workflow. The three seals in the evidence index are
+single-agent runs and are not affected.
+
+**Resolution path** — seal only the agents with a receipt, or add the
+delivered/failed split to the attestation.
+
+**Verified by** — re-read by `tools/attestation-verify/capture.ts` on
+2026-10-02 at ledger 4978550; `tests/attestations.spec.ts` passing. Evidence:
+`docs/uat/evidence/6.04-attestations.md` §4.
+
+---
+## D-087 — A rating link is labelled "research.pro", a name the chain does not hold
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** OV-01 (story 6.04)
+
+**Steps to reproduce** — on `https://orizons.xyz/evidence`, find the link
+labelled "Rating of research.pro (agt_09l5)" (`cfc0b964…b201`). Decode its
+operation on Horizon, and look up `agt_09l5` in the AgentRegistry.
+
+**Expected** — the agent named beside the link is the agent the chain shows.
+
+**Actual** — the call is `ReputationLedger.submit(GDB4N…CDHP, agt_09l5,
+a285accc…1acf, 70, 240000, GA7AI…5OQV, auto)`. `agt_09l5` has no
+`Agent(agt_09l5)` record in the AgentRegistry: it is one of the backend's seeded
+catalogue agents (`GET /api/agents`: `source: "seeded"`, `owner: null`). The
+name "research.pro" comes from that catalogue and is nowhere on chain. Score,
+amount, signer and day all match.
+
+**Impact** — small: the link shows a real rating, but of an id with no
+on-chain agent behind it, under a name the reviewer cannot find.
+
+**Resolution path** — label it "Rating of agt_09l5 (a seeded catalogue agent,
+not registered on-chain)".
+
+**Verified by** — re-checked on 2026-10-02: the live label, the decoded call,
+and the seeded record. Evidence: `docs/uat/evidence/6.04-evidence-links.md` §4,
+§8.
+
+---
+## D-088 — The integration guide is public but declares itself a draft
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** OV-05 (story 6.04, not its verdict); SOW §6.3 m09, §6.2 D4-b
+
+**Steps to reproduce** — open `https://orizons.xyz/guide/list-your-agent` with
+no wallet and no session; read `content/guides/list-your-agent.md` on the
+frontend's `origin/main`.
+
+**Expected** — for "published": a guide that a newcomer has followed end to
+end.
+
+**Actual** — the page answers 200, all nine steps render, and every internal
+link resolves. Its frontmatter reads `status: draft`, and a note above the
+steps says "Draft — not yet validated by a newcomer". The index entry ends
+"· draft", so the index does not hide it.
+
+**Impact** — OV-05 asks only for reachability, which holds. But m09 and §6.2
+D4-b are judged by a reviewer, who can decline a guide that calls itself
+unfinished.
+
+**Resolution path** — have someone new to Orizon follow the guide, then set
+`status: validated`.
+
+**Verified by** — re-checked over HTTP on 2026-10-02; pinned by
+`tests/public-artifacts.spec.ts`
+`OV-05 the integration guide is published as validated, not as a draft`.
+Evidence: `docs/uat/evidence/6.04-public-artifacts.md`.
+
+---
+## D-089 — §6.2 D1-c and D4-c are marked present with no outside registration transaction hash
+
+- **Severity:** Major
+- **Status:** Open
+- **Affects:** OV-07 (story 6.04); §6.2 D1, D4
+
+**Steps to reproduce** — read items `6.1-D1-c` and `6.1-D4-c` in the frontend's
+`content/evidence/index.json` (`origin/main` `0c8a10b7`) and follow every link.
+
+**Expected** — the SOW's own words: D1 asks for "an externally owned agent's
+registration tx hash on Stellar Expert (testnet)", and D4 for "a list of ≥ 2
+external registration tx hashes".
+
+**Actual** — both items are `status: present`, and neither carries a
+registration transaction. Their links are the AgentRegistry contract page, the
+`/app/ecosystem` page (built in the browser: its served HTML has no explorer
+link), the team register on GitHub, and, for D4-c, the API's adoption counter,
+which lists outside owners with account links only. All 14 registration
+transactions the index links anywhere are by team wallets. The hashes do exist:
+for example `3a74719f22fafa6fcf4a6f2c4d02aebc0eb3b7dbf81fa2f43f87425a3b6b3e32`
+(`register` of `fitness_autobot` by `GDGI37…GUFQ`, 2026-09-29) and
+`3c22546932c1185e1ca1a0d7e1eeed85eaff52157cc411fb0315d54f3c0413bb`
+(`Gamer_Bot` by `GBG2JN…62U5`, 2026-09-30).
+
+**Impact** — two checklist items are marked present without the artifact the
+SOW names. A reviewer has to find the transactions through wallet pages.
+
+**Resolution path** — link at least two outside registration transactions by
+hash in D1-c and D4-c, from wallets other than the Powerbot owner (D-085).
+
+**Verified by** — the index read at `origin/main` on 2026-10-02; both hashes
+decoded from Horizon the same day as `AgentRegistry.register` signed by the
+owner they name. Pinned by `tests/sow-checklist.spec.ts` "OV-07 D1-c and D4-c are marked present but link no registration transaction". Evidence: `docs/uat/evidence/6.04-onchain-verification.md`
+(OV-07).
+
+---
+## D-090 — §6.2 D3-c links a "live receipt" whose task the deployed API no longer knows
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** OV-07 (story 6.04); §6.2 D3-c
+
+**Steps to reproduce** — follow the D3-c link "Open the live receipt for team
+run 3", `https://orizons.xyz/app/trace?task=tsk_7e1c369cebaf41b3`. Read the
+routes that page loads: `GET /api/tasks/tsk_7e1c369cebaf41b3`,
+`/api/trace/tsk_7e1c369cebaf41b3`, `/api/tasks/tsk_7e1c369cebaf41b3/artifact`
+and `/api/tasks/tsk_7e1c369cebaf41b3/disputes`.
+
+**Expected** — the link shows what the recording shows: the receipt marked
+Settled with its charge and seal, and the step's dispute refunded.
+
+**Actual** — the page answers 200, but the task, trace and artifact routes
+answer 404 `unknown_task`: the task was lost when the backend restarted
+(D-041). Only the disputes route still answers, from the durable store, with
+the settlement (`charge_tx 785428bf…554b`, `proof_tx efca274f…c0a8`) and the
+window. The page builds its trace and its on-chain receipt panel from the
+missing routes (`app/app/trace/page.tsx`), so the settled receipt cannot render
+today. What the page draws was not observed: no browser was run.
+
+**Impact** — the item's evidence stands, because the committed recording and
+screenshots are real and on GitHub. The live link no longer backs them.
+
+**Resolution path** — relabel the link as historical, or point it at a
+receipt the API can still serve.
+
+**Verified by** — the four routes read over HTTP on 2026-10-02, and pinned by `tests/sow-checklist.spec.ts` "OV-07 D3-c: …". Evidence:
+`docs/uat/evidence/6.04-onchain-verification.md` (OV-07).
+
+---
+## D-091 — The Ecosystem page never shows its figures: the adoption report takes over five minutes
+
+- **Severity:** Critical
+- **Status:** Open
+- **Affects:** OB-07, OB-08, OB-09 (story 6.09); story 5.02 (the Ecosystem page)
+
+**Steps to reproduce** — open `https://orizons.xyz/app/ecosystem`, or
+`curl -sS https://orizons.xyz/api/ecosystem/adoption`.
+
+**Expected** — the page shows the three adoption counts against their targets,
+the operators and the excluded team wallets, within the page's 60 s request
+budget.
+
+**Actual** — on 2026-10-03 the page reads "Loading ecosystem adoption…" for 60
+s, then "Could not read ecosystem adoption. Nothing below is a count of zero;
+the figures simply did not arrive. GET /ecosystem/adoption → timeout after
+60s", and retries. Through `orizons.xyz` the route answers `502
+ROUTER_EXTERNAL_TARGET_ERROR` after 122 s. Read directly from the backend host
+it answered `200` after 337 s, with `degraded: true` and 29 unreadable agents.
+The report scans settlements for every external agent
+(`app/services/adoption_svc.py` `build_report`), and the registry now holds
+516 on-chain agents whose owner is not a team wallet, against 11 when the page
+was built. The answer is cached for about 30 s, so the next reader after that
+starts the scan again.
+
+Later the same day the spec stream measured it again: one cold read from the
+backend host took 732 s, two others gave up at 600 s and 900 s unanswered, and
+through `orizons.xyz` the connection was reset at about 38 s. The external
+count had grown to 529–532 by then.
+
+**Impact** — the page that publishes SOW §6.3's adoption evidence shows no
+figure to anyone. It fails honestly: it never shows a zero.
+
+**Workaround** — read `https://orizon-agents-be-stellar.onrender.com/api/ecosystem/adoption`
+directly and wait about six minutes.
+
+**Resolution path** — compute the report in the background and serve the last
+finished one with its age, or bound the scan, so a read answers inside the
+page's budget at any registry size.
+
+**Verified by** — `tests/operator-onboarding.spec.ts` "OB-08 the adoption
+report answers through orizons.xyz within the page's 60 s budget" (expected
+failure). Evidence: `docs/uat/evidence/6.09-operator-onboarding.md`.
+
+---
+## D-092 — The evidence index names outside operators: their agents, wallets and registration hashes
+
+- **Severity:** Critical
+- **Status:** Open
+- **Affects:** RV-04 (story 6.10); 5.05 items `6.1-D1-c`, `6.1-D4-c`, `m01`, `m02`, `m06`
+
+**Steps to reproduce** — open `https://orizons.xyz/evidence` and read the
+links under `6.1-D1-c`, `6.1-D4-c`, `m01`, `m02` and `m06`; or read
+`content/evidence/index.json` on frontend `main` (`049f3d52`).
+
+**Expected** — no outside operator's agent id, wallet or hash on the page. The
+index links `/app/ecosystem` instead, as the consent rule in the backend's
+`docs/operators/sow-metrics.md#consent` and runbook step 10.1
+(`--withhold-external`, the default) require until every operator named has
+consented in writing.
+
+**Actual** — on 2026-10-03 the page carries 11 outside agents' names, 7 outside
+wallets (abbreviated in labels, in full in account links) and the 11 hashes of
+their registrations, across those five items. The index's own method note
+says they were added on 2026-10-01 because "the platform lists outside
+operators publicly". No consent is recorded in the index, the runbook or the
+backend. This report repeats none of them.
+
+**Impact** — personal identifiers of people outside the team are published on
+the page submitted for the §6.2 checklist, without the recorded consent the
+team's own rule requires.
+
+**Resolution path** — regenerate the outside links with `--withhold-external`
+(one link to `/app/ecosystem`, counts unchanged), or record each operator's
+written consent first. Note that 6.04's D-089 asked for registration hashes on
+`6.1-D1-c` and `6.1-D4-c`; the consent rule means those must be team-run or
+consented ones.
+
+**Verified by** — `tests/evidence-index.spec.ts` "RV-04 no outside operator's
+agent id, wallet or hash appears on the page" (expected failure). Evidence:
+`docs/uat/evidence/6.10-evidence-reverification.md`.
 
 ---

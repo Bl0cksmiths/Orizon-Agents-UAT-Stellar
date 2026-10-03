@@ -1,4 +1,4 @@
-# Traceability matrix
+| OV-08 | `tools/e2e-run/run.py` run and `verify` (22 PASS, 2 FAIL); `evidence/6.04-e2e-run.md`: authorize `731ab17a…` and settle `9ee94bd0…` captured at the moment; no payout, no seal | **Blocked**: D-077 (Urgent); D-084 || OV-07 | `tests/sow-checklist.spec.ts` (8 of 8); the §6.2 tables in `evidence/6.04-onchain-verification.md`: 20 items, 14 Present, 3 qualified, 3 not Present | **Pass** (review); checklist incomplete: D-089, D-090, D-082 || OV-06 | the shortfall section of `evidence/6.04-onchain-verification.md`, from the OV-02 actuals: m03 0, m04 0 USDC, m05 0 partial, m08 partly, m10 no; m01 10 and m02 6 | **Pass** || OV-05 | `tests/public-artifacts.spec.ts` (9 of 9 on chromium-desktop, two `test.fail()` pins); `evidence/6.04-public-artifacts.md` | **Fail**: no demo video, D-082; guide a draft, D-088 || OV-04 | `tests/external-operators.spec.ts` (6 of 6); `evidence/6.04-metrics-and-operators.md` §3: 6 of 7 wallets with no on-chain team link | **Pass**; D-085 || OV-03 | `tests/attestations.spec.ts` (16 of 16); `tools/attestation-verify/capture.ts`; `evidence/6.04-attestations.md`: 5 sprint seals `get` as claimed, every re-seal `AlreadyExists` | **Pass until 2026-10-07 09:29Z**; D-083, D-086 || OV-02 | `tests/sow-metrics.spec.ts` (13 of 13); `evidence/6.04-metrics-and-operators.md` §2: all eleven counted from the chain | **Pass**; m03, m04, m05 not met and m08 partly: D-078, D-079, D-080 (all Urgent) || OV-01 | `tests/evidence-index.spec.ts` (64 of 64, 2026-10-02); `evidence/6.04-evidence-links.md`: 59 links, 55 match, 4 partial, 0 mismatch, 0 dead | **Pass**; partial labels D-081 (Urgent), D-087 |# Traceability matrix
 
 Every acceptance criterion in `test-plan.md` maps to the test that verifies it.
 No cell is empty: a criterion is Covered, Added (written during this
@@ -212,6 +212,13 @@ fixed on one surface and still present on the other, so a row that said only
 | RF-16 | BE `tests/test_floor_boundaries.py` | **Partial** — arithmetic and rating direction pass; end-to-end blocked, see test-plan note |
 | RF-17 | `tests/reputation-floor.spec.ts` | **Pass** (deployed) — `docs/evidence/rf-17-reputation-floor-plan.png`, with a provenance note asserted by test, stating the plan was supplied by the test and why the live target cannot produce one |
 
+**Re-checked 2026-10-02 (story 6.04), against backend `9aa6fca`, frontend
+`0c8a10b7` and the deploy.** See `evidence/6.02-recheck.md`. D-028 and D-031 are
+fixed and hold live: RF-05 now passes on a real sub-floor agent
+(`faulty_test_v2`, 5459 < 5500 bps), and RF-11 and RF-13 pass on the deploy.
+Today: 15 pass, 2 partial (RF-14 on D-034, RF-16), 0 fail. The rows above keep
+their 6.02 wording as the record of that sign-off.
+
 ## EX — external agent execution path (story 6.05)
 
 Recorded run 2026-09-17 on the **deployed** backend, which predates `main`
@@ -396,19 +403,73 @@ pass, 1 XFAIL.
 
 ## SD — the story 6.03 card as a whole
 
-Rolled up 2026-09-26; `evidence/6.03-dispute-refund-rating.md`. Live checks:
-the five 6.03 specs, 30 of 30 on `chromium-desktop` (expected failures
-included). Code checks: the sub-story drills, the §3 re-checks at backend
-`08efeda` and frontend `5105a8b`, and `tools/rating-log-drill/drill.py` (16
-pass, 2 XFAIL).
+Rolled up 2026-09-26; **re-rolled 2026-10-01 on the new deploy** (escrow v2;
+backend at or after `6da6da7`). See §6 of `evidence/6.03-dispute-refund-rating.md`.
+Live checks: the five 6.03 specs, 35 of 35 on `chromium-desktop` (D-073 is the
+one expected failure). On-chain: four Horizon-checked transactions. Code: the
+§3 re-checks, re-run at backend `6da6da7` and frontend `7e292ca8`, and
+`tools/rating-log-drill/drill.py` (28 pass).
 
 | criterion | verification | status |
 | --- | --- | --- |
-| SD-01 | DP-01 (`test.fail()`, D-050); DP-05, DP-06, RC-02, DS-02 on the drill ledger: refund `a5baac43…` and rating `7138e4e3…` resolve on testnet | **Blocked**: D-050, D-051 |
-| SD-02 | IB-01..IB-03 (6.03b attacks 1–7, re-run at `08efeda`); DU-03, DU-04 | **Pass in code**; not proven on-chain |
-| SD-03 | WC-01, WC-02, DR-07 | **Fail**: D-060; D-056 fixed in code, not deployed |
-| SD-04 | WC-03, DR-05, DS-04 | **Pass in code** |
-| SD-05 | DU-01, DU-02 (`tools/restart-drill`); DU-05 (**pass** live) | **Pass in code**; D-065 latent |
-| SD-06 | DR-11, IB-05 | **Fail**: D-054, D-055 |
-| SD-07 | RC-01..RC-05 (`tools/reputation-drill`); RC-04 script path XFAIL | **Fail**: D-066 |
-| SD-08 | `rating-log-drill`: credit kept (**pass**); the error line's amount (XFAIL); DS-01 rating-unconfirmed state | **Fail**: D-075 |
+| SD-01 | RC-01 (**pass** live): `dsp_15acee27…` credited; refund `cb2c5792…` and rating `b512135f…` successful on Horizon; second dispute: refund `01c3175a…`, rating `60bc5249…` | **Pass**; the asset is XLM, not USDC |
+| SD-02 | one platform transfer per dispute across the payer's history (Horizon); IB-01..IB-03 in code at `6da6da7` | **Pass**; duplicate attempts not fired live |
+| SD-03 | WC-01 (**pass** live, c622eab): refused after close, "closed at 2026-10-01T09:39:30"; both disputes accepted inside their windows; D-060 fixed in code | **Pass** |
+| SD-04 | live probe 2026-10-01: a stranger on an open step got `403 not_the_payer`; WC-03, DS-04 | **Pass**; UI half not re-checked live |
+| SD-05 | DU-05 (**pass** live, incl. `disputes.store: postgres`); DU-01..DU-04 (`tools/restart-drill`) | **Pass**; D-065 latent |
+| SD-06 | DR-11, IB-05 in code at `6da6da7`; D-054 fixed | **Pass in code**; D-055 open |
+| SD-07 | live: calculatorai `dispute_rate_bps` 3333, `disputed` 2; RC-04 (**pass** live); D-066 fixed in code | **Pass** |
+| SD-08 | `rating-log-drill` 28/28 at `6da6da7`: credit kept, error line carries all four fields | **Pass in code** |
+
+## OV — independent verification of every on-chain claim (story 6.04)
+
+Each OV check runs against an independent source: Horizon testnet, Stellar RPC,
+or a page opened with no session. The application's own rendering is never the
+proof. Signed off 2026-10-02 against testnet, orizons.xyz and the deployed backend;
+see `evidence/6.04-onchain-verification.md` for the verdicts and the defects.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| OV-01 | `tests/evidence-index.spec.ts`; `evidence/6.04-evidence-links.md` | in progress |
+| OV-02 | `tests/sow-metrics.spec.ts`; `evidence/6.04-metrics-and-operators.md` | in progress |
+| OV-03 | `tests/attestations.spec.ts`; `evidence/6.04-attestations.md` | in progress |
+| OV-04 | `tests/external-operators.spec.ts`; `evidence/6.04-metrics-and-operators.md` | in progress |
+| OV-05 | `tests/public-artifacts.spec.ts`; `evidence/6.04-public-artifacts.md` | in progress |
+| OV-06 | the shortfall section of `evidence/6.04-onchain-verification.md`, from the OV-02 actuals | in progress |
+| OV-07 | `tests/evidence-web-links.spec.ts`; `evidence/6.04-checklist-links.md`; the §6.2 table in `evidence/6.04-onchain-verification.md` | in progress |
+| OV-08 | `tools/e2e-run`; `tests/e2e-run.spec.ts`; `evidence/6.04-e2e-run.md` | in progress |
+
+## DE — dispute and refund on escrow v2 (story 6.08)
+
+Verified against the deployed service and Horizon testnet. The spec
+(`tests/dispute-escrow-v2.spec.ts`) passes 44/44 on the developer harness's two
+credited disputes. Those are the baseline only: no criterion passes until QA's
+own console dispute has run. See `evidence/6.08-dispute-escrow-v2.md`.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| DE-01 | console run step 1; screenshots and dispute id in evidence §4 | open, waiting on QA's 6.07 workflow |
+| DE-02 | console run step 2 | open, waiting on an in-window workflow |
+| DE-03 | spec: DE-03 refund, rating and receipt tests; console run step 3 for the score falling | spec passes on the baseline; QA's dispute not yet upheld |
+| DE-04 | console run step 5, then the DE-03 tests on that dispute | open, waiting on Dan's restart |
+| DE-05 | spec: DE-05 API and console window tests (pass); console run step 6 for the cap | window **pass**; cap open, waiting on Dan |
+| DE-06 | spec: DE-06 counts tagged transfers on-chain (passes on the baseline); console run step 4 | open, waiting on Dan's second uphold |
+
+## OB — operator onboarding, readiness and the Ecosystem page (story 6.09)
+
+Verified against the deployed service. The spec
+(`tests/operator-onboarding.spec.ts`) runs 48/48 as expected; the person-run
+steps are in `checklists/6.09-onboarding-and-phone.md`. See
+`evidence/6.09-operator-onboarding.md`.
+
+| criterion | verification | status |
+| --- | --- | --- |
+| OB-01 | checklist A–D (guide Steps 1–9 with Freighter); spec: guide warnings | open, waiting on QA's Freighter run |
+| OB-02 | spec: OB-02 unbound agent | **pass** |
+| OB-03 | spec: OB-03 F-033 case, other ready agents, guide warnings | **pass** (F-033 confirmed, as warned) |
+| OB-04 | spec: OB-04 dead quick tunnel | **pass** |
+| OB-05 | checklist B–C (reference agent deployed and bound) | open, no healthy agent is bound anywhere yet |
+| OB-06 | spec: OB-06 no unbind in the console; checklist E (API unbind, console rebind) | console side **pass** (F-031/F-037); read-back open |
+| OB-07 | spec: OB-07 team wallets excluded; checklist F | API **pass**; not visible on the page while D-091 is open |
+| OB-08 | spec: OB-08 page renders the live report; OB-08 transport (expected failure) | **fail** — D-091 |
+| OB-09 | spec: OB-09 checklist, live error state, rendered report at 360 px; checklist G | automated **pass**; screen-reader pass open |

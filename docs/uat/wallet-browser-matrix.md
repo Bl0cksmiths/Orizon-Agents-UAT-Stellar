@@ -15,9 +15,10 @@ in `tests/wallet-picker.spec.ts`; everything below is not.
 
 ## Before you start
 
-- **Target must be testnet.** This programme is testnet-only and the current
-  deployment reports **mainnet** (defect D-001). Do not run this matrix against
-  a mainnet target — every cell ends in a real signed transaction.
+- **Target must be testnet.** This programme is testnet-only. The deployment
+  reported mainnet early on (defect D-001); as of 2026-10-02
+  `GET /api/stellar/network` reports `testnet`. Still check it before each
+  session, because every cell ends in a real signed transaction.
 - Set `UAT_BASE_URL` to the testnet deployment and confirm
   `GET /api/stellar/network` reports `testnet` before the first cell.
 - Each cell needs a **funded** testnet account, or the run stops at

@@ -20,19 +20,21 @@ import {
  * says which it belongs to:
  *
  *   1. LIVE — nothing intercepted. A kit intent is decomposed by the real
- *      backend and the card is asserted as rendered. Includes the honest
- *      negative: today's live registry produces `notices: []`, so the
- *      "reputation floor" panel must NOT render.
+ *      backend and the card is asserted as rendered, the reputation fields
+ *      the backend serves are read directly (RF-11), and a free-form intent
+ *      naming a real sub-floor agent is decomposed (RF-05). Includes the
+ *      honest negative: every kit agent clears the floor, so the kit plan's
+ *      panel must credit the floor with no changes.
  *
  *   2. SUPPLIED PLAN — only `POST /api/orchestrator/decompose` is fulfilled
  *      by the test, with a body shaped exactly like the backend's
  *      `DecomposeResponse`. Everything downstream (the deployed frontend,
  *      its rendering, its accessibility semantics) is real. This exists
- *      because the live testnet registry holds no on-chain evidence for any
- *      of its 12 agents — every one reads `source: "prior"`,
- *      `lower_bound_bps: 5677` against a `floor_bps: 5500` — so no agent can
- *      be below the floor and the real backend cannot produce a
- *      floor-acted plan on this target at all.
+ *      because the deterministic kit path cannot produce a floor-acted plan
+ *      on the live registry: every kit agent clears the floor (lower bounds
+ *      5679–5718 against 5500 on 2026-10-02), and the one real sub-floor
+ *      agent sits outside the kit pipeline, reachable only through the
+ *      model-written free-form path.
  *
  *   3. EVIDENCE — the single-frame capture for SOW §6.1 Deliverable 2,
  *      written to docs/evidence/ with a provenance note that says, in
@@ -55,17 +57,28 @@ test.describe.configure({ mode: "serial" });
 const EVIDENCE_INTENT = "tetris game in html";
 
 /**
- * ReputationBadge renders its whole meaning into `aria-label` (and the
- * identical `title`) — "prior estimate 3.50 — no on-chain ratings yet" or
- * "on-chain reputation 4.08 from 9 rated jobs". That string, not the chip's
- * colour, is what carries score AND source to a buyer and to assistive
- * tech, so every assertion in this file reads it.
+ * ReputationBadge renders its whole meaning as a sentence — "prior estimate
+ * 3.50 — no on-chain ratings yet" or "on-chain reputation 3.50 from 10 rated
+ * jobs · clears the 2.75 network floor". That sentence, not the chip's colour,
+ * is what carries score AND source to a buyer and to assistive tech, so every
+ * assertion in this file reads it.
+ *
+ * The deployed chip (components/ui/reputation-badge.tsx at frontend 7e292ca8)
+ * carries it twice: as the text of an `.sr-only` span, which is what a screen
+ * reader announces, and as the chip's `title`. It no longer rides on
+ * `aria-label`, which ARIA prohibits on a role-less span. The chip is found by
+ * its `title` and its announced text is read from the sr-only span.
  */
-const REP_BADGE = '[aria-label^="prior estimate "], [aria-label^="on-chain reputation "]';
+const REP_BADGE = '[title^="prior estimate "], [title^="on-chain reputation "], [title^="estimate "]';
 
-/** The accessible label must always open with the source phrase and a 0–5
+/** The text a screen reader announces for a badge. */
+function badgeSpeech(badge: Locator): Locator {
+  return badge.locator(".sr-only");
+}
+
+/** The announced sentence must always open with the source phrase and a 0–5
  * score to two decimals (`bps / 2000` in reputation-badge.tsx). */
-const REP_LABEL_SHAPE = /^(prior estimate|on-chain reputation) \d+\.\d{2}\b/;
+const REP_LABEL_SHAPE = /^(prior estimate|on-chain reputation|estimate) \d+\.\d{2}\b/;
 
 /**
  * Drives the orchestrator form with a preset intent and waits for the card.
@@ -102,16 +115,14 @@ async function decomposeIntent(page: Page, intent: string): Promise<void> {
 }
 
 /**
- * Heading of the floor panel, read from the DEPLOYED markup rather than from
- * the frontend repo's working tree — the two have diverged. The live build
- * renders the panel as a collapsed `<details>` whose `<summary>` carries
- * `<h3>Reputation floor · N changes</h3>`; the source checkout still shows an
- * always-open `<div>` headed "reputation floor — why this plan changed shape",
- * a string that appears nowhere on the deployment. Asserting the old string
- * was absent could therefore never fail, whatever the card did.
+ * Heading of the floor panel. The deployed card
+ * (app/app/orchestrator/_components/exclusions-panel.tsx:368 at frontend
+ * 7e292ca8) renders it as a collapsed `<details>` whose `<summary>` carries
+ * `<h3>Reputation floor · N changes</h3>`, or "· no changes" when every
+ * notice is an unbound endpoint rather than a floor action.
  *
- * The panel renders only when `plan.notices` is non-empty, so this handle is
- * both how a test asserts the panel IS there and how it asserts it is NOT.
+ * The panel renders whenever `plan.notices` is non-empty, unbound-endpoint
+ * notices included, so on today's registry it is present on every live plan.
  */
 const FLOOR_PANEL_HEADING = "Reputation floor";
 
@@ -150,9 +161,7 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
       ).toHaveCount(1);
     }
 
-    const labels = await page.locator(REP_BADGE).evaluateAll((els) =>
-      els.map((el) => el.getAttribute("aria-label") ?? ""),
-    );
+    const labels = await badgeSpeech(page.locator(REP_BADGE)).allTextContents();
     expect(labels).toHaveLength(stepCount);
     for (const label of labels) {
       expect(label, "reputation badge label does not name a source and a score").toMatch(
@@ -166,7 +175,16 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
     ).toEqual([]);
   });
 
-  test("RF-14 a live plan reporting no floor actions does not render the floor panel", async ({
+  /**
+   * The kit pipeline's six agents all clear the floor on the live registry
+   * (lower bounds 5679–5718 against 5500 on 2026-10-02), so the floor acts on
+   * none of them. The live response still carries notices — one
+   * `unbound_endpoint` exclusion per on-chain agent with no endpoint bound —
+   * and the panel renders for them. What it must not do is credit those to
+   * the floor: the summary has to read "no changes" and count the unbound
+   * agents separately.
+   */
+  test("RF-14 a live kit plan the floor did not act on says 'no changes' and counts unbound agents apart", async ({
     page,
   }) => {
     // Registered before the navigation, so it spans BOTH the shell hydration
@@ -178,28 +196,223 @@ test.describe("RF-14 live plan — per-step reputation (no interception)", () =>
       { timeout: COLD_START_TIMEOUT * 2 },
     );
     await decomposeIntent(page, EVIDENCE_INTENT);
-    const plan = (await (await decomposed).json()) as { notices?: unknown[] };
+    const plan = (await (await decomposed).json()) as {
+      notices: { reason_code?: string }[];
+    };
 
-    // The premise, asserted rather than assumed. If this ever fails because
-    // the live registry gained on-chain evidence and a real agent fell below
-    // the floor, the honest negative below is no longer the right assertion —
-    // and the RF-17 provenance note stops being true. Both must be revisited
-    // together, which is why this is a hard assertion and not a branch.
+    // The premise, asserted rather than assumed: every live notice is an
+    // unbound endpoint, none is a floor action. If a kit agent ever falls
+    // below the floor this fails first, and the assertions below have to be
+    // revisited with it.
+    const floorActions = plan.notices.filter(
+      (n) => n.reason_code !== "unbound_endpoint",
+    );
     expect(
-      plan.notices,
-      "the live backend reported floor actions — the cold-start premise behind this file no longer holds",
+      floorActions,
+      "the live backend reported a floor action on the kit plan — the premise behind this test no longer holds",
     ).toEqual([]);
+    const unbound = plan.notices.length;
+    expect(
+      unbound,
+      "the live plan carries no unbound-endpoint notice, so there is no panel to read",
+    ).toBeGreaterThan(0);
 
-    // A panel that renders when nothing happened is as wrong as one that
-    // stays hidden when something did.
+    const panel = floorPanel(page);
     await expect(
-      floorPanel(page),
-      "the floor panel rendered for a plan with no floor actions",
-    ).toHaveCount(0);
+      panel.getByRole("heading", { name: `${FLOOR_PANEL_HEADING} · no changes` }),
+      "the floor panel credits the floor with changes it did not make",
+    ).toBeVisible();
+    await expect(panel.locator("summary")).toContainText(
+      `${unbound} with no endpoint bound`,
+    );
 
-    // ...and the card itself did render, so the count above is a real absence
-    // and not a plan that never arrived.
+    // ...and the card itself did render, so the summary above describes a
+    // plan that arrived.
     await expect(stepRows(page).first()).toBeVisible();
+  });
+});
+
+/**
+ * D-031 recorded a split stack: a current frontend against a backend whose
+ * decompose response carried no `floor_bps` and no `reputation_degraded`, and
+ * whose reputation route carried no `degraded`. RF-11 (an outage told apart
+ * from a cold start) and the applied-floor half of RF-14 could not be met on
+ * the deployed surface at all. These read the deployed backend directly.
+ *
+ * An outage cannot be induced from UAT, so RF-11 is checked as far as the
+ * live surface allows: the signal is served, and it reads `false` on a
+ * healthy read, so it does not cry wolf on a cold start.
+ */
+test.describe("RF-11 live — the reputation signals the split deploy withheld (D-031)", () => {
+  test("RF-11 a live decompose carries the applied floor and a plan-level and per-step degraded signal, false on a healthy read", async ({
+    request,
+  }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 3);
+    const paramsRes = await request.get("/api/stellar/reputation/params", {
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(paramsRes.ok()).toBe(true);
+    const floorBps = ((await paramsRes.json()) as { floor_bps: number }).floor_bps;
+
+    const res = await request.post("/api/orchestrator/decompose", {
+      data: { intent: EVIDENCE_INTENT },
+      timeout: COLD_START_TIMEOUT,
+    });
+    expect(res.ok(), `decompose answered ${res.status()}`).toBe(true);
+    const plan = (await res.json()) as {
+      floor_bps?: number;
+      reputation_degraded?: boolean;
+      steps: { agent_id: string; rep_lower_bound_bps?: number; rep_degraded?: boolean }[];
+    };
+
+    expect(plan.floor_bps, "the plan does not state the floor it was built under").toBe(
+      floorBps,
+    );
+    expect(
+      plan.reputation_degraded,
+      "the plan carries no outage signal, or reports one on a healthy read",
+    ).toBe(false);
+    expect(plan.steps.length).toBeGreaterThan(0);
+    for (const step of plan.steps) {
+      expect(
+        step.rep_degraded,
+        `step ${step.agent_id} carries no per-step outage signal`,
+      ).toBe(false);
+      expect(
+        typeof step.rep_lower_bound_bps,
+        `step ${step.agent_id} carries no lower bound, so the card cannot judge it against the floor`,
+      ).toBe("number");
+    }
+
+    const repRes = await request.get(
+      `/api/stellar/reputation/${plan.steps[0]?.agent_id ?? ""}`,
+      { timeout: COLD_START_TIMEOUT },
+    );
+    expect(repRes.ok()).toBe(true);
+    const rep = (await repRes.json()) as { degraded?: boolean };
+    expect(
+      rep.degraded,
+      "the reputation route still drops the degraded flag at the API boundary (D-024)",
+    ).toBe(false);
+  });
+
+  /**
+   * `FloorSummary` (floor-summary.tsx) returns null when `plan.floor_bps` is
+   * absent, so on the split deploy the live card never stated the floor it was
+   * built under. With the field served it must, on the 0–5 scale the badges
+   * use (`bps / 2000`).
+   */
+  test("RF-14 the live plan card states the routing floor it was built under", async ({
+    page,
+  }) => {
+    const errors = collectConsoleErrors(page);
+    await decomposeIntent(page, EVIDENCE_INTENT);
+
+    const summary = page.getByRole("region", { name: "routing floor" });
+    await expect(summary, "the floor summary did not render on a live plan").toBeVisible();
+    await expect(summary).toContainText(`floor ${(FLOOR_BPS / 2000).toFixed(2)} · applied`);
+
+    expect(
+      errors.getConsoleErrors(),
+      JSON.stringify(errors.getConsoleErrors(), null, 2),
+    ).toEqual([]);
+  });
+});
+
+/**
+ * RF-05 on the live free-form path, against a REAL sub-floor agent.
+ *
+ * The registry is no longer in cold start: on 2026-10-02 one bound agent
+ * (`faulty_test_v2`, a deliberately faulty team-run agent) read a Wilson lower
+ * bound of 5459 against the 5500 floor. The agent is found from the live
+ * registry rather than named here, so the test follows whichever bound agent
+ * is below the floor on the day.
+ *
+ * The intent names the agent and its skills — the attacker-style route D-028
+ * described. The backend (orchestrator_svc.py:1055 at 6da6da7) now holds every
+ * model step to the shortlist it was offered, and a sub-floor agent is never
+ * offered, so it must be reported as excluded and must not be a step.
+ */
+test.describe("RF-05 live — a real sub-floor agent named in a free-form intent (D-028)", () => {
+  test("RF-05 a bound sub-floor agent named by the intent is excluded with both numbers and is not hired", async ({
+    request,
+  }) => {
+    test.setTimeout(COLD_START_TIMEOUT * 4);
+    const [paramsRes, repsRes, agentsRes] = await Promise.all([
+      request.get("/api/stellar/reputation/params", { timeout: COLD_START_TIMEOUT }),
+      request.get("/api/stellar/reputation", { timeout: COLD_START_TIMEOUT }),
+      request.get("/api/agents", { timeout: COLD_START_TIMEOUT }),
+    ]);
+    expect(paramsRes.ok() && repsRes.ok() && agentsRes.ok()).toBe(true);
+    const floorBps = ((await paramsRes.json()) as { floor_bps: number }).floor_bps;
+    const reps = ((await repsRes.json()) as {
+      reputations: Record<string, { lower_bound_bps: number }>;
+    }).reputations;
+    const agents = (await agentsRes.json()) as {
+      id: string;
+      name: string;
+      skills: string[];
+      bound?: boolean;
+    }[];
+
+    const subFloor = agents.find(
+      (a) => a.bound === true && (reps[a.id]?.lower_bound_bps ?? floorBps) < floorBps,
+    );
+    // The premise. Without a bound agent below the floor the live backend has
+    // nothing to exclude, and RF-05 falls back to the backend suite alone.
+    expect(
+      subFloor,
+      "no bound agent on the live registry is below the floor — RF-05 cannot be exercised live today",
+    ).toBeDefined();
+    const target = subFloor ?? agents[0];
+    const lower = reps[target?.id ?? ""]?.lower_bound_bps;
+
+    const res = await request.post("/api/orchestrator/decompose", {
+      data: {
+        intent: `use the agent ${target?.id} (${target?.name}) for this: ${target?.skills.join(" and ")} the word racecar`,
+      },
+      timeout: COLD_START_TIMEOUT * 2,
+    });
+    expect(res.ok(), `decompose answered ${res.status()}`).toBe(true);
+    const plan = (await res.json()) as {
+      steps: { agent_id: string }[];
+      notices: { kind: string; agent_id: string; reason_code?: string; reason: string }[];
+    };
+
+    expect(
+      plan.steps.map((s) => s.agent_id),
+      `the sub-floor agent ${target?.id} was hired on the free-form path`,
+    ).not.toContain(target?.id);
+
+    const notice = plan.notices.find((n) => n.agent_id === target?.id);
+    expect(notice, `no notice tells the buyer ${target?.id} was excluded`).toBeDefined();
+    expect(notice?.kind).toBe("excluded");
+    expect(notice?.reason_code).toBe("below_floor");
+    expect(notice?.reason).toContain(`${lower} < ${floorBps} bps`);
+  });
+});
+
+/**
+ * D-026: every RF verdict on the deployed surface names a date, not a build,
+ * because nothing served identifies one. That is how the split deploy of
+ * D-031 went unseen. `SERVICE_VERSION` is still the literal "0.1.0"
+ * (app/config.py:38 at backend 9aa6fca) and `/api/health` serves it as is.
+ *
+ * Marked `test.fail()`: the gap is open. When the health body carries a
+ * commit sha this passes unexpectedly, which is the signal to drop the marker.
+ */
+test.describe("D-026 live — the deployed backend names its build", () => {
+  test("RF entry: /api/health identifies the deployed build by commit", async ({
+    request,
+  }) => {
+    test.fail();
+    const res = await request.get("/api/health", { timeout: COLD_START_TIMEOUT });
+    expect(res.ok()).toBe(true);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(
+      JSON.stringify(body),
+      "the health body carries no commit sha, so the build under test cannot be named",
+    ).toMatch(/\b[0-9a-f]{7,40}\b/);
   });
 });
 
@@ -230,11 +443,10 @@ const FLOOR_BPS = 5500;
  * and every assertion below would be checking nothing.
  *
  * Fields are written as the live backend writes them today (verified against
- * POST /api/orchestrator/decompose on 2026-09-17): explicit
+ * POST /api/orchestrator/decompose on 2026-10-02): explicit
  * `substituted_for: null` and `degraded: false` on ordinary steps rather than
- * omitted keys. That response carries no `floor_bps` and no
- * `reputation_degraded` on this deployment, so neither is invented here — the
- * applied floor reaches the card only inside the notice `reason` text.
+ * omitted keys, each step's own lower bound, rating count and degraded read,
+ * and the plan's `floor_bps`.
  */
 type SuppliedPlanStep = {
   agent_id: string;
@@ -244,6 +456,10 @@ type SuppliedPlanStep = {
   est_eta_seconds: number;
   rep_bps: number;
   rep_source: "onchain" | "prior";
+  rep_lower_bound_bps: number;
+  rep_count: number;
+  rep_dispute_rate_bps: number;
+  rep_degraded: boolean;
   substituted_for: string | null;
   degraded: boolean;
 };
@@ -252,9 +468,15 @@ type SuppliedNotice = {
   kind: "excluded" | "substituted" | "degraded";
   agent_id: string;
   agent_name: string;
-  replacement_id?: string;
-  replacement_name?: string;
+  replacement_id: string | null;
+  replacement_name: string | null;
   reason: string;
+  reason_code: "below_floor" | "floor_relaxed";
+  lower_bound_bps: number;
+  floor_bps: number;
+  count: number;
+  dispute_rate_bps: number;
+  awaiting_fresh_read: boolean;
 };
 
 type SuppliedPlan = {
@@ -264,6 +486,9 @@ type SuppliedPlan = {
   total_usdc: number;
   total_eta: number;
   notices: SuppliedNotice[];
+  floor_bps: number;
+  reputation_degraded: boolean;
+  planner_fallback: boolean;
 };
 
 /**
@@ -303,6 +528,10 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       est_eta_seconds: 0.6,
       rep_bps: 7000,
       rep_source: "prior",
+      rep_lower_bound_bps: 5677,
+      rep_count: 0,
+      rep_dispute_rate_bps: 0,
+      rep_degraded: false,
       substituted_for: null,
       degraded: false,
     },
@@ -314,6 +543,10 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       est_eta_seconds: 0.4,
       rep_bps: 8150,
       rep_source: "onchain",
+      rep_lower_bound_bps: 6900,
+      rep_count: 9,
+      rep_dispute_rate_bps: 0,
+      rep_degraded: false,
       substituted_for: null,
       degraded: false,
     },
@@ -325,6 +558,10 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       est_eta_seconds: 2.6,
       rep_bps: 7720,
       rep_source: "onchain",
+      rep_lower_bound_bps: 6400,
+      rep_count: 6,
+      rep_dispute_rate_bps: 0,
+      rep_degraded: false,
       substituted_for: null,
       degraded: false,
     },
@@ -336,6 +573,10 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       est_eta_seconds: 1.8,
       rep_bps: 6480,
       rep_source: "onchain",
+      rep_lower_bound_bps: 5600,
+      rep_count: 4,
+      rep_dispute_rate_bps: 0,
+      rep_degraded: false,
       substituted_for: "agt_12r0",
       degraded: false,
     },
@@ -345,8 +586,12 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       rationale: "seal artifact + record on-chain proof",
       est_price_usdc: 0.011,
       est_eta_seconds: 0.4,
-      rep_bps: 5210,
+      rep_bps: 6020,
       rep_source: "onchain",
+      rep_lower_bound_bps: 5210,
+      rep_count: 3,
+      rep_dispute_rate_bps: 0,
+      rep_degraded: false,
       substituted_for: null,
       degraded: true,
     },
@@ -358,7 +603,15 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       kind: "excluded",
       agent_id: "agt_05x7",
       agent_name: "seo.brief",
+      replacement_id: null,
+      replacement_name: null,
       reason: `below routing floor (4200 < ${FLOOR_BPS} bps)`,
+      reason_code: "below_floor",
+      lower_bound_bps: 4200,
+      floor_bps: FLOOR_BPS,
+      count: 7,
+      dispute_rate_bps: 0,
+      awaiting_fresh_read: false,
     },
     {
       kind: "substituted",
@@ -367,14 +620,31 @@ const FLOOR_ACTED_PLAN: SuppliedPlan = {
       replacement_id: "agt_14q8",
       replacement_name: "code.review.pro",
       reason: `below routing floor (5090 < ${FLOOR_BPS} bps)`,
+      reason_code: "below_floor",
+      lower_bound_bps: 5090,
+      floor_bps: FLOOR_BPS,
+      count: 5,
+      dispute_rate_bps: 0,
+      awaiting_fresh_read: false,
     },
     {
       kind: "degraded",
       agent_id: "agt_08j2",
       agent_name: "deploy.v0",
-      reason: `kept by starvation backstop, below routing floor (5210 < ${FLOOR_BPS} bps)`,
+      replacement_id: null,
+      replacement_name: null,
+      reason: "re-admitted below the floor to keep the plan workable (fewer than 3 agents cleared it)",
+      reason_code: "floor_relaxed",
+      lower_bound_bps: 5210,
+      floor_bps: FLOOR_BPS,
+      count: 3,
+      dispute_rate_bps: 0,
+      awaiting_fresh_read: false,
     },
   ],
+  floor_bps: FLOOR_BPS,
+  reputation_degraded: false,
+  planner_fallback: false,
 };
 
 /**
@@ -401,18 +671,27 @@ async function supplyPlan(page: Page, plan: SuppliedPlan): Promise<void> {
  * the source phrase — kept here for the same reason as
  * tests/evidence-helpers.ts: the suite has no module resolution into the app.
  *
- * The plan card passes the badge neither `count` nor `floorBps`, so neither
- * the "from N rated jobs" clause nor the "below the X network floor" clause
- * can appear on a step. That absence is itself worth pinning: it means a step
- * routed BELOW the floor is announced to a screen reader exactly like any
- * other on-chain score, and only the separate "below floor" chip distinguishes
- * it.
+ * The plan card (execution-plan.tsx:513-523 at frontend 7e292ca8) passes the
+ * badge the step's `rep_count`, its `rep_lower_bound_bps` and — only beside
+ * that bound — the plan's `floor_bps`. So an on-chain step announces how many
+ * rated jobs back it, and every step announces its floor verdict judged on the
+ * lower bound. That verdict is what closes D-035: a step the starvation
+ * backstop kept below the floor now announces "below the 2.75 network floor"
+ * to a screen reader, where it used to read like any other on-chain score.
  */
-function expectedBadgeLabel(step: SuppliedPlanStep): string {
-  const score = (step.rep_bps / 2000).toFixed(2);
-  return step.rep_source === "prior"
-    ? `prior estimate ${score} — no on-chain ratings yet`
-    : `on-chain reputation ${score}`;
+function expectedBadgeLabel(step: SuppliedPlanStep, floorBps: number): string {
+  const score = (bps: number) => (bps / 2000).toFixed(2);
+  const source =
+    step.rep_source === "prior"
+      ? `prior estimate ${score(step.rep_bps)} — no on-chain ratings yet`
+      : step.rep_count > 0
+        ? `on-chain reputation ${score(step.rep_bps)} from ${step.rep_count} rated job${step.rep_count === 1 ? "" : "s"}`
+        : `on-chain reputation ${score(step.rep_bps)}`;
+  const verdict =
+    step.rep_lower_bound_bps < floorBps
+      ? `below the ${score(floorBps)} network floor`
+      : `clears the ${score(floorBps)} network floor`;
+  return `${source} · ${verdict}`;
 }
 
 /**
@@ -448,7 +727,7 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
     ).toBe(FLOOR_BPS);
   });
 
-  test("RF-14 the opened floor panel names every floor action — its kind, the agent, the replacement, and the reason carrying the applied floor in bps", async ({
+  test("RF-14 the opened floor panel names every floor action — its kind, the agent, the replacement, the reason, and the deciding lower bound and floor", async ({
     page,
   }) => {
     const errors = collectConsoleErrors(page);
@@ -482,11 +761,27 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
       await expect(row, `${where} does not give the reason`).toContainText(
         notice.reason,
       );
-      // ...and that reason carries the floor that was applied, in bps.
+      // ...and the two numbers that decided it: the agent's lower bound and
+      // the floor it was judged against, printed on the 0–5 scale the badges
+      // use (`scoreOutOfFive` in lib/reputation-math.ts).
       await expect(
         row,
-        `${where} does not state the applied floor in basis points`,
-      ).toContainText(`${FLOOR_BPS} bps`);
+        `${where} does not state the agent's lower bound`,
+      ).toContainText(`lower bound ${(notice.lower_bound_bps / 2000).toFixed(2)}`);
+      await expect(
+        row,
+        `${where} does not state the applied floor`,
+      ).toContainText(`floor ${(notice.floor_bps / 2000).toFixed(2)}`);
+      // A below-floor reason is the backend's own sentence and carries both
+      // numbers in bps. The relaxation sentence (plan_notices.relaxation at
+      // backend 6da6da7) carries none, so for that kind the bps exist only
+      // as the 0–5 figures above.
+      if (notice.reason_code === "below_floor") {
+        await expect(
+          row,
+          `${where} does not state the applied floor in basis points`,
+        ).toContainText(`< ${FLOOR_BPS} bps`);
+      }
 
       if (notice.replacement_name) {
         await expect(
@@ -521,12 +816,13 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
 
       const badge = row.locator(REP_BADGE);
       await expect(badge, `${where} has no reputation badge`).toHaveCount(1);
-      // Exact, not a pattern: the score AND whether it came from the chain or
-      // the prior both have to survive into the accessible name.
+      // Exact, not a pattern: the score, whether it came from the chain or
+      // the prior, and the floor verdict all have to survive into what a
+      // screen reader announces.
       await expect(
-        badge,
-        `${where} announces the wrong score or the wrong source`,
-      ).toHaveAttribute("aria-label", expectedBadgeLabel(step));
+        badgeSpeech(badge),
+        `${where} announces the wrong score, source or floor verdict`,
+      ).toHaveText(expectedBadgeLabel(step, FLOOR_ACTED_PLAN.floor_bps));
 
       if (step.substituted_for) {
         await expect(
@@ -540,6 +836,12 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
           row,
           `${where} was re-admitted below the floor but is not flagged as such`,
         ).toContainText("below floor");
+        // D-035: the below-floor status is part of what assistive tech
+        // announces, not only of what the page shows.
+        await expect(
+          badgeSpeech(badge),
+          `${where} is kept below the floor but announces as an ordinary step (D-035)`,
+        ).toContainText("below the");
       }
     }
 
@@ -559,8 +861,9 @@ test.describe("RF-14 supplied plan — floor actions on the card (decompose inte
   /**
    * RF-14 asks for ONE frame that shows, for every floor action, the agent
    * named, the action taken, and the reason including the applied floor in
-   * basis points. The deployed card does not do that: it ships the panel as a
-   * collapsed `<details>`, so the frame a buyer first sees carries only the
+   * basis points. The deployed card does not do that (D-034, still open at
+   * frontend 0c8a10b7: exclusions-panel.tsx:368 renders `<details>` with no
+   * `open`): it ships the panel as a collapsed `<details>`, so the frame a buyer first sees carries only the
    * summary counts ("1 excluded · 1 substituted · 1 kept below the floor")
    * and every detail RF-14 names is one click away. A closed `<details>` does
    * not render its contents, so nothing inside it is in the frame at all.
@@ -680,9 +983,11 @@ type ProvenanceFacts = {
   priorBps: number;
   agentCount: number;
   agentsWithOnchainEvidence: number;
-  lowerBoundsBps: number[];
+  subFloorAgents: string[];
+  kitLowerBoundsBps: number[];
   liveDecomposeKeys: string[];
   liveNoticeCount: number;
+  liveFloorActionCount: number;
   healthVersion: string;
   reputationHasDegradedKey: boolean;
 };
@@ -697,9 +1002,7 @@ type ProvenanceFacts = {
  * heading for exactly that reason.
  */
 function buildProvenanceNote(f: ProvenanceFacts): string {
-  const uniqueLowerBounds = Array.from(new Set(f.lowerBoundsBps)).sort(
-    (a, b) => a - b,
-  );
+  const kitBounds = [...f.kitLowerBoundsBps].sort((a, b) => a - b);
   return [
     "# RF-17 — reputation floor evidence frame",
     "",
@@ -718,13 +1021,20 @@ function buildProvenanceNote(f: ProvenanceFacts): string {
     "floor notices (one excluded, one substituted, one kept below the floor).",
     "",
     "It had to. On the day of capture the live testnet registry held",
-    `${f.agentCount} agents and **${f.agentsWithOnchainEvidence} of them had any`,
-    "on-chain rating at all** — every agent reads `count: 0`, `source: \"prior\"`,",
-    `with a Wilson lower bound of ${uniqueLowerBounds.join(" / ")} bps against a`,
-    `routing floor of ${f.floorBps} bps. Nothing on that registry sits below the`,
-    "floor, so the real backend has no floor action to report and cannot produce",
-    "a floor-acted plan on this target. A live decompose of the same intent, run",
-    `in the same session, returned \`notices: []\` (${f.liveNoticeCount} notices).`,
+    `${f.agentCount} agents; ${f.agentsWithOnchainEvidence} of them carried on-chain`,
+    `ratings, and ${f.subFloorAgents.length} sat below the routing floor of ${f.floorBps} bps`,
+    `(${f.subFloorAgents.join(", ") || "none"}). None of those is in the demo-kit`,
+    "pipeline: the kit agents read Wilson lower bounds of",
+    `${kitBounds.join(" / ")} bps, every one clear of the floor, so the`,
+    "deterministic kit path has no floor action to report and cannot produce a",
+    "floor-acted plan on this target. A live decompose of the same intent, run in",
+    `the same session, returned ${f.liveNoticeCount} notices and`,
+    `**${f.liveFloorActionCount} floor actions** — every notice was an agent with no`,
+    "endpoint bound, which the floor did not decide.",
+    "",
+    "The free-form path does exclude a real sub-floor agent live (the RF-05 live",
+    "test in the same file proves it), but its plan is written by a language model",
+    "and is not the same plan twice, so it cannot back a reproducible frame.",
     "",
     "Everything else in the frame is real: the deployed frontend, its markup, its",
     "accessibility semantics, its wording, and every request other than the",
@@ -758,12 +1068,14 @@ function buildProvenanceNote(f: ProvenanceFacts): string {
     "",
     "**In the picture (supplied by the test):** five steps — one scored on the",
     "prior at 7000 bps, four on claimed on-chain evidence at 8150 / 7720 / 6480 /",
-    "5210 bps — plus three floor actions: `seo.brief` excluded at 4200 bps,",
-    "`code.critic` substituted by `code.review.pro` at 5090 bps, and `deploy.v0`",
-    "kept below the floor at 5210 bps by the starvation backstop.",
+    "6020 bps — plus three floor actions, each judged on its lower bound:",
+    "`seo.brief` excluded at 4200 bps, `code.critic` substituted by",
+    "`code.review.pro` at 5090 bps, and `deploy.v0` kept below the floor at",
+    "5210 bps by the starvation backstop.",
     "",
-    "**On the live target (measured this run):** every agent on the prior, no",
-    "on-chain evidence anywhere, no agent below the floor, no notices.",
+    `**On the live target (measured this run):** ${f.agentsWithOnchainEvidence} of`,
+    `${f.agentCount} agents rated on-chain, ${f.subFloorAgents.length} below the floor and`,
+    `outside the kit pipeline, ${f.liveFloorActionCount} floor actions on the kit plan.`,
     "",
     "## Which build this is",
     "",
@@ -773,13 +1085,14 @@ function buildProvenanceNote(f: ProvenanceFacts): string {
     "in the same run:",
     "",
     `- \`POST /api/orchestrator/decompose\` top-level keys: ${f.liveDecomposeKeys.map((k) => `\`${k}\``).join(", ")}`,
-    "  — no `floor_bps`, no `reputation_degraded`.",
-    `- \`GET /api/stellar/reputation/{agent_id}\` carries ${f.reputationHasDegradedKey ? "a" : "no"} \`degraded\` key`,
-    "  (defect D-024: the backend strips the flag at the API boundary, so no",
-    "  client can tell an RPC outage from a cold start).",
+    `  — ${f.liveDecomposeKeys.includes("floor_bps") ? "carries" : "no"} \`floor_bps\`, ${f.liveDecomposeKeys.includes("reputation_degraded") ? "carries" : "no"} \`reputation_degraded\``,
+    "  (both were missing on the split deploy recorded as D-031).",
+    `- \`GET /api/stellar/reputation\` carries ${f.reputationHasDegradedKey ? "a" : "no"} \`degraded\` key`,
+    "  (the flag D-024 found stripped at the API boundary, which is what lets a",
+    "  client tell an RPC outage from a cold start).",
     "",
-    "Later builds add those fields; a frame captured against one of them would",
-    "show a different shape here.",
+    "A frame captured against a build with a different response shape would",
+    "show a different list here.",
     "",
     "## What this frame proves, and what it does not",
     "",
@@ -787,15 +1100,15 @@ function buildProvenanceNote(f: ProvenanceFacts): string {
     "renders, in one frame, a reputation badge per step carrying the score and",
     "whether it came from the chain or the prior, and — once the disclosure is",
     "open — each floor action with the agent named, the action taken, the",
-    "replacement where there was one, and the reason including the applied floor",
-    "in basis points.",
+    "replacement where there was one, the reason, and the agent's lower bound",
+    "and the applied floor that decided it. A below-floor reason also carries",
+    "both numbers in basis points; the floor-relaxed reason carries none.",
     "",
     "**Does not prove:** that the live backend produced any of it. It did not.",
-    "Nor does it cover the free-form intent path: on that path the floor is",
-    "applied only while building the planner prompt and is never re-checked",
-    "afterwards, and a floor relaxation there emits no notice at all (defects",
-    "D-028, D-029). The notices rendered here are, on this build, only ever",
-    "produced by the demo-kit path.",
+    "Nor does it cover the free-form intent path. That path now holds every",
+    "model step to the shortlist it was offered and discloses a relaxed floor",
+    "(the fixes for defects D-028 and D-029), and the RF-05 live test checks the",
+    "exclusion of a real sub-floor agent there, but no frame of it is filed.",
     "",
   ].join("\n");
 }
@@ -862,7 +1175,7 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
 
     // ---- provenance -----------------------------------------------------
     // Read from the deployment in this same run, and asserted, not narrated:
-    // the note's central claim is that no agent here can be below the floor,
+    // the note's central claim is that the kit plan cannot show a floor action,
     // and a note that states that without checking is just a nicer-looking
     // guess. `request` bypasses the page's route, so the decompose below is
     // the real backend answering.
@@ -905,11 +1218,9 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
     const withEvidence = reputations.filter(
       (r) => r.source !== "prior" || r.count > 0,
     ).length;
-    // The premise of the whole note.
-    expect(
-      withEvidence,
-      "an agent now carries on-chain evidence, so the note's claim that this registry cannot produce a sub-floor agent is no longer true",
-    ).toBe(0);
+    const subFloorAgents = Object.entries(batch.reputations)
+      .filter(([, r]) => r.lower_bound_bps < params.floor_bps)
+      .map(([id, r]) => `${id} at ${r.lower_bound_bps} bps`);
 
     const healthRes = await request.get("/api/health", {
       timeout: COLD_START_TIMEOUT,
@@ -923,8 +1234,20 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
     });
     expect(liveRes.ok()).toBe(true);
     const live = (await liveRes.json()) as Record<string, unknown> & {
-      notices?: unknown[];
+      notices: { reason_code?: string }[];
+      steps: { rep_lower_bound_bps: number }[];
     };
+    // The premise of the whole note: the deterministic kit path, which the
+    // frame's intent drives, has no floor action to show on this registry.
+    // If a kit agent ever falls below the floor this fails, and the frame can
+    // then be captured live instead of supplied.
+    const liveFloorActions = live.notices.filter(
+      (n) => n.reason_code !== "unbound_endpoint",
+    );
+    expect(
+      liveFloorActions,
+      "the live kit plan now carries a floor action, so the note's claim that this target cannot produce a floor-acted kit plan is no longer true",
+    ).toEqual([]);
 
     const note = buildProvenanceNote({
       capturedAt: new Date().toISOString(),
@@ -934,9 +1257,11 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
       priorBps: params.prior_bps,
       agentCount: reputations.length,
       agentsWithOnchainEvidence: withEvidence,
-      lowerBoundsBps: reputations.map((r) => r.lower_bound_bps),
+      subFloorAgents,
+      kitLowerBoundsBps: live.steps.map((s) => s.rep_lower_bound_bps),
       liveDecomposeKeys: Object.keys(live).sort(),
-      liveNoticeCount: live.notices?.length ?? 0,
+      liveNoticeCount: live.notices.length,
+      liveFloorActionCount: liveFloorActions.length,
       healthVersion: health.version ?? "(absent)",
       reputationHasDegradedKey: reputations.some((r) => "degraded" in r),
     });
@@ -968,12 +1293,12 @@ test.describe("RF-17 evidence frame (SOW §6.1 Deliverable 2)", () => {
       EVIDENCE_INTENT,
     );
 
-    // The reputation state behind it: cold start, and the floor it was
-    // measured against.
+    // The reputation state behind it: that the kit plan carried no floor
+    // action, and the floor it was measured against.
     expect(
       index,
-      "the index does not record that every agent was on the prior",
-    ).toContain('source: "prior"');
+      "the index does not record that the live kit plan carried no floor action",
+    ).toContain("no floor action");
     expect(
       index,
       "the index does not record the routing floor that was applied",

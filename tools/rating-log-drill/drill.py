@@ -61,7 +61,8 @@ class Capture(logging.Handler):
             records.append(record)
 
 
-async def execute_refund(buyer: str, amount_usdc: float) -> dict:
+async def execute_refund(buyer: str, amount_usdc: float, *, dispute_id: str | None = None) -> dict:
+    """The transfer lands. `dispute_id` (backend 6da6da7 on) only muxes the payer's address."""
     return {"status": "SUCCESS", "hash": REFUND_TX, "ledger": 4242}
 
 
@@ -72,7 +73,9 @@ async def submit_rating_async(agent_id, job_id, rating, weight, payer, kind) -> 
     if RATING_FAILURE == "raise":
         raise ConnectionError("rpc connection dropped")
     if RATING_FAILURE == "refuse":
-        raise RuntimeError("prepare failed: HostError: Error(Value, InvalidInput)")
+        # Backend 6da6da7 on types this as NotSubmittedError (a RuntimeError); before, a bare RuntimeError.
+        refused = getattr(sc, "NotSubmittedError", RuntimeError)
+        raise refused("prepare failed: HostError: Error(Value, InvalidInput)")
     return {"status": "FAILED", "hash": "tx_rating_failed"}
 
 
@@ -116,15 +119,14 @@ def sd08_failure_logged(opened) -> None:
     for field, value in (("dispute id", opened.id), ("job id", opened.job_id_hex),
                          ("payer", opened.payer)):
         check(f"SD-08 the error line carries the {field}", value in line, line)
-    check("SD-08 the error line carries the amount", str(PRICE) in line,
-          line, defect="D-075")
+    check("SD-08 the error line carries the amount", str(PRICE) in line, line)
 
 
 def refused_before_submission_is_failed() -> None:
     """Nothing was signed or sent, so the outcome must say nothing landed, not that it may still."""
     lines = " | ".join(r.getMessage() for r in records if r.levelno >= logging.ERROR)
     check("D-076 a rating refused at simulation is reported as nothing landed",
-          "nothing landed" in lines and "MAY HAVE LANDED" not in lines, lines[:200], defect="D-076")
+          "nothing landed" in lines and "MAY HAVE LANDED" not in lines, lines[:200])
 
 
 async def main() -> int:
