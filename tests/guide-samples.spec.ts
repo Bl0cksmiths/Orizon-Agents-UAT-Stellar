@@ -89,8 +89,12 @@ async function documentedResponse(page: Page, id: string): Promise<unknown> {
  * guide edit that introduces a new kind of value fails loudly instead of
  * being matched by anything.
  */
-function placeholderMatches(text: string, value: unknown): boolean {
+function placeholderMatches(text: string, value: unknown, agentId?: string): boolean {
   const isString = typeof value === "string";
+  if (text === "your agent id") return value === agentId;
+  if (/unix seconds/.test(text)) return typeof value === "number" && value > 0;
+  if (/^true\b/.test(text)) return typeof value === "boolean";
+  if (/without the path/.test(text)) return isString && /^https:\/\/[^/?#]+$/.test(value);
   if (/G address/.test(text)) return isString && /^G[A-Z2-7]{55}$/.test(value);
   if (/^C address/.test(text)) return isString && /^C[A-Z2-7]{55}$/.test(value);
   if (/URL$/.test(text)) return isString && /^https:\/\/\S+$/.test(value);
@@ -102,11 +106,11 @@ function placeholderMatches(text: string, value: unknown): boolean {
  * literal that differs, or a value not of its placeholder's type. Arrays must
  * match element by element and in length; extra object keys are allowed.
  */
-function differences(documented: unknown, actual: unknown, path = "$"): string[] {
+function differences(documented: unknown, actual: unknown, agentId?: string, path = "$"): string[] {
   if (typeof documented === "string") {
     const placeholder = /^<(.+)>$/.exec(documented)?.[1];
     if (placeholder !== undefined) {
-      return placeholderMatches(placeholder, actual)
+      return placeholderMatches(placeholder, actual, agentId)
         ? []
         : [`${path}: documented <${placeholder}>, got ${JSON.stringify(actual)}`];
     }
@@ -115,7 +119,7 @@ function differences(documented: unknown, actual: unknown, path = "$"): string[]
     if (!Array.isArray(actual) || actual.length !== documented.length) {
       return [`${path}: documented ${documented.length} elements, got ${JSON.stringify(actual)}`];
     }
-    return documented.flatMap((d, i) => differences(d, actual[i], `${path}[${i}]`));
+    return documented.flatMap((d, i) => differences(d, actual[i], agentId, `${path}[${i}]`));
   }
   if (typeof documented === "object" && documented !== null) {
     if (typeof actual !== "object" || actual === null || Array.isArray(actual)) {
@@ -124,7 +128,7 @@ function differences(documented: unknown, actual: unknown, path = "$"): string[]
     const record = actual as Record<string, unknown>;
     return Object.entries(documented).flatMap(([key, d]) =>
       key in record
-        ? differences(d, record[key], `${path}.${key}`)
+        ? differences(d, record[key], agentId, `${path}.${key}`)
         : [`${path}.${key}: documented key is missing`],
     );
   }
@@ -140,4 +144,15 @@ test("PP-03 'Read the network the deployment runs on' (network) returns its docu
   const actual = await runAsWritten(page, browserName, "network");
   const documented = await documentedResponse(page, "network");
   expect(differences(documented, actual)).toEqual([]);
+});
+
+test("PP-03 'Read your agent's binding' (binding-read) returns its documented response", async ({
+  page,
+  browserName,
+}) => {
+  /* Team QA agent, bound: an anonymous read gets the host only. */
+  const agentId = "uat624_ext_op";
+  const actual = await runAsWritten(page, browserName, "binding-read", { AGENT_ID: agentId });
+  const documented = await documentedResponse(page, "binding-read");
+  expect(differences(documented, actual, agentId)).toEqual([]);
 });
