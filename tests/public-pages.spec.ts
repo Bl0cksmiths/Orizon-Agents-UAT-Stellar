@@ -63,6 +63,69 @@ async function bodyFontSizes(page: Page): Promise<{ text: string; px: number }[]
   );
 }
 
+/** Runs `fn` over `items`, at most `limit` at a time, keeping their order. */
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = [];
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    for (let i = next++; i < items.length; i = next++) out[i] = await fn(items[i] as T);
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+/**
+ * How `url` answers this page's own client (its context, so a real browser's
+ * user agent): HEAD first, GET when HEAD is refused, and a 429 waited out by
+ * its Retry-After (capped) up to three times. A network failure is reported
+ * by its message rather than thrown, so one dead host is one finding.
+ */
+async function answerOf(page: Page, url: string): Promise<number | string> {
+  const opts = { timeout: COLD_START_TIMEOUT, maxRedirects: 10, failOnStatusCode: false };
+  try {
+    for (let attempt = 0; ; attempt++) {
+      let res = await page.request.head(url, opts);
+      if (res.status() >= 400 && res.status() !== 429) res = await page.request.get(url, opts);
+      if (res.status() !== 429 || attempt === 3) return res.status();
+      const retryAfter = Number(res.headers()["retry-after"]);
+      const waitMs = Number.isFinite(retryAfter) ? retryAfter * 1000 : 5000;
+      await new Promise((r) => setTimeout(r, Math.min(waitMs, 30_000)));
+    }
+  } catch (err) {
+    return (err as Error).message.split("\n")[0] ?? "request failed";
+  }
+}
+
+/**
+ * The status a real browser tab gets for `url`, for a link the request client
+ * was refused on: some sites answer bots differently, and the criterion is
+ * whether the link works for a reader.
+ */
+async function browserAnswerOf(page: Page, url: string): Promise<number | string> {
+  const tab = await page.context().newPage();
+  try {
+    const res = await tab.goto(url, { timeout: COLD_START_TIMEOUT, waitUntil: "commit" });
+    return res?.status() ?? "no response";
+  } catch (err) {
+    return (err as Error).message.split("\n")[0] ?? "navigation failed";
+  } finally {
+    await tab.close();
+  }
+}
+
+/** The backend's ecosystem adoption read, which the evidence index links. */
+const ADOPTION_URL = "https://orizon-agents-be-stellar.onrender.com/api/ecosystem/adoption";
+
+/**
+ * LinkedIn answers 999 ("request denied") to every automated client, headless
+ * or not, in all three engines and to curl with a browser's user agent, so a
+ * run cannot tell a live profile from a dead one. Only that pair is excused,
+ * and each is recorded on the test for the person on the device checklist.
+ */
+function isBotWalled(url: string, status: number | string): boolean {
+  return status === 999 && /(^|\.)linkedin\.com$/.test(new URL(url).hostname);
+}
+
 test.describe("PP-01 each public page renders fully, with no session", () => {
   for (const { path, label } of PAGES) {
     test(`PP-01 ${label} (${path}) loads, does not scroll sideways, and reads at a legible size`, async ({
@@ -78,5 +141,67 @@ test.describe("PP-01 each public page renders fully, with no session", () => {
         expect(small, `${path} sets body text below 12px`).toEqual([]);
       });
     });
+
+    /**
+     * Every distinct link, on this site and off it. An in-page anchor must
+     * name an element; any other link must answer below 400, first to the
+     * page's own request client and, if refused, to a real browser tab.
+     */
+    test(`PP-01 every link on ${label} (${path}) answers`, async ({ browser }) => {
+      test.setTimeout(COLD_START_TIMEOUT * 10);
+      await visit(browser, path, async (page) => {
+        const here = new URL(page.url());
+        const hrefs = await page
+          .locator("a[href]")
+          .evaluateAll((els) => els.map((el) => (el as HTMLAnchorElement).href));
+        const urls = hrefs.map((h) => new URL(h)).filter((u) => /^https?:$/.test(u.protocol));
+        expect(urls.length, `${path} carries no link`).toBeGreaterThan(0);
+
+        const anchors = new Set(
+          urls.filter((u) => u.origin + u.pathname === here.origin + here.pathname && u.hash).map((u) => u.hash.slice(1)),
+        );
+        for (const id of anchors) {
+          await expect(page.locator(`[id="${decodeURIComponent(id)}"]`), `${path} links to #${id}, which names no element`).toHaveCount(1);
+        }
+
+        // The adoption read has a test of its own, below: it takes minutes.
+        const targets = [...new Set(urls.map((u) => u.href.split("#")[0] as string))].filter(
+          (url) => url !== ADOPTION_URL,
+        );
+        const answers = await mapPool(targets, 4, (url) => answerOf(page, url));
+        const refused = targets.filter((_, i) => !(typeof answers[i] === "number" && (answers[i] as number) < 400));
+        const broken: string[] = [];
+        for (const url of refused) {
+          const status = await browserAnswerOf(page, url);
+          if (typeof status === "number" && status < 400) continue;
+          if (isBotWalled(url, status)) {
+            test.info().annotations.push({
+              type: "bot-walled link",
+              description: `${url} → ${status}: refuses every automated client, so a person checks it (6.11 device checklist)`,
+            });
+            continue;
+          }
+          broken.push(`${url} → ${status}`);
+        }
+        expect(broken, `${path}: links that do not answer, to a client or to a browser`).toEqual([]);
+      });
+    });
   }
+
+  /**
+   * D-09x (pending id): the evidence index links the backend's adoption read,
+   * and on a warm service (/health answering in under 2 s) a GET to it took
+   * 223 s and 252 s, or had not answered at 280 s, in six tries on
+   * 2026-10-03. A link a reader waits minutes on does not work; 30 s is
+   * already generous for one JSON read.
+   */
+  test("PP-01 the evidence index's adoption link answers within 30 s", async ({ browser }) => {
+    test.fail(true, "D-09x (pending id): /api/ecosystem/adoption takes minutes to answer");
+    test.setTimeout(COLD_START_TIMEOUT + 60_000);
+    await visit(browser, "/evidence", async (page) => {
+      await expect(page.locator(`a[href="${ADOPTION_URL}"]`).first(), "the evidence index no longer links the adoption read").toBeAttached();
+      const res = await page.request.get(ADOPTION_URL, { timeout: 30_000, failOnStatusCode: false });
+      expect(res.status()).toBe(200);
+    });
+  });
 });
