@@ -219,14 +219,14 @@ test.describe("PP-01 each public page renders fully, with no session", () => {
   }
 
   /**
-   * D-09x (pending id): the evidence index links the backend's adoption read,
+   * D-091: the evidence index links the backend's adoption read,
    * and on a warm service (/health answering in under 2 s) a GET to it took
    * 223 s and 252 s, or had not answered at 280 s, in six tries on
    * 2026-10-03. A link a reader waits minutes on does not work; 30 s is
    * already generous for one JSON read.
    */
   test("PP-01 the evidence index's adoption link answers within 30 s", async ({ browser }) => {
-    test.fail(true, "D-09x (pending id): /api/ecosystem/adoption takes minutes to answer");
+    test.fail(true, "D-091: /api/ecosystem/adoption takes minutes to answer");
     test.setTimeout(COLD_START_TIMEOUT + 60_000);
     await visit(browser, "/evidence", async (page) => {
       await expect(page.locator(`a[href="${ADOPTION_URL}"]`).first(), "the evidence index no longer links the adoption read").toBeAttached();
