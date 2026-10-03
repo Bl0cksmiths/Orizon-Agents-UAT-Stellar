@@ -3770,3 +3770,24 @@ state the later edits next to the as-of date.
 **Verified by** — `docs/uat/evidence/6.10-link-review.md` (findings P3, P5).
 
 ---
+## D-096 — The index says 3 seals were written on 2026-09-30; there were 5
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** RV-01 (story 6.10); 5.05 item `6.1-D4-d #11` and the `pre_sprint_activity` disclosure
+
+**Steps to reproduce** — read `6.1-D4-d #11` and the `pre_sprint_activity`
+text, then list the AttestationRegistry's `seal` calls on 2026-09-30 on
+Stellar Expert.
+
+**Expected** — the count the page states for its own date.
+
+**Actual** — five seals were written that day, all from team runs; the two not
+counted are at 17:47 and 17:48 UTC. The figure is wrong even for the page's
+as-of date.
+
+**Resolution path** — state 5, or say which 3 are meant and why.
+
+**Verified by** — `docs/uat/evidence/6.10-link-review.md` (finding P4).
+
+---
