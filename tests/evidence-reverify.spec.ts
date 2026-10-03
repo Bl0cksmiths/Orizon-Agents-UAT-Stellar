@@ -398,4 +398,23 @@ test.describe("RV-02 each metric's achieved value against its source", () => {
     }
     await expect(m05.row).toContainText("from the team's own test run of 2026-09-30");
   });
+
+  test("RV-02 m11 every repository the row links is detected by GitHub as MIT", async ({ page, request }) => {
+    const m11 = await metricRow(page, "All source code released under MIT License");
+    expect(m11.achieved).toBe("Yes");
+    expect(m11.status).toBe("met");
+    // The repositories as the page links them, not a list kept here: a repo
+    // added to or dropped from the row changes what is checked. Four calls,
+    // well inside GitHub's 60 unauthenticated requests an hour.
+    const repos = (
+      await m11.row.locator("a[href]").evaluateAll((links) => links.map((a) => a.getAttribute("href")!))
+    ).flatMap((href) => /^https:\/\/github\.com\/(Bl0cksmiths\/[^/#?]+)$/.exec(href)?.[1] ?? []);
+    expect(repos.length, "repositories the row links").toBe(4);
+    for (const repo of repos) {
+      const res = await request.get(`https://api.github.com/repos/${repo}`, { timeout: 30_000 });
+      expect(res.status(), `GitHub answers for ${repo}`).toBe(200);
+      const body = (await res.json()) as { license?: { spdx_id?: string } | null };
+      expect(body.license?.spdx_id, `${repo} licence`).toBe("MIT");
+    }
+  });
 });
