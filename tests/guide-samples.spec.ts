@@ -178,3 +178,16 @@ test("PP-03 'Check your agent's readiness' (readiness) returns its documented re
   const { ready, steps } = actual as { ready: boolean; steps: { status: string }[] };
   expect(ready).toBe(steps.slice(0, 5).every((step) => step.status === "done"));
 });
+
+test("PP-03 each copy button copies exactly its block's visible text", async ({
+  page,
+  browserName,
+}) => {
+  /* In Chromium the copied text is read back from the clipboard itself; in
+     WebKit and Firefox it is the text the handler wrote after announcing
+     "Copied" (see copySample). Either way it must equal what a reader sees. */
+  for (const id of ["set-api-base", "network", "binding-read", "readiness"]) {
+    const copied = await copySample(page, id, browserName);
+    expect(copied, id).toBe(await page.locator(`#${id}-code`).innerText());
+  }
+});
