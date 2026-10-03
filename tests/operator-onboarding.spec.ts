@@ -74,8 +74,8 @@ async function probeBoundHost(request: APIRequestContext, id: string): Promise<{
 // The adoption report is read from the backend host directly: through
 // orizons.xyz the rewrite gives up long before the report is computed (D-091).
 const BACKEND = "https://orizon-agents-be-stellar.onrender.com";
-// A cold computation measured 4 to 12 minutes on 2026-10-03.
-const ADOPTION_TIMEOUT = 900_000;
+// Cold computations measured 4, 12 and over 15 minutes on 2026-10-03.
+const ADOPTION_TIMEOUT = 1_500_000;
 
 type Counts = { external_agents: number; unique_operator_wallets: number; settled_external_workflows: number };
 type Adoption = {
@@ -235,25 +235,38 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
     await expectNoHorizontalOverflow(page);
   });
 
-  test("OB-07 every team wallet's agents are excluded with its role and never counted", async ({ request }) => {
-    test.setTimeout(ADOPTION_TIMEOUT + 60_000);
-    const team = await teamWallets(request);
-    const agents = await listAgents(request);
-    const report = await adoptionReport(request);
-    const owning = [...team.keys()].filter((wallet) => agents.some((agent) => agent.owner === wallet));
-    expect(owning.length, "team wallets that own agents").toBeGreaterThan(0);
-    for (const wallet of owning) {
-      const excluded = report.excluded.filter((entry) => entry.owner === wallet);
-      expect(excluded, `${wallet} listed once under excluded`).toHaveLength(1);
-      expect(excluded[0]!.reason).toBe("team_wallet");
-      expect(excluded[0]!.role).toBe(team.get(wallet));
-      const owned = agents.filter((agent) => agent.owner === wallet).map((agent) => agent.id);
-      expect(excluded[0]!.agent_ids).toEqual(expect.arrayContaining(owned));
-    }
-    const operatorWallets = report.operators.map((operator) => operator.owner);
-    expect(operatorWallets.filter((wallet) => team.has(wallet)), "team wallets counted as operators").toEqual([]);
-    const counted = report.operators.reduce((sum, operator) => sum + operator.agents.length, 0);
-    expect(report.totals.external_agents).toBe(counted);
-    expect(report.totals.unique_operator_wallets).toBe(report.operators.length);
+  test.describe("against one live adoption report", () => {
+    // Every check below reads the same report, fetched once per worker before
+    // any page opens: a cold computation takes many minutes (D-091) and the
+    // backend caches it for only about 30 seconds.
+    test.describe.configure({ mode: "default" });
+    let report: Adoption;
+
+    test.beforeAll(async ({ playwright }) => {
+      test.setTimeout(ADOPTION_TIMEOUT + 60_000);
+      const request = await playwright.request.newContext();
+      report = await adoptionReport(request);
+      await request.dispose();
+    });
+
+    test("OB-07 every team wallet's agents are excluded with its role and never counted", async ({ request }) => {
+      const team = await teamWallets(request);
+      const agents = await listAgents(request);
+      const owning = [...team.keys()].filter((wallet) => agents.some((agent) => agent.owner === wallet));
+      expect(owning.length, "team wallets that own agents").toBeGreaterThan(0);
+      for (const wallet of owning) {
+        const excluded = report.excluded.filter((entry) => entry.owner === wallet);
+        expect(excluded, `${wallet} listed once under excluded`).toHaveLength(1);
+        expect(excluded[0]!.reason).toBe("team_wallet");
+        expect(excluded[0]!.role).toBe(team.get(wallet));
+        const owned = agents.filter((agent) => agent.owner === wallet).map((agent) => agent.id);
+        expect(excluded[0]!.agent_ids).toEqual(expect.arrayContaining(owned));
+      }
+      const operatorWallets = report.operators.map((operator) => operator.owner);
+      expect(operatorWallets.filter((wallet) => team.has(wallet)), "team wallets counted as operators").toEqual([]);
+      const counted = report.operators.reduce((sum, operator) => sum + operator.agents.length, 0);
+      expect(report.totals.external_agents).toBe(counted);
+      expect(report.totals.unique_operator_wallets).toBe(report.operators.length);
+    });
   });
 });
