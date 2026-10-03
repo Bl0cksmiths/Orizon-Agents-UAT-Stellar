@@ -90,8 +90,17 @@ async function documentedResponse(page: Page, id: string): Promise<unknown> {
  * being matched by anything.
  */
 function placeholderMatches(text: string, value: unknown, agentId?: string): boolean {
+  if (/, or null\b/.test(text) && value === null) return true;
   const isString = typeof value === "string";
   if (text === "your agent id") return value === agentId;
+  if (/^[a-z_]+(\|[a-z_]+)+$/.test(text)) return isString && text.split("|").includes(value);
+  const keys = /^\{([^}]+)\}/.exec(text)?.[1];
+  if (keys !== undefined) {
+    if (typeof value !== "object" || value === null) return false;
+    const record = value as Record<string, unknown>;
+    return keys.split(",").every((key) => typeof record[key.trim()] === "string");
+  }
+  if (/^(what was found|(the )?next thing to do)/.test(text)) return isString && value !== "";
   if (/unix seconds/.test(text)) return typeof value === "number" && value > 0;
   if (/^true\b/.test(text)) return typeof value === "boolean";
   if (/without the path/.test(text)) return isString && /^https:\/\/[^/?#]+$/.test(value);
@@ -155,4 +164,17 @@ test("PP-03 'Read your agent's binding' (binding-read) returns its documented re
   const actual = await runAsWritten(page, browserName, "binding-read", { AGENT_ID: agentId });
   const documented = await documentedResponse(page, "binding-read");
   expect(differences(documented, actual, agentId)).toEqual([]);
+});
+
+test("PP-03 'Check your agent's readiness' (readiness) returns its documented response", async ({
+  page,
+  browserName,
+}) => {
+  const agentId = "uat624_ext_op";
+  const actual = await runAsWritten(page, browserName, "readiness", { AGENT_ID: agentId });
+  const documented = await documentedResponse(page, "readiness");
+  expect(differences(documented, actual, agentId)).toEqual([]);
+  /* The guide's rule: `ready` is true exactly when the first five steps are done. */
+  const { ready, steps } = actual as { ready: boolean; steps: { status: string }[] };
+  expect(ready).toBe(steps.slice(0, 5).every((step) => step.status === "done"));
 });
