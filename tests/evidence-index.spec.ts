@@ -413,6 +413,16 @@ test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10
     expect(wrong, "pinned transaction links whose label names an agent other than the one its call names").toEqual([]);
   });
 
+  test("RV-01 every pinned rating's label states its true score", async ({ request }) => {
+    const wrong = (await pinnedTxLinks(request)).flatMap(({ position, label, facts }) => {
+      const stated = /\b(\d+) out of 100\b/.exec(label)?.[1];
+      if (stated === undefined) return [];
+      const score = facts.fn === "submit" ? facts.args[3] : undefined;
+      return Number(stated) === score ? [] : [`#${position} says ${stated} out of 100; the call is ${facts.fn} with score ${String(score)}`];
+    });
+    expect(wrong, "pinned transaction links whose label states a score the rating did not write").toEqual([]);
+  });
+
   test("RV-04 no outside operator's agent id, wallet or hash appears on the page", async ({ request }) => {
     // D-092 (Critical): the index links outside operators' registrations and
     // wallets. Expected to fail until the page drops them; it then passes
