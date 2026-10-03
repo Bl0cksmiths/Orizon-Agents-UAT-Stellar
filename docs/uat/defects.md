@@ -3601,6 +3601,11 @@ receipt the API can still serve.
 **Verified by** — the four routes read over HTTP on 2026-10-02, and pinned by `tests/sow-checklist.spec.ts` "OV-07 D3-c: …". Evidence:
 `docs/uat/evidence/6.04-onchain-verification.md` (OV-07).
 
+**Re-checked 2026-10-03 (story 6.10)** — may no longer hold. Rendered in
+Chromium, the D3-c link shows the receipt Settled, the closed window and the
+refunded dispute with both hashes; only `GET /api/tasks/<id>` still answers
+404. Re-test before closing. `docs/uat/evidence/6.10-link-review.md`.
+
 ---
 ## D-091 — The Ecosystem page never shows its figures: the adoption report takes over five minutes
 
