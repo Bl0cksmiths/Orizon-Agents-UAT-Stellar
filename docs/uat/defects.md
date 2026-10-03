@@ -3844,3 +3844,29 @@ Related to D-078.
 (expected failure).
 
 ---
+## D-098 — Disclosures do not name every team wallet used in a run
+
+- **Severity:** Minor
+- **Status:** Open
+- **Affects:** RV-03 (story 6.10); 5.05 Disclosures
+
+**Steps to reproduce** — read the Disclosures section on
+`https://orizons.xyz/evidence`, and list the wallets that paid in the linked
+team runs.
+
+**Expected** — the Disclosures section names every team wallet used in a run.
+
+**Actual** — the buyer key of the first escrow v2 run, `GB4K6YRH…AYKK`
+(register role "x402 escrow spike key"), is named only in Notes and in the
+metric rows, not in Disclosures. Separately, the "Test runs are not
+deliverable evidence" text names a "QA drill key", `GA45I…EGZ2`, that is not
+in the team register (`app/data/team_wallets.json`).
+
+**Resolution path** — name every run wallet in Disclosures, and add the QA
+drill key to the team register.
+
+**Verified by** — `tests/evidence-reverify.spec.ts` RV-03 run wallets test
+(expected failure). The drill key's absence from the register is read from
+the register on 2026-10-03.
+
+---
