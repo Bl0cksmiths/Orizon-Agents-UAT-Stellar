@@ -1087,3 +1087,21 @@ transfer names the dispute it pays and "paid once" is counted on-chain.
 | DE-04 | a settled workflow inside its window | the backend restarts and the buyer then disputes from the console | the dispute is accepted, upheld and credited normally |
 | DE-05 | a step outside its window, and a credit above `MAX_REFUND_USDC` | each is attempted | the first is refused as out of window, the second as above the cap, with nothing paid |
 | DE-06 | a dispute already upheld and credited | it is upheld again | no second credit is sent |
+
+## Acceptance criteria — OB, operator onboarding, readiness and the Ecosystem page (story 6.09, verifies 5.02 / 5.03)
+
+The QA team onboards an agent the way an outside operator does, from the
+public guide (`/guide/list-your-agent`, v1.1.0) alone, then checks what the
+platform reports about it: the readiness checklist (`GET
+/api/agents/{id}/readiness` and the checklist on `/app/operator`) and the
+adoption counts (`/app/ecosystem`, `GET /api/ecosystem/adoption`).
+
+Known issues F-033, F-034 and F-035 (backend `docs/operators/friction-log.md`)
+are confirmed, not re-diagnosed. A defect goes to `defects.md`; friction is a
+new row in the backend friction log, mapped to a guide section.
+
+**Consent.** No outside operator's agent id, wallet or hash is written into a
+test, a report or an evidence file. Outside operators are `OP-1`, `OP-2`, and
+the spec discovers their agents at run time and names them by position only.
+The QA agent is registered from a wallet already declared in
+`app/data/team_wallets.json`, so it is counted as a team agent.
