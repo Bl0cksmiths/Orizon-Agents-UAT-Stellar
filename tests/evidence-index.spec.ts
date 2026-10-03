@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { COLD_START_TIMEOUT } from "./fixtures";
-import { ACCOUNT_FACTS, ADMIN, ATTESTATION, CONTRACT_FACTS, ESCROW_V1, LEDGER, PLATFORM, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS, type TxFacts } from "../tools/onchain-verify/facts.ts";
+import { ACCOUNT_FACTS, ADMIN, ATTESTATION, CONTRACT_FACTS, ESCROW_V1, ESCROW_V2, LEDGER, PLATFORM, REGISTRY, SNAPSHOT, TEAM_OWNERS, TX_FACTS, type TxFacts } from "../tools/onchain-verify/facts.ts";
 import { show, txDifferences } from "../tools/onchain-verify/compare.ts";
 import { contractCallsBy, observeAccount, observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
 import { readAgents, readInstance, type PostJson } from "../tools/onchain-verify/rpc.ts";
@@ -89,6 +89,25 @@ async function pinnedTxLinks(request: APIRequestContext): Promise<(LabelledLink 
   expect(pinned.length, "the page links pinned transactions").toBeGreaterThan(0);
   return pinned;
 }
+
+/** What a transaction label says the call did, first match wins, in the index's own words. */
+const LABEL_ACTS: { says: RegExp; fn: string }[] = [
+  { says: /^Registration of /, fn: "register" },
+  { says: /^(Rating of |Dispute rating )/, fn: "submit" },
+  { says: /^Rating role on the ReputationLedger handed /, fn: "set_scorer" },
+  { says: /^Sealing role on the AttestationRegistry handed /, fn: "set_sealer" },
+  { says: /authorization (of|on) /i, fn: "authorize" },
+  { says: /settlement paying |^Charge of .* on the v2 escrow/, fn: "settle" },
+  { says: /^Charge of .* on the v1 escrow/, fn: "charge" },
+  { says: /attestation seal /, fn: "seal" },
+  { says: /^(Dispute credit refund|Refund|Transfer) /, fn: "transfer" },
+];
+
+/** The escrow a label places the call on, when it names one. */
+const LABEL_ESCROWS: { says: RegExp; contract: string }[] = [
+  { says: /\bon the v1 escrow\b/, contract: ESCROW_V1 },
+  { says: /\bon (the v2 escrow|escrow v2)\b/, contract: ESCROW_V2 },
+];
 
 /** Horizon reads through Playwright's request context, body parsed whatever the status. */
 const horizon = (request: APIRequestContext): GetJson => async (url) => {
@@ -320,6 +339,16 @@ test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10
         .map(([stated]) => `#${link.position} says ${stated}; native transfers ${show(link.facts.transfers)}`);
     });
     expect(wrong, "XLM amounts in pinned transaction labels that the transaction did not move").toEqual([]);
+  });
+
+  test("RV-01 every pinned transaction's label says what its call did", async ({ request }) => {
+    const wrong = (await pinnedTxLinks(request)).filter(({ label, facts }) => {
+      const act = LABEL_ACTS.find((a) => a.says.test(label));
+      const escrow = LABEL_ESCROWS.find((e) => e.says.test(label));
+      const dispute = facts.fn === "submit" && (facts.args[6] === "dispute") !== /^Dispute /.test(label);
+      return act?.fn !== facts.fn || (escrow && escrow.contract !== facts.contract) || dispute;
+    }).map((link) => `#${link.position} says "${link.label}"; the call is ${link.facts.fn} on ${link.facts.contract}`);
+    expect(wrong, "pinned transaction links whose label names another action, escrow or rating kind").toEqual([]);
   });
 
   test("RV-04 no outside operator's agent id, wallet or hash appears on the page", async ({ request }) => {
