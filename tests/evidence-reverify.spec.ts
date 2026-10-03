@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { ADMIN, CONTRACT_FACTS, ESCROW_V2, PLATFORM } from "../tools/onchain-verify/facts.ts";
+import { ADMIN, BUYER_GB4K6, BUYER_GCNQA, CONTRACT_FACTS, ESCROW_V2, PLATFORM } from "../tools/onchain-verify/facts.ts";
 
 /**
  * Story 6.10, RV-02, RV-03 and RV-06: the public evidence index re-verified
@@ -96,6 +96,19 @@ function short(account: string): string {
   return `${account.slice(0, 5)}…${account.slice(-4)}`;
 }
 
+/**
+ * Whether prose names an account, in full or shortened the page's way: its
+ * first five characters, an ellipsis, and any four or more of its last ones.
+ */
+function names(text: string, account: string): boolean {
+  if (text.includes(account)) return true;
+  const shortened = new RegExp(`${account.slice(0, 5)}…([A-Z2-7]{4,})`, "g");
+  return [...text.matchAll(shortened)].some((m) => account.endsWith(m[1]!));
+}
+
+/** The team wallet register, at the address the page links it. */
+const REGISTER_URL = "https://github.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/blob/main/app/data/team_wallets.json";
+
 /** The page's own words for one disclosure, title, text and what changed since the SOW, in one string. */
 async function disclosure(page: Page, id: string): Promise<string> {
   const item = page.locator(`section[aria-labelledby="disclosures"] [data-disclosure="${id}"]`);
@@ -185,5 +198,19 @@ test.describe("RV-03 the Disclosures section states each limit in plain words", 
     test.fail();
     const line = page.locator('section[aria-labelledby="disclosures"] [data-removed-metric="m03"]');
     await expect(line).toContainText(/removed .* by the team/, { timeout: 5_000 });
+  });
+
+  test("RV-03 the team wallets note: the public register, the rule, and the wallets of the escrow v2 runs", async ({ page }) => {
+    const note = page.locator('section[aria-labelledby="notes"] [data-note="team_wallets"]');
+    await expect(note).toHaveCount(1);
+    const text = (await note.innerText()).replace(/\s+/g, " ");
+    expect(text).toMatch(/^How an outside operator is told apart from the team/);
+    expect(text).toMatch(/public register of every wallet it controls, in the backend repository \(app\/data\/team_wallets\.json\)/);
+    expect(text).toMatch(/counts as outside only when its owner is not in that register and holds no platform role/);
+    expect(text).toMatch(/The escrow v2 test runs of 2026-09-30 used team wallets only/);
+    for (const [role, account] of [["buyer", BUYER_GB4K6], ["buyer", BUYER_GCNQA], ["admin", ADMIN]] as const) {
+      expect(names(text, account), `the note names the ${role} ${short(account)}`).toBe(true);
+    }
+    await expect(page.locator(`${ARTICLE} a[href="${REGISTER_URL}"]`).first(), "the page links the register").toBeVisible();
   });
 });
