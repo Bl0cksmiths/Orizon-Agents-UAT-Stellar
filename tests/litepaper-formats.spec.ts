@@ -100,6 +100,50 @@ function markdownSection(md: string): string {
     .join("\n");
 }
 
+/** Decodes the character references an HTML or XML text node can carry. */
+function decodeEntities(text: string): string {
+  const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, ref: string) => {
+    const name = ref.toLowerCase();
+    if (name.startsWith("#x")) return String.fromCodePoint(parseInt(name.slice(2), 16));
+    if (name.startsWith("#")) return String.fromCodePoint(parseInt(name.slice(1), 10));
+    return named[name] ?? whole;
+  });
+}
+
+/** §6 of the HTML book: from its `<h1>` to §7's, as text. */
+function htmlSection(html: string): string {
+  const start = html.indexOf('<h1 id="operations-and-governance"');
+  const end = html.indexOf('<h1 id="economics"');
+  expect(start, "the HTML book has no #operations-and-governance heading").toBeGreaterThanOrEqual(0);
+  expect(end, "the HTML book's #economics heading does not follow §6").toBeGreaterThan(start);
+  return decodeEntities(html.slice(start, end).replace(/<[^>]*>/g, " "));
+}
+
+/**
+ * Asserts two renderings of §6 carry the same words. On a mismatch the
+ * message quotes about twelve words around the first difference from each
+ * side, so the defect can be logged from the report alone.
+ */
+function expectSameWords(format: string, reference: Word[], actual: Word[]): void {
+  const want = reference.map((w) => w.key).join("");
+  const got = actual.map((w) => w.key).join("");
+  expect(actual.length, `the ${format} §6 is too short`).toBeGreaterThan(MIN_SECTION_WORDS);
+  if (want === got) return;
+  let at = 0;
+  while (want[at] === got[at]) at++;
+  const context = (list: Word[]): string => {
+    let seen = 0;
+    const index = list.findIndex((w) => (seen += w.key.length) > at);
+    const k = index < 0 ? list.length : index;
+    return list.slice(Math.max(0, k - 6), k + 6).map((w) => w.raw).join(" ");
+  };
+  expect(
+    `${format}: … ${context(actual)} …`,
+    `the ${format} §6 departs from the Markdown's`,
+  ).toBe(`${format}: … ${context(reference)} …`);
+}
+
 test.describe("PP-04 litepaper §6 across the four downloads", () => {
   test("PP-04 the Markdown download has a §6 with the v0.5 revision line", async ({ request }) => {
     const md = (await download(request, "md")).toString("utf8");
@@ -108,5 +152,11 @@ test.describe("PP-04 litepaper §6 across the four downloads", () => {
     expect(body[0], "§6 does not open with its heading").toBe(SECTION_6);
     expect(body[1], "§6's first line is not the v0.5 revision note").toBe(`*${REVISION_LINE}*`);
     expect(words(section).length, "the Markdown §6 is too short").toBeGreaterThan(MIN_SECTION_WORDS);
+  });
+
+  test("PP-04 the HTML download's §6 has the same words as the Markdown's", async ({ request }) => {
+    const md = (await download(request, "md")).toString("utf8");
+    const html = (await download(request, "html")).toString("utf8");
+    expectSameWords("HTML", words(markdownSection(md)), words(htmlSection(html)));
   });
 });
