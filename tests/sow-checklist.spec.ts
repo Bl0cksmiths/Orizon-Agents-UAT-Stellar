@@ -301,7 +301,7 @@ type Network = { network: string; contracts: Record<string, string> };
 
 /** The contract and account ids RD-f links on Stellar Expert. */
 function explorerIds(item: Item, kind: "contract" | "account"): Set<string> {
-  const pattern = new RegExp(`^https://stellar\.expert/explorer/testnet/${kind}/([A-Z0-9]{56})$`);
+  const pattern = new RegExp(`^https://stellar\\.expert/explorer/testnet/${kind}/([A-Z0-9]{56})$`);
   return new Set((item.links ?? []).flatMap((l) => pattern.exec(l.url)?.[1] ?? []));
 }
 
