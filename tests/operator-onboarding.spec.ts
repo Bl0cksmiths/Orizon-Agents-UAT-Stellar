@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
-import { COLD_START_TIMEOUT, stubWalletSession } from "./fixtures";
+import { COLD_START_TIMEOUT, expectNoHorizontalOverflow, stubWalletSession } from "./fixtures";
 
 /**
  * OB — story 6.09, operator onboarding, readiness and the Ecosystem page on
@@ -17,6 +17,9 @@ import { COLD_START_TIMEOUT, stubWalletSession } from "./fixtures";
  */
 
 const STEP_KEYS = ["registered", "active", "bound", "reachable", "routable", "first_run", "first_settlement"];
+
+// The checklist's words for those steps, in the same order.
+const STEP_LABELS = ["Registered on-chain", "Active", "Endpoint bound", "Endpoint reachable", "Routable", "First workflow run", "First settlement"];
 
 type Step = { key: string; status: string; detail: string; action: string | null };
 type Readiness = { agent_id: string; ready: boolean; steps: Step[] };
@@ -167,5 +170,23 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
     const unbind = /unbind|revoke|remove (the )?(binding|endpoint)/i;
     await expect(page.getByRole("button", { name: unbind })).toHaveCount(0);
     await expect(page.getByRole("link", { name: unbind })).toHaveCount(0);
+  });
+
+  test("OB-09 at 360 px the readiness checklist shows all seven steps, fits, and names its new-tab links", async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 360, height: 780 });
+    await stubWalletSession(page, { address: QA_OPERATOR_KEY });
+    await page.goto("/app/operator");
+    for (const id of ["uat605_ext_op", "uat624_ext_op"]) {
+      const steps = page.getByRole("list", { name: `Onboarding steps for ${id}` });
+      await expect(steps.getByRole("listitem")).toHaveCount(7, { timeout: 90_000 });
+      for (const [index, label] of STEP_LABELS.entries()) {
+        await expect(steps.getByRole("listitem").nth(index)).toContainText(`${index + 1}. ${label}`);
+      }
+      const away = steps.locator('a[target="_blank"]');
+      expect(await away.count(), `${id}'s evidence links`).toBeGreaterThan(0);
+      for (const link of await away.all()) await expect(link).toHaveAccessibleName(/opens in a new tab/);
+    }
+    await expectNoHorizontalOverflow(page);
   });
 });
