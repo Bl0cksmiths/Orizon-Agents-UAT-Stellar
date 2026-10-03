@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { COLD_START_TIMEOUT, expectNoHorizontalOverflow, stubWalletSession } from "./fixtures";
 
 /**
@@ -92,6 +92,31 @@ async function adoptionReport(request: APIRequestContext): Promise<Adoption> {
   const response = await request.get(`${BACKEND}/api/ecosystem/adoption`, { timeout: ADOPTION_TIMEOUT });
   expect(response.status()).toBe(200);
   return (await response.json()) as Adoption;
+}
+
+// The Ecosystem page's heading for each target (lib/ecosystem.ts TARGET_COPY).
+const TARGET_LABELS: Record<keyof Counts, string> = {
+  external_agents: "Externally operated agents",
+  unique_operator_wallets: "Unique operator wallets",
+  settled_external_workflows: "Workflows routed to external agents and settled",
+};
+
+/** The page's own wording of the settled window (settledWindowSentence in
+ * lib/ecosystem.ts): rounded down to one decimal, never up to a whole week. */
+function windowSentence(days: number): string {
+  const tenths = Math.floor(days * 10 + 1e-9) / 10;
+  const n = tenths.toLocaleString("en-US", { maximumFractionDigits: 1 });
+  const span = tenths === 0 ? "the last 0.1 days or less" : `the last ${n} ${n === "1" ? "day" : "days"}`;
+  return `Settled workflows counted over ${span} of ledger history — older settlements are not shown here; each transaction stays verifiable on Stellar Expert.`;
+}
+
+/** Opens the Ecosystem page with the live report as its answer. The transport
+ * is D-091; this checks that the page renders the real figures, and nothing
+ * in the report is changed or invented. */
+async function showReport(page: Page, report: Adoption): Promise<void> {
+  await page.route("**/api/ecosystem/adoption", (route) => route.fulfill({ json: report }));
+  await page.goto("/app/ecosystem");
+  await expect(page.getByRole("heading", { name: "Wallets we control (not counted)" })).toBeVisible({ timeout: 90_000 });
 }
 
 /** The reference agent's health answer: JSON with `ok: true`. */
@@ -267,6 +292,22 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
       const counted = report.operators.reduce((sum, operator) => sum + operator.agents.length, 0);
       expect(report.totals.external_agents).toBe(counted);
       expect(report.totals.unique_operator_wallets).toBe(report.operators.length);
+    });
+
+    test("OB-08 the Ecosystem page states the live report's counts, targets and window", async ({ page }) => {
+      test.setTimeout(180_000);
+      await showReport(page, report);
+      // Scoped to the targets: the operators below render hundreds of items.
+      const targets = page.locator('section[aria-labelledby="targets-heading"] > ul > li');
+      const item = (label: string) => targets.filter({ has: page.getByRole("heading", { name: label, exact: true }) });
+      for (const [key, label] of Object.entries(TARGET_LABELS) as [keyof Counts, string][]) {
+        const current = report.totals[key];
+        const target = report.targets[key];
+        await expect(item(label).getByText(new RegExp(`^${current}\\s*of ${target}$`)), `${label} figure`).toBeVisible();
+        await expect(item(label)).toContainText(`: ${current} of ${target}`);
+      }
+      expect(report.window_days, "the report states a settled window").toBeGreaterThan(0);
+      await expect(item(TARGET_LABELS.settled_external_workflows)).toContainText(windowSentence(report.window_days));
     });
   });
 });
