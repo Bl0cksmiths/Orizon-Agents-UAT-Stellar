@@ -1,4 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
+import { REGISTRY } from "../tools/onchain-verify/facts.ts";
+import { observeTx, type GetJson } from "../tools/onchain-verify/horizon.ts";
 
 /**
  * Story 6.04, OV-07: the SOW §6.2 checklist, reviewed row by row. The rows are
@@ -131,13 +133,48 @@ const itemById = (rows: Row[], id: string): Item => {
   return item;
 };
 
-test("OV-07 D1-c and D4-c are marked present but link no registration transaction (D-089)", async ({ request }) => {
+const TEAM_REGISTER =
+  "https://raw.githubusercontent.com/Bl0cksmiths/Orizon-Agents-BE-Stellar/main/app/data/team_wallets.json";
+const TX_LINK = /^https:\/\/stellar\.expert\/explorer\/testnet\/tx\/([0-9a-f]{64})$/;
+
+/** Horizon reads through Playwright's request context, body parsed whatever the status. */
+const horizon = (request: APIRequestContext): GetJson => async (url) => {
+  const res = await request.get(url, { timeout: 30_000 });
+  return { status: res.status(), body: await res.json() };
+};
+
+/**
+ * The SOW asks D1 for "an externally owned agent's registration tx hash" and
+ * D4 for "≥ 2 external registration tx hashes" (D-089). Each transaction is
+ * judged on Horizon, never by its label: it must have succeeded, call
+ * `register` on the AgentRegistry, and be signed by the owner it registers,
+ * a wallet outside the team register. Linking outside operators' hashes on the
+ * page breaks the consent rule; that is D-092, asserted by RV-04 in
+ * `tests/evidence-index.spec.ts`, and no identifier is repeated here.
+ */
+test("OV-07 D1-c and D4-c are marked present and link registrations by wallets outside the team register", async ({
+  request,
+}) => {
+  test.setTimeout(300_000);
   const rows = await readRows(request);
-  for (const id of ["6.1-D1-c", "6.1-D4-c"]) {
+  const register = await request.get(TEAM_REGISTER);
+  expect(register.status(), "the team register answers").toBe(200);
+  const get = horizon(request);
+  const team = new Set(((await register.json()) as { wallets: { address: string }[] }).wallets.map((w) => w.address));
+  for (const [id, least] of [["6.1-D1-c", 1], ["6.1-D4-c", 2]] as const) {
     const item = itemById(rows, id);
-    expect(item.status, `${id} D-089`).toBe("present");
-    const txLinks = (item.links ?? []).filter((l) => l.url.startsWith("https://stellar.expert/explorer/testnet/tx/"));
-    expect(txLinks, `${id} D-089: the SOW asks for outside registration tx hashes`).toHaveLength(0);
+    expect(item.status, id).toBe("present");
+    const hashes = (item.links ?? []).flatMap((l) => TX_LINK.exec(l.url)?.[1] ?? []);
+    let outside = 0;
+    for (const [n, hash] of hashes.entries()) {
+      const tx = await observeTx(get, hash);
+      const call = tx?.ops.find((op) => op.call?.contract === REGISTRY && op.call.fn === "register")?.call;
+      const owner = call?.args[0];
+      const ok = !!tx?.successful && owner === tx.source && typeof owner === "string" && !team.has(owner);
+      expect.soft(ok, `${id} transaction link ${n + 1}: a successful outside registration signed by its owner`).toBe(true);
+      if (ok) outside++;
+    }
+    expect(outside, `${id}: outside registration transactions linked`).toBeGreaterThanOrEqual(least);
   }
 });
 
