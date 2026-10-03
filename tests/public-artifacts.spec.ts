@@ -257,17 +257,19 @@ test.describe("OV-05 the demo video, with no wallet and no session", () => {
    * embeds the video in an iframe, so that is what a reachable video looks
    * like on this page.
    *
-   * Marked `test.fail()`: the gap is real and is not this suite's to close.
-   * When the video is published this passes unexpectedly, which is the signal
-   * to drop the marker.
+   * Published 2026-10-03. The player is a facade until a part is played, so a
+   * part is played from the keyboard and its embed must appear. The embed's
+   * own request is aborted: only the page's behaviour is under test, and a
+   * streaming frame stalls the context on close.
    */
   test("OV-05 the demo video is published on /demo and its player is on the page", async ({
     browser,
   }) => {
-    test.fail();
     await visitFresh(browser, DEMO_PATH, async (page) => {
+      await page.route(/^https:\/\/www\.youtube(-nocookie)?\.com\/embed\//, (route) => route.abort());
       await expect(page.locator('[data-demo="published"]')).toHaveCount(1);
-      await expect(page.locator("main iframe, main video").first()).toBeVisible();
+      await page.locator("[data-demo-player]").getByRole("button", { name: /^Play video: / }).first().press("Enter");
+      await expect(page.locator("main iframe").first()).toBeAttached();
     });
   });
 });
