@@ -207,7 +207,7 @@ test("OV-07 D4-a: the demo is marked present, /demo plays each part the index li
   page,
   request,
 }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(480_000);
   const rows = await readRows(request);
   const item = itemById(rows, "6.1-D4-a");
   expect(item.status).toBe("present");
@@ -216,7 +216,12 @@ test("OV-07 D4-a: the demo is marked present, /demo plays each part the index li
   const parts = (item.links ?? []).filter((l) => l.kind === "video");
   expect(parts.length, "D4-a links the demo's parts").toBeGreaterThan(0);
 
-  const demo = await page.goto("/demo");
+  // The page is judged on what it embeds; the videos themselves are read from
+  // YouTube below. Their frames are not fetched in the browser: two streams
+  // playing under video capture stall the context for minutes on close.
+  await page.route(/^https:\/\/www\.youtube(-nocookie)?\.com\/embed\//, (route) => route.abort());
+  // The play buttons exist once the page has hydrated, so "load" is not awaited.
+  const demo = await page.goto("/demo", { waitUntil: "domcontentloaded" });
   expect(demo?.status(), "/demo with no session").toBe(200);
   await expect(page.locator('[data-demo="published"]')).toHaveCount(1);
   let total = 0;
@@ -228,7 +233,8 @@ test("OV-07 D4-a: the demo is marked present, /demo plays each part the index li
     expect(oembed.status(), `${part.label}: public on YouTube`).toBe(200);
     const { title } = (await oembed.json()) as { title: string };
     const running = `${Math.floor(stated / 60)} min ${stated % 60} s`;
-    await page.locator("[data-demo-player]").getByRole("button", { name: `Play video: ${title} (${running})` }).click();
+    // Pressed from the keyboard: WebKit never completes a pointer click's scroll onto this facade.
+    await page.locator("[data-demo-player]").getByRole("button", { name: `Play video: ${title} (${running})` }).press("Enter");
     await expect(page.locator(`iframe[src*="${id}"]`), `${part.label}: the player loads`).toHaveCount(1);
     expect(await youtubeSeconds(request, part.url), `${part.label}: running time on YouTube`).toBe(stated);
     total += stated;
