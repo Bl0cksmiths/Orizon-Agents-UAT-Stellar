@@ -109,6 +109,31 @@ const LABEL_ESCROWS: { says: RegExp; contract: string }[] = [
   { says: /\bon (the v2 escrow|escrow v2)\b/, contract: ESCROW_V2 },
 ];
 
+/** Who a transaction label says signed it: "[signed] by …" (not "owned by …") or "from … to". */
+const SIGNER_CLAUSE = /(?<!owned )\bby (?:the )?(.+?)(?= — |, not |; | for |$)|\bfrom the (.+?) to /;
+
+/** Signers the index names by a role word rather than the register's role or a wallet. */
+const SIGNER_WORDS: { says: string; key: string }[] = [
+  { says: "platform's scoring key", key: PLATFORM },
+  { says: "admin wallet", key: ADMIN },
+];
+
+/**
+ * Whether `clause` names `signer`: by its abbreviated wallet, else by the
+ * team register's role for it (longest role the clause contains), else by a
+ * role word. Undefined when the clause names no wallet, role or role word.
+ */
+function namesSigner(clause: string, signer: string, register: TeamWallet[]): boolean | undefined {
+  const [, prefix, suffix] = /\b(G[A-Z2-7]{3,})…([A-Z2-7]{3,})\b/.exec(clause) ?? [];
+  if (prefix && suffix) return signer.startsWith(prefix) && signer.endsWith(suffix);
+  const role = register.map((w) => w.role)
+    .filter((r) => clause.includes(r.replace(/^team /, "")))
+    .sort((a, b) => b.length - a.length)[0];
+  if (role) return register.some((w) => w.address === signer && w.role === role);
+  const word = SIGNER_WORDS.find((w) => clause.includes(w.says));
+  return word ? word.key === signer : undefined;
+}
+
 /** Horizon reads through Playwright's request context, body parsed whatever the status. */
 const horizon = (request: APIRequestContext): GetJson => async (url) => {
   const res = await request.get(url, { timeout: 30_000 });
@@ -349,6 +374,23 @@ test.describe("RV — the evidence index re-verified after escrow v2 (story 6.10
       return act?.fn !== facts.fn || (escrow && escrow.contract !== facts.contract) || dispute;
     }).map((link) => `#${link.position} says "${link.label}"; the call is ${link.facts.fn} on ${link.facts.contract}`);
     expect(wrong, "pinned transaction links whose label names another action, escrow or rating kind").toEqual([]);
+  });
+
+  test("RV-01 every pinned transaction's label names its true signer", async ({ request }) => {
+    const register = await teamRegister(request);
+    const wrong = (await pinnedTxLinks(request)).flatMap(({ position, label, facts }) => {
+      const [, by, from] = SIGNER_CLAUSE.exec(label) ?? [];
+      const named = by ?? from;
+      const out: string[] = [];
+      if (named !== undefined && namesSigner(named, facts.source, register) !== true) {
+        out.push(`#${position} says "${label}"; signed by ${facts.source}`);
+      }
+      if (/\bteam wallets?\b/.test(label) && !register.some((w) => w.address === facts.source)) {
+        out.push(`#${position} calls its signer a team wallet; ${facts.source} is not in the team register`);
+      }
+      return out;
+    });
+    expect(wrong, "pinned transaction links whose label names another signer or none it can be checked against").toEqual([]);
   });
 
   test("RV-04 no outside operator's agent id, wallet or hash appears on the page", async ({ request }) => {
