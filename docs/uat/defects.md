@@ -3622,6 +3622,11 @@ The report scans settlements for every external agent
 was built. The answer is cached for about 30 s, so the next reader after that
 starts the scan again.
 
+Later the same day the spec stream measured it again: one cold read from the
+backend host took 732 s, two others gave up at 600 s and 900 s unanswered, and
+through `orizons.xyz` the connection was reset at about 38 s. The external
+count had grown to 529–532 by then.
+
 **Impact** — the page that publishes SOW §6.3's adoption evidence shows no
 figure to anyone. It fails honestly: it never shows a zero.
 
