@@ -201,7 +201,7 @@ test.describe("RV-03 the Disclosures section states each limit in plain words", 
   });
 
   test("RV-03 the m03 removal line says who removed the metric", async ({ page }) => {
-    // D-09x (pending id): the index records that m03, the one metric at 0,
+    // D-097: the index records that m03, the one metric at 0,
     // was removed "by the team lead", but the page renders only the date, in
     // the passive voice, so a reader cannot tell the team dropped its own
     // unmet target on the snapshot day (see also D-078).
