@@ -47,4 +47,17 @@ test.describe("OB — operator onboarding, readiness and the Ecosystem page (sto
     expect(reachable.detail).toContain("there is nothing to check");
     expect(report.ready).toBe(false);
   });
+
+  test("OB-04 an agent bound to a dead quick tunnel fails reachable, naming the outcome and the fix", async ({ request }) => {
+    // Team fixture bound in 6.05 to a trycloudflare quick tunnel that has gone.
+    const report = await readiness(request, "uat605_ext_op");
+    expect(report.steps.map((candidate) => candidate.key)).toEqual(STEP_KEYS);
+    expect(step(report, "bound").status).toBe("done");
+    const reachable = step(report, "reachable");
+    expect(reachable.status).toBe("failed");
+    expect(reachable.detail).toMatch(/^Your endpoint's hostname no longer resolves in DNS\./);
+    expect(reachable.detail).toContain("Warning: this endpoint is a Cloudflare quick tunnel (trycloudflare.com)");
+    expect(reachable.action).toMatch(/^Your quick tunnel has gone\..*rebind on the Bind page/);
+    expect(report.ready).toBe(false);
+  });
 });
